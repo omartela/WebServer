@@ -12,9 +12,25 @@ int main(int argc, char *argv[])
         Parser parser(argv[1]);
         parser.printServerConfigs();
     }
+    catch (const std::invalid_argument& e)
+    {
+        std::cerr << "Invalid argument: " << e.what() << std::endl;
+    }
+    catch (const std::out_of_range& e)
+    {
+        std::cerr << "Out of range error: " << e.what() << std::endl;
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::cerr << "Runtime error: " << e.what() << std::endl;
+    }
+    catch (const std::bad_alloc& e)
+    {
+        std::cerr << "Memory allocation error: " << e.what() << std::endl;
+    }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        std::cerr << e.what() << std::endl;
     }
     return 0;
 }
