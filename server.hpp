@@ -1,22 +1,13 @@
 #pragma once
 #include <vector>
+#include <map>
 #include <cstring>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <cstdlib>
 
-enum connectionStates {
-    VACANT,
-    RECV_HEADER,
-    RECV_BODY,
-    SEND_HEADER,
-    SEND_BODY
-} e_connectionStates;
+#define MAX_CONNECTIONS 1023
+#define TIMEOUT 100
 
-struct connection {
-    int fd;
-    enum connectionStates state;
-    std::vector<char> read_buffer;
-    std::vector<char> write_buffer;
-    size_t bytes_read;
-    size_t bytes_written;
-} s_connection;
+void serverLoop();
