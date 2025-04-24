@@ -1,0 +1,2 @@
+DELETE /uploads/test.txt HTTP/1.1
+Host: localhost

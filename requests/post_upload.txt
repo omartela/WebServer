@@ -1,0 +1,11 @@
+POST /upload HTTP/1.1
+Host: localhost
+Content-Type: multipart/form-data; boundary=boundary123
+Content-Length: 160
+
+--boundary123
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+Hello from upload!
+--boundary123--
