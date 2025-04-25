@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstdlib>
+#include <stdexcept>
 
 #define MAX_CONNECTIONS 1000
 #define TIMEOUT 100

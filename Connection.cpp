@@ -22,32 +22,6 @@ Connection::Connection(int newFd)
     nConnections++;
 }
 
-// Connection::Connection(const Connection& copy) 
-// {
-//     this->fd = copy.fd;
-//     this->state = copy.state;
-//     this->read_buffer = copy.read_buffer;
-//     this->write_buffer = copy.write_buffer;
-//     this->bytes_read = copy.bytes_read;
-//     this->bytes_written = copy.bytes_written;
-//     nConnections++;
-// }
-
-// Connection& Connection::operator=(const Connection& copy)
-// {
-//     if (this != &copy)
-//     {
-//         this->fd = copy.fd;
-//         this->state = copy.state;
-//         this->read_buffer = copy.read_buffer;
-//         this->write_buffer = copy.write_buffer;
-//         this->bytes_read = copy.bytes_read;
-//         this->bytes_written = copy.bytes_written;
-//         nConnections++;
-//     }
-//     return *this;
-// }
-
 void Connection::reset()
 {
     this->state = VACANT;

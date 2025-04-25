@@ -25,8 +25,8 @@ class Connection {
 
         Connection();
         Connection(int newFd);
-        // Connection(const Connection& copy);
-        // Connection& operator=(const Connection& copy);
+        Connection(const Connection& copy) = delete;
+        Connection& operator=(const Connection& copy) = delete;
         ~Connection() { };
         void reset();
 };
