@@ -32,3 +32,5 @@ fclean: clean
 	rm -f $(TARGET)
 
 re: fclean all
+
+.Phony: all clean fclean re
