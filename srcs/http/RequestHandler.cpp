@@ -29,6 +29,7 @@ static std::string getFileExtension(const std::string& path)
 static std::string getMimeType(const std::string& ext)
 {
     static std::map<std::string, std::string> types = {
+        {".plain", "text/plain"},
         {".html", "text/html"},
         {".css", "text/css"},
         {".js", "application/javascript"},
@@ -108,18 +109,19 @@ HTTPResponse RequestHandler::executeCGI(const HTTPRequest& request)
 
 HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 {
+    printRequest(req);
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
-        return HTTPResponse(400, "Bad Request");
+        return HTTPResponse(400, "Bad Request 1");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
     if (its == req.headers.end())
-        return HTTPResponse(400, "Bad Request");
+        return HTTPResponse(400, "Bad Request 2");
     std::string ct = its->second;
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-        return HTTPResponse(400, "Bad Request");
+        return HTTPResponse(400, "Bad Request 3");
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);

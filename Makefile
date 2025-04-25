@@ -1,41 +1,38 @@
+COMPILER = c++
 
-NAME = test
+TARGET = webserver
+INC_DIR = includes
+SRC = srcs/http/main.cpp\
+	srcs/http/HTTPRequest.cpp\
+	srcs/http/HTTPResponse.cpp\
+	srcs/http/RequestHandler.cpp
+OBJ_DIR = objs
+OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
+DEP = $(OBJ:.o=.d)
+#-MMD flag makes depency file .d for every .cpp file
+#-MP flag creates phony for every header file so if header file is deleted
+#the making process will not throw an error missing file so it allows deleting and creating new header files
+CFLAGS = -Wall -Wextra -Werror -std=c++20 -I$(INC_DIR) -MMD -MP
 
-SRC_DIR = sources/http
+all: $(TARGET)
 
-SRC = $(SRC_DIR)/main.cpp\
-	$(SRC_DIR)/HTTPRequest.cpp\
-	$(SRC_DIR)/HTTPResponse.cpp\
-	$(SRC_DIR)/RequestHandler.cpp
+$(TARGET): $(OBJ)
+	@$(COMPILER) $(CFLAGS) -o $(TARGET) $(OBJ)
 
-OBJ_DIR = objects
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(OBJ_DIR)/$(dir $<)
+	@$(COMPILER) $(CFLAGS) -c $< -o $@
 
-OBJ = $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC))
-
-COMP = c++
-
-CFLAGS = -Wall -Wextra -Werror -Wshadow -std=c++20 -g
-
-all: $(NAME)
-
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@$(COMP) $(CFLAGS) -c $< -o $@
-
-$(NAME): $(OBJ_DIR) $(OBJ)
-	@$(COMP) $(CFLAGS) $(OBJ) -o $(NAME)
-	@echo "\n\033[0;32mAdministration is in work\033[0m\n"
-
-$(OBJ_DIR):
-	@mkdir -p $(OBJ_DIR)
+#This takes into account the .d depency files
+-include $(DEP)
 
 clean:
-	@rm -f $(OBJ)
 	@rm -rf $(OBJ_DIR)
 
 fclean: clean
-	@rm -f $(NAME)
-	@echo "\n\033[0;31mAll is gone\033[0m\n"
+	@rm -rf $(OBJ_DIR)
+	@rm -f $(TARGET)
 
 re: fclean all
 
-.PHONY: all clean re fclean
+.Phony: all clean fclean re
