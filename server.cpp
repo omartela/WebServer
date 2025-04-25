@@ -1,24 +1,48 @@
 #include "server.hpp"
 #include "Connection.hpp"
 
-void acceptNewConnection(std::map<int, Connection> connections)
+static int  findNewFd(std::map<int, Connection> connections)
 {
+    int newFd = -1;
+
     if (Connection::nConnections < MAX_CONNECTIONS)
     {
-        connections.emplace(Connection::nConnections, Connection());
-        //accept() new connection
+        //go thru earlier connections for vacancy
+        for (const std::pair<int, Connection>& reusableConnection : connections)
+        {
+            if (reusableConnection.second.state == VACANT)
+            {
+                newFd = reusableConnection.first;
+                connections.at(newFd).state = IDLE;
+                return newFd;
+            }
+        }
+        //if no vacancy, make new instance
+        if (newFd == -1)
+        {
+            connections.emplace(Connection::nConnections, Connection()); //maybe create a few at a time
+            newFd = Connection::nConnections;
+        }
     }
     else
     {
-        //find most inactive connection
-        int inactiveFd = 0; //replace with actual fd
-        connections[inactiveFd].reset();
-        //close(inactiveFd);
-        connections.emplace(inactiveFd, Connection(inactiveFd));
+        //newFd = least active connection
+        connections.at(newFd).reset();
+        //close()?
     }
+    return newFd;
 }
 
-int initListenerSocket()
+static void acceptNewConnection(int listenerSocket, std::map<int, Connection> connections)
+{
+    int newFd = findNewFd(connections);
+    struct sockaddr_in clientAddress;
+    socklen_t clientLen = sizeof(clientAddress);
+
+    connections.at(newFd).fd = accept(listenerSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+}
+
+static int initListenerSocket()
 {
     int listenerSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
     sockaddr_in serverAddress;
@@ -30,19 +54,20 @@ int initListenerSocket()
 
 void serverLoop()
 {
+    Connection::nConnections = 0;
+    Connection::nActiveConnections = 0;
     std::map<int, Connection> connections;
     int nReady;
     int listenerSocket;
-    int eventLoopFd;
-    struct epoll_event e;
+    int eventLoop;
+    struct epoll_event setup;
     std::vector<epoll_event> eventLog(MAX_CONNECTIONS);
-    Connection::nConnections = 0;
 
-    eventLoopFd = epoll_create(1);
+    eventLoop = epoll_create(1);
     listenerSocket = initListenerSocket();
-    e.events = EPOLLIN | EPOLLOUT;
-    e.data.fd = listenerSocket;
-    epoll_ctl(eventLoopFd, EPOLL_CTL_ADD, listenerSocket, &e);
+    setup.events = EPOLLIN | EPOLLOUT;
+    setup.data.fd = listenerSocket;
+    epoll_ctl(eventLoop, EPOLL_CTL_ADD, listenerSocket, &setup);
     while (true)
     {
         nReady = epoll_wait(listenerSocket, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -51,7 +76,12 @@ void serverLoop()
         for (int i = 0; i < nReady; i++)
         {
             if (eventLog[i].data.fd == listenerSocket)
-                acceptNewConnection(connections);
+            {
+                acceptNewConnection(listenerSocket, connections);
+                epoll_ctl(eventLoop, EPOLL_CTL_ADD, listenerSocket, &setup);
+            }
+            else
+                handleClientRequest()
         }
     }
 }

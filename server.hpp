@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <cstdlib>
 
-#define MAX_CONNECTIONS 1023
+#define MAX_CONNECTIONS 1000
 #define TIMEOUT 100
 
 void serverLoop();
