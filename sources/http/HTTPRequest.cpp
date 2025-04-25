@@ -2,6 +2,7 @@
 #include "../../includes/http/HTTPRequest.hpp"
 #include <sstream>
 #include <iostream>
+#include <vector>
 
 HTTPRequest::HTTPRequest(const std::string& raw){ parser(raw); }
 
@@ -21,12 +22,16 @@ void HTTPRequest::parser(const std::string& raw)
     std::string line;
     if (!std::getline(stream, line))
         return ;
+    if (line.back() == '\r')
+        line.pop_back();
     std::istringstream request_line(line);
     request_line >> method >> path;
-    while (std::getline(stream, line) && line != "\r" && !line.empty())
+    while (std::getline(stream, line))
     {
         if (line.back() == '\r')
             line.pop_back();
+        if (line.empty())
+            break;
         size_t colon = line.find(':');
         if (colon != std::string::npos)
         {
@@ -37,7 +42,12 @@ void HTTPRequest::parser(const std::string& raw)
             headers[key] = value;
         }
     }
-    std::ostringstream body_stream;
-    body_stream << stream.rdbuf();
-    body = body_stream.str();
+    std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
+    if (it != headers.end())
+    {
+        size_t contentLength = std::strtoul(it->second.c_str(), NULL, 10);
+        std::vector<char> buffer(contentLength);
+        stream.read(buffer.data(), contentLength);
+        body.assign(buffer.begin(), buffer.end());
+    }
 }

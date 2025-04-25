@@ -9,6 +9,17 @@
 #include <cstdio>
 #include <iostream>
 
+
+void printRequest(const HTTPRequest &req)
+{
+    std::cout << req.body << "\n";
+    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
+        std::cout << it->first << ": " << it->second << "\r\n";
+    };
+    std::cout << req.method << "\n" << req.path << std::endl;
+
+}
+
 static std::string getFileExtension(const std::string& path)
 {
     size_t dot = path.find_last_of('.');
@@ -61,11 +72,26 @@ static std::string extractContent(const std::string& part)
 static std::vector<std::string> split(const std::string& s, const std::string& s2)
 {
     std::vector<std::string> result;
-    size_t pos = 0, next;
-    while ((next = s.find(s2, pos)) != std::string::npos)
+    size_t pos = 0;
+    while (true)
     {
-        result.push_back(s.substr(pos, next - pos));
-        pos = next + s2.length();
+        size_t start = s.find(s2, pos);
+        if (start == std::string::npos)
+            break;
+        start += s2.length();
+        while (start < s.size() && (s[start] == '-' || s[start] == '\r' || s[start] == '\n'))
+            start++;
+        size_t end = s.find(s2, start);
+        std::string part = (end == std::string::npos) ? s.substr(start) : s.substr(start, end - start);
+        while (!part.empty() && (part[0] == '\r' || part[0] == '\n'))
+            part.erase(0, 1);
+        while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
+            part.pop_back();
+        if (!part.empty())
+            result.push_back(part);
+        if (end == std::string::npos)
+            break;
+        pos = end;
     }
     return result;
 }
@@ -108,7 +134,10 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
         if (file.empty())
             continue;
         std::string content = extractContent(part);
-        std::string path = "uploads/" + file;
+        std::string folder = req.path;
+        if (folder[0] == '/')
+            folder.erase(0, 1);
+        std::string path = folder + "/" + file;
         std::ofstream out(path.c_str(), std::ios::binary);
         out.write(content.c_str(), content.size());
         out.close();
