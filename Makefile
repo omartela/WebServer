@@ -4,7 +4,6 @@ TARGET = webserver
 INC_DIR = includes
 SRC = srcs/configparser/parser.cpp srcs/main.cpp
 OBJ_DIR = objs
-DEP_DIR = deps
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
 #-MMD flag makes depency file .d for every .cpp file
