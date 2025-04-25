@@ -120,9 +120,9 @@ bool Parser::parseConfigFile(const std::string& config_file)
                             size_t end_pos = line.find(";");
                             std::string onoff = line.substr(pos, end_pos - pos);
                             if (onoff.compare("off") == 0)
-                                route.autoindex == false;
+                                route.autoindex = false;
                             else if (onoff.compare("on") == 0)
-                                route.autoindex == true;
+                                route.autoindex = true;
                         }
                         else if (line.find("allow_methods ") != std::string::npos)
                         {
