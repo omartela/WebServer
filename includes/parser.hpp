@@ -47,7 +47,34 @@ class Parser
 {
 
     private:
+        // Variables
         std::vector<ServerConfig> server_configs;
+        // Parsing functions
+        void parseListenDirective(const std::string& line, ServerConfig& server_config);
+        void parseServerNameDirective(const std::string& line, ServerConfig& server_config);
+        void parseClientMaxBodySizeDirective(const std::string& line, ServerConfig& server_config);
+        void parseErrorPageDirective(const std::string& line, ServerConfig& server_config);
+        void parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config);
+        void parseRootDirective(const std::string& line, Route& route);
+        void parseIndexDirective(const std::string& line, Route& route);
+        void parseAutoIndexDirective(const std::string& line, Route& route);
+        void parseAllowMethodsDirective(const std::string& line, Route& route);
+        void parseReturnDirective(const std::string& line, Route& route);
+        void parseUploadPathDirective(const std::string& line, Route& route);
+        void parseCgiExtensionDirective(const std::string& line, Route& route);
+        // Validation functions
+        bool validateListenDirective(const std::string& line);
+        bool validateServerNameDirective(const std::string& line);
+        bool validateClientMaxBodySizeDirective(const std::string& line);
+        bool validateErrorPageDirective(const std::string& line);
+        bool validateLocationDirective(const std::string& line);
+        bool validateRootDirective(const std::string& line);
+        bool validateIndexDirective(const std::string& line);
+        bool validateAutoIndexDirective(const std::string& line);
+        bool validateAllowMethodsDirective(const std::string& line);
+        bool validateReturnDirective(const std::string& line);
+        bool validateUploadPathDirective(const std::string& line);
+        bool validateCgiExtensionDirective(const std::string& line);
     public:
         Parser(const std::string& config_file);
         Parser(const Parser& src) = delete; // Disable copy constructor
