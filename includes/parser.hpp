@@ -5,6 +5,7 @@
 #include <optional>
 #include <iostream>
 #include <fstream>
+#include <regex>
 
 // Erilaisia redirect status koodeja ja käyttötarkoituksia
 /*
@@ -63,6 +64,7 @@ class Parser
         void parseUploadPathDirective(const std::string& line, Route& route);
         void parseCgiExtensionDirective(const std::string& line, Route& route);
         // Validation functions
+        bool validateServerDirective(const std::string& line);
         bool validateListenDirective(const std::string& line);
         bool validateServerNameDirective(const std::string& line);
         bool validateClientMaxBodySizeDirective(const std::string& line);
@@ -75,6 +77,9 @@ class Parser
         bool validateReturnDirective(const std::string& line);
         bool validateUploadPathDirective(const std::string& line);
         bool validateCgiExtensionDirective(const std::string& line);
+        bool validateDirectives(const std::string& line);
+        bool validateBrackets(const std::string& config_file);
+        bool validateFile(const std::string& config_file);
     public:
         Parser(const std::string& config_file);
         Parser(const Parser& src) = delete; // Disable copy constructor

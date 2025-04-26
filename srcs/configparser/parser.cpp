@@ -178,9 +178,15 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     server_config.routes.push_back(route);
 }
 
+bool Parser::validateServerDirective(const std::string& line)
+{
+    std::regex server_regex(R"(^\s*server\s*\{$)");
+    return std::regex_match(line, server_regex);
+}
+
 bool Parser::validateListenDirective(const std::string& line) 
 {
-    std::regex listen_regex(R"(^listen \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5};$)");
+    std::regex listen_regex(R"(^\s*listen \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5};$)");
     return std::regex_match(line, listen_regex);
 }
 
@@ -218,26 +224,26 @@ bool Parser::validateServerNameDirective(const std::string& line)
 
     ---
 */
-    std::regex server_name_regex(R"(^server_name\s+([\w.-]+\s*)+;$)");
+    std::regex server_name_regex(R"(^\s*server_name\s+([\w.-]+\s*)+;$)");
     return std::regex_match(line, server_name_regex);
 }
 
-void Parser::validateClientMaxBodySizeDirective(const std::string& line)
+bool Parser::validateClientMaxBodySizeDirective(const std::string& line)
 {
-    std::regex client_max_body_size_regex(R"(^client_max_body_size\s+\d+[KM]?;$)");
+    std::regex client_max_body_size_regex(R"(^\s*client_max_body_size\s+\d+[KM]?;$)");
     return std::regex_match(line, client_max_body_size_regex);
 }
 
 bool Parser::validateErrorPageDirective(const std::string& line)
 {
     /// need to check all the possible erro codes now any 3 digits is ok
-    std::regex error_page_regex(R"(^error_page\s+\d{3}\s/[^\s]+;$)");
+    std::regex error_page_regex(R"(^\s*error_page\s+\d{3}\s/[^\s]+;$)");
     return std::regex_match(line, error_page_regex);
 }
 
 bool Parser::validateLocationDirective(const std::string& line)
 {
-    std::regex location_regex(R"(^location\s+/\s{;$)");
+    std::regex location_regex(R"(^\s*location\s+\/[^\s]*\s*\{$)");
     return std::regex_match(line, location_regex);
 }
 
@@ -253,47 +259,47 @@ bool Parser::validateRootDirective(const std::string& line)
         4. **`;`**: Ensures the line ends with a semicolon.
         5. **`$`**: Ensures the match goes to the end of the line.
     */
-    std::regex root_regex(R"(^root\s+(/[^\s;]+)+;$)");
+    std::regex root_regex(R"(^\s*root\s+(/[^\s;]+)+;$)");
     return std::regex_match(line, root_regex);   
 }
 
 bool Parser::validateIndexDirective(const std::string& line)
 {
-    std::regex index_regex(R"(^index\s+[\w.-]+\.[a-z]{2,6};$)");
+    std::regex index_regex(R"(^\s*index\s+[\w.-]+\.[a-z]{2,6};$)");
     return std::regex_match(line, index_regex);
 }
 
 bool Parser::validateAutoIndexDirective(const std::string& line)
 {
-    std::regex autoindex_regex(R"(^autoindex\s+(on|off);$)");
+    std::regex autoindex_regex(R"(^\s*autoindex\s+(on|off);$)");
     return std::regex_match(line, autoindex_regex);
 }
 
 bool Parser::validateAllowMethodsDirective(const std::string& line)
 {
-    std::regex allow_methods_regex(R"(^allow_methods\s+(GET|POST|DELETE)(\s+(GET|POST|DELETE))*;$)");
+    std::regex allow_methods_regex(R"(^\s*allow_methods\s+(GET|POST|DELETE)(\s+(GET|POST|DELETE))*;$)");
     return std::regex_match(line, allow_methods_regex);
 }
 
 bool Parser::validateReturnDirective(const std::string& line)
 {
-    std::regex return_regex(R"(^return\s+(301|302|307|308)\s+\/\S+;$)");
+    std::regex return_regex(R"(^\s*return\s+(301|302|307|308)\s+\/\S+;$)");
     return std::regex_match(line, return_regex);
 }
 
 bool Parser::validateUploadPathDirective(const std::string& line)
 {
-    std::regex upload_path_regex(R"(^upload_path\s+(/[^\s;]+)+;$)");
+    std::regex upload_path_regex(R"(^\s*upload_path\s+(/[^\s;]+)+;$)");
     return std::regex_match(line, upload_path_regex);
 }
 
 bool Parser::validateCgiExtensionDirective(const std::string& line)
 {
-    std::regex cgi_extension_regex(R"(^cgi_extension\s+\.(php|py);$)");
+    std::regex cgi_extension_regex(R"(^\s*cgi_extension\s+\.(php|py);$)");
     return std::regex_match(line, cgi_extension_regex);
 }
 
-bool Parser::parseConfigFile(const std::string& config_file)
+bool Parser::validateBrackets(const std::string& config_file)
 {
     std::ifstream file(config_file);
     if (!file.is_open()) 
@@ -301,7 +307,95 @@ bool Parser::parseConfigFile(const std::string& config_file)
         std::cerr << "Error opening config file: " << config_file << std::endl;
         return false;
     }
+    std::stack<char> bracket_stack;
+    std::string line;
+    while (getline(file, line))
+    {
+        for (char ch: line)
+        {
+            if (ch == '{')
+                bracket_stack.push(ch);
+            else if (ch == '}')
+            {
+                if (bracket_stack.empty())
+                {
+                    std::cerr << "Unmatched closing bracket '}' found." << std::endl;
+                    file.close();
+                    return false;
+                }
+                bracket_stack.pop();
+            }
+        }
+    }
+    if (!bracket_stack.empty())
+    {
+        std::cerr << "Unmatched opening bracket '{' found." << std::endl;
+        file.close();
+        return false;
+    }
+    file.close();
+    return true;
+}
 
+bool Parser::validateDirectives(const std::string& line)
+{
+    // Check if the line contains any of the directives
+    if (validateServerDirective(line) || validateListenDirective(line) || validateServerNameDirective(line) ||
+        validateClientMaxBodySizeDirective(line) || validateErrorPageDirective(line) || validateLocationDirective(line) ||
+        validateRootDirective(line) || validateIndexDirective(line) || validateAutoIndexDirective(line) ||
+        validateAllowMethodsDirective(line) || validateReturnDirective(line) || validateUploadPathDirective(line) ||
+        validateCgiExtensionDirective(line))
+    {
+        return true;
+    }
+    return false;
+}
+
+bool Parser::validateFile(const std::string& config_file)
+{
+    if (!validateBrackets(config_file))
+        return false;
+    std::ifstream file(config_file);
+    if (!file.is_open()) 
+    {
+        std::cerr << "Error opening config file: " << config_file << std::endl;
+        return false;
+    }
+    std::string line;
+    std::regex spaces_and_tabs_regex(R"(^[ \t]*$)");
+    while (getline(file, line))
+    {
+        // line is a comment
+        if (line.empty() || line.at(0) == '#')
+            continue;
+        else if (std::regex_match(line, spaces_and_tabs_regex))
+            continue;
+        else if (line.find_first_not_of(" \t") == line.find('}') && line.find('}') != std::string::npos && line.find_first_not_of(" \t}") == std::string::npos)
+            continue;
+        else if (validateDirectives(line))
+            continue;
+        else
+        {
+            file.close();
+            return false;
+        }
+    }
+    file.close();
+    return true;
+}
+
+bool Parser::parseConfigFile(const std::string& config_file)
+{
+     // Validate file
+     if (!validateFile(config_file))
+        return false;
+
+    std::ifstream file(config_file);
+    if (!file.is_open()) 
+    {
+        std::cerr << "Error opening config file: " << config_file << std::endl;
+        return false;
+    }
     // Parsing logic goes here
     // For example, read lines and populate server_configs vector
 
