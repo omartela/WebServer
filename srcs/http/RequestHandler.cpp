@@ -12,11 +12,12 @@
 
 void printRequest(const HTTPRequest &req)
 {
-    std::cout << req.body << "\n";
+    std::cout << req.method << " " << req.path << std::endl;
     for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
         std::cout << it->first << ": " << it->second << "\r\n";
     };
-    std::cout << req.method << "\n" << req.path << std::endl;
+    std::cout <<"\r\n";
+    std::cout << req.body << std::endl;
 
 }
 
@@ -42,14 +43,25 @@ static std::string getMimeType(const std::string& ext)
     return types.count(ext) ? types[ext] : "application/octet-stream";
 }
 
-static std::string extractFilename(const std::string& part)
+static std::string extractFilename(const std::string& path, int method)
 {
-    size_t start = part.find("filename=\"");
-    if (start == std::string::npos)
-        return "";
-    start += 10;
-    size_t end = part.find("\"", start);
-    return part.substr(start, end - start);
+    size_t start;
+    if (method)
+    {
+        start = path.find("filename=\"");
+        start += 10;
+        if (start == std::string::npos)
+            return "";
+        size_t end = path.find("\"", start);
+        return path.substr(start, end - start);
+    }
+    else
+    {
+        start = path.find_last_of('/');
+        if (start == std::string::npos)
+            return path;
+        return path.substr(start + 1);
+    } 
 }
 
 static std::string extractContent(const std::string& part)
@@ -107,32 +119,59 @@ HTTPResponse RequestHandler::executeCGI(const HTTPRequest& request)
     return res;
 }
 
+HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
+{
+    std::string folder = req.path;
+    if (folder[0] == '/')
+        folder.erase(0, 1);
+    std::string path = folder;
+    std::ofstream out(path.c_str(), std::ios::binary);
+    if (!out.is_open())
+        return HTTPResponse(500, "Failed to open file for writing");
+    out.write(req.body.c_str(), req.body.size());
+    out.close();
+    if (access(path.c_str(), R_OK) != 0)
+        return HTTPResponse(400, "File not uploaded");
+    std::string file = extractFilename(req.path, 0);
+        if (file.empty())
+        return HTTPResponse(400, "Bad request");
+    HTTPResponse res(200, "OK");
+    res.body = "File(s) upploaded successfully\n";
+    std::string ext = getFileExtension(req.path);
+    res.headers["Content-Type"] = getMimeType(ext); 
+    res.headers["Content-Length"] = std::to_string(res.body.size());
+    return res;
+}
+
 HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 {
-    printRequest(req);
+    // printRequest(req);
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
-        return HTTPResponse(400, "Bad Request 1");
+        return HTTPResponse(400, "Bad Request: Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
-    if (its == req.headers.end())
-        return HTTPResponse(400, "Bad Request 2");
     std::string ct = its->second;
+    if (ct.find("multipart/form-data") == std::string::npos)
+        return nonMultipart(req);
+    if (its == req.headers.end())
+        return HTTPResponse(400, "Bad Request: No headers");
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-        return HTTPResponse(400, "Bad Request 3");
+        return HTTPResponse(400, "Bad Request: No boundary");
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
     std::string bound_mark = "--" + boundary;
     std::vector<std::string> parts = split(req.body, bound_mark);
+    std::string lastPath;
     for (std::vector<std::string>::iterator it = parts.begin(); it != parts.end(); ++it)
     {
         std::string& part = *it;
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
-        std::string file = extractFilename(part);
+        std::string file = extractFilename(part, 1);
         if (file.empty())
             continue;
         std::string content = extractContent(part);
@@ -140,20 +179,26 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
         if (folder[0] == '/')
             folder.erase(0, 1);
         std::string path = folder + "/" + file;
+        lastPath = path;
         std::ofstream out(path.c_str(), std::ios::binary);
+        if (!out.is_open())
+            return HTTPResponse(500, "Failed to open file for writing");
         out.write(content.c_str(), content.size());
         out.close();
     }
+    if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
+        return HTTPResponse(400, "File not uploaded");
     HTTPResponse res(200, "OK");
-    res.body = "File(s) upploaded successfully\n";
-    res.headers["Content-Type"] = "text/plain";
+    res.body = "File(s) uploaded successfully\n";
+    std::string ext = getFileExtension(req.path);
+    res.headers["Content-Type"] = getMimeType(ext); 
     res.headers["Content-Length"] = std::to_string(res.body.size());
     return res;
 }
 
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
-    std::string base_path = "www" + path;
+    std::string base_path = "." + path;
     if (base_path.find("..") != std::string::npos)
         return HTTPResponse(403, "Forbidden");
     struct stat s;

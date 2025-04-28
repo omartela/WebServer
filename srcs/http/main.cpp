@@ -68,14 +68,3 @@ int main()
     close(servFD);
     return 0;
 }
-// if (argc != 2)
-//     return 1;
-// std::ifstream file(argv[1]);
-// if (!file.is_open())
-//     return 1;
-// std::stringstream buff;
-// buff << file.rdbuf();
-// std::string rawReq = buff.str();
-// HTTPRequest req(rawReq);
-// HTTPResponse res = RequestHandler::handleRequest(req);
-// std::cout << res.toString() << std::endl;
