@@ -5,7 +5,7 @@ Logger::Logger()
     logstream.open("logfile.log");
     if (!logstream.is_open())
     {
-        throw std::runtime_error("Error opening log file: logfile.txt");
+        throw std::runtime_error("Error opening log file: logfile.log");
     }
 
 }
