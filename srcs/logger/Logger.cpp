@@ -7,7 +7,6 @@ Logger::Logger()
     {
         throw std::runtime_error("Error opening log file: logfile.log");
     }
-
 }
 
 std::string Logger::get_current_time_string() 
@@ -57,6 +56,8 @@ void Logger::writeToLogFile(LoggerStatus status, const std::string message, bool
         std::cout << logmessage.str();
     }
     logstream << logmessage.str();
+    // This flush is important.
+    logstream.flush();
 }
 
 
