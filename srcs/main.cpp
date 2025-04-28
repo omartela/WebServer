@@ -1,4 +1,7 @@
-#include "parser.hpp"
+#include "Parser.hpp"
+#include "Logger.hpp"
+
+Logger wslog;
 
 int main(int argc, char *argv[])
 {
@@ -37,5 +40,6 @@ int main(int argc, char *argv[])
         std::cerr << e.what() << std::endl;
         return (1);
     }
+    wslog.writeToLogFile(INFO, "TESTATAAN", true);
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include "Parser.hpp"
 
 Parser::Parser(const std::string& config_file) 
 {
@@ -6,6 +6,14 @@ Parser::Parser(const std::string& config_file)
     {
         throw std::runtime_error("Failed to parse config file: " + config_file);
     }
+}
+
+void Parser::trimLeadingAndTrailingSpaces(std::string& str)
+{
+    // This function trims leading and trailing whitespaces
+    // and also replaces multiple tabs or whitespaces with only single /tab or whitespace in between..
+    // For example "     WEBSERVER     LOCATION   " becomes "WEBSERVER LOCATION"
+    str = std::regex_replace(str, std::regex("^ +| +$|( ) +"), "$1");
 }
 
 void Parser::parseListenDirective(const std::string& line, ServerConfig& server_config)
@@ -73,7 +81,9 @@ void Parser::parseErrorPageDirective(const std::string& line, ServerConfig& serv
     size_t end_pos = line.find(";", pos); // need to check npos if ; not found
     size_t space_pos = line.find(" ", pos);
     int error_code = std::stoi(line.substr(pos, space_pos - pos));
-    std::string error_page = line.substr(space_pos, end_pos - space_pos);
+    std::string str = line.substr(space_pos, end_pos - space_pos);
+    trimLeadingAndTrailingSpaces(str);
+    std::string error_page = str;
     server_config.error_pages[error_code] = error_page;
 }
 
@@ -88,7 +98,10 @@ void Parser::parseIndexDirective(const std::string& line, Route& route)
 {
     size_t pos = line.find("index ") + 6; // Skip "index "
     size_t end_pos = line.find(";");
-    route.index_file = line.substr(pos, end_pos - pos);
+    std::string str;
+    str = line.substr(pos, end_pos - pos);
+    trimLeadingAndTrailingSpaces(str);
+    route.index_file = str;
 }
 
 void Parser::parseAutoIndexDirective(const std::string& line, Route& route)
@@ -143,9 +156,12 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
     size_t pos = line.find("location /") + 10; // Skip "location /"
     size_t end_pos = line.find("{");
-    route.path = line.substr(pos, end_pos - pos);
+    line = line.substr(pos, end_pos - pos);
+    trimLeadingAndTrailingSpaces(line);
+    route.path = line;
     while (getline(file, line) && line.find("}") == std::string::npos)
     {
+        trimLeadingAndTrailingSpaces(line);
         if (line.find("root ") != std::string::npos)
         {
            parseRootDirective(line, route);
@@ -403,11 +419,13 @@ bool Parser::parseConfigFile(const std::string& config_file)
     while (getline(file, line)) 
     {
         // Check if the line contains "server {" with a space in between
+        trimLeadingAndTrailingSpaces(line);
         if (line.find("server {") != std::string::npos) 
         {
             ServerConfig server_config{}; // alustaa default arvoihin structin siksi kaarisulkeet
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
+                trimLeadingAndTrailingSpaces(line);
                 if (line.find("listen ") != std::string::npos)
                 {
                     parseListenDirective(line, server_config);

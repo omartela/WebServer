@@ -2,7 +2,7 @@ COMPILER = c++
 
 TARGET = webserver
 INC_DIR = includes
-SRC = srcs/configparser/parser.cpp srcs/main.cpp
+SRC = srcs/configparser/Parser.cpp srcs/main.cpp srcs/logger/Logger.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
