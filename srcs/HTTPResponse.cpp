@@ -1,5 +1,5 @@
 
-#include "../../includes/http/HTTPResponse.hpp"
+#include "../includes/HTTPResponse.hpp"
 #include <sstream>
 
 HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg) {}

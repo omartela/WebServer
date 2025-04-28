@@ -3,6 +3,7 @@ import os
 import mimetypes
 import uuid
 
+
 HOST = "localhost"
 PORT = 8080  # Change to your server's port
 

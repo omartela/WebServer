@@ -2,10 +2,11 @@ COMPILER = c++
 
 TARGET = webserver
 INC_DIR = includes
-SRC = srcs/http/main.cpp\
-	srcs/http/HTTPRequest.cpp\
-	srcs/http/HTTPResponse.cpp\
-	srcs/http/RequestHandler.cpp
+SRC = srcs/main.cpp\
+	srcs/Logger.cpp\
+	srcs/HTTPRequest.cpp\
+	srcs/HTTPResponse.cpp\
+	srcs/RequestHandler.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)

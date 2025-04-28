@@ -6,10 +6,12 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <iostream>
-#include "../../includes/http/HTTPRequest.hpp"
-#include "../../includes/http/HTTPResponse.hpp"
-#include "../../includes/http/RequestHandler.hpp"
+#include "../includes/HTTPRequest.hpp"
+#include "../includes/HTTPResponse.hpp"
+#include "../includes/RequestHandler.hpp"
+#include "../includes/Logger.hpp"
 
+Logger wslog;
 
 int main()
 {
@@ -43,6 +45,7 @@ int main()
         return 1;
     }
     std::cout << "Server is running on http://localhost:8080" << std::endl;
+    // wslog.writeToLogFile(INFO, "First line", false);
     while (true)
     {
         int clientFD = accept(servFD, NULL, NULL);

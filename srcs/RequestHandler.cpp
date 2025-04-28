@@ -1,5 +1,6 @@
 
-#include "../../includes/http/RequestHandler.hpp"
+#include "../includes/RequestHandler.hpp"
+#include "../includes/Logger.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -127,11 +128,17 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     std::string path = folder;
     std::ofstream out(path.c_str(), std::ios::binary);
     if (!out.is_open())
+    {
+        wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
         return HTTPResponse(500, "Failed to open file for writing");
+    }
     out.write(req.body.c_str(), req.body.size());
     out.close();
     if (access(path.c_str(), R_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "File not uploaded", false);
         return HTTPResponse(400, "File not uploaded");
+    }
     std::string file = extractFilename(req.path, 0);
         if (file.empty())
         return HTTPResponse(400, "Bad request");
@@ -140,6 +147,7 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext); 
     res.headers["Content-Length"] = std::to_string(res.body.size());
+    wslog.writeToLogFile(INFO, "POST File(s) upploaded successfully", false);
     return res;
 }
 
@@ -182,7 +190,10 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
         lastPath = path;
         std::ofstream out(path.c_str(), std::ios::binary);
         if (!out.is_open())
+        {
+            wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
             return HTTPResponse(500, "Failed to open file for writing");
+        }
         out.write(content.c_str(), content.size());
         out.close();
     }
@@ -193,6 +204,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext); 
     res.headers["Content-Length"] = std::to_string(res.body.size());
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) upploaded successfully", false);
     return res;
 }
 
@@ -200,10 +212,16 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
     std::string base_path = "." + path;
     if (base_path.find("..") != std::string::npos)
+    {
+        wslog.writeToLogFile(ERROR, "Forbidden", false);
         return HTTPResponse(403, "Forbidden");
+    }
     struct stat s;
     if (stat(base_path.c_str(), &s) != 0 || access(base_path.c_str(), R_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "Not Found", false);
         return HTTPResponse(404, "Not Found");
+    }
     std::ifstream file(base_path.c_str(), std::ios::binary);
     if (!file.is_open())
         return HTTPResponse(500, "Internal Server Error");
@@ -215,6 +233,7 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
     std::string ext = getFileExtension(base_path);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
+    wslog.writeToLogFile(INFO, "GET File(s) upploaded successfully", false);
     return response;
 }
 
@@ -231,6 +250,7 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
     res.body = "File deleted successfully\n";
     res.headers["Content-Type"] = "text/plain";
     res.headers["Content-Length"] = std::to_string(res.body.size());
+    wslog.writeToLogFile(INFO, "DELETE File deleted successfully", false);
     return res;
 }
 
