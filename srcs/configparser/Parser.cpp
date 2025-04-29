@@ -460,6 +460,17 @@ std::vector<ServerConfig> Parser::getServerConfigs()
     return server_configs;
 }
 
+ServerConfig Parser::getServerConfig(std::string servername)
+{
+    for (auto i: server_configs)
+    {
+        if (i.host == servername)
+            return i;
+    }
+    // Throw an exception if the config is not found
+    throw std::runtime_error("Server configuration not found for: " + servername);
+}
+
 void Parser::printRoute(const Route& route) const
 {
     std::cout << "\033[1;34mPrinting Route struct\033[0m" << std::endl;

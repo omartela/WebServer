@@ -262,6 +262,7 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
 
 HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
 {
+    printRequest(req);
     if (req.method == "GET")
         return handleGET(req.path);
     else if (req.method == "POST")

@@ -91,4 +91,5 @@ class Parser
         void printRoute(const Route& route) const;
         void printServerConfig(const ServerConfig& server_config) const;
         void trimLeadingAndTrailingSpaces(std::string& str);
+        ServerConfig getServerConfig(std::string servername);
 };
