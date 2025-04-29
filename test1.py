@@ -27,6 +27,18 @@ def send_post(path, content, content_type="text/plain"):
     print(response.read().decode())
     conn.close()
 
+def send_cgi_post(path, data, type="application/x-www-form-urlencoded"):
+    conn = http.client.HTTPConnection(HOST, PORT)
+    headers = {
+        "Content-Type": type,
+        "Content-Length": str(len(data))
+    }
+    conn.request("POST", path, body=data, headers=headers)
+    response = conn.getresponse()
+    print(f"POST {path}: {response.status} {response.reason}")
+    print(response.read().decode())
+    conn.close()
+
 def send_multipart(path, filename, content):
     boundary = uuid.uuid4().hex
     conn = http.client.HTTPConnection(HOST, PORT)
@@ -62,11 +74,14 @@ def send_delete(path):
 # Example usage
 if __name__ == "__main__":
     send_get("www/index.html")
+    send_get("/cgi-bin/echo.py")
     print("^GET DONE^\n")
     send_post("/uploads/test.txt", "This is a test upload.")
     file_name = "test_upload.txt"
     file_content = "This is content of the test file."
     send_multipart("/uploads", file_name, file_content)
+    form_data = "name=NikolaiTest&lang=Python"
+    send_cgi_post("/cgi-bin/echo_post.py", form_data)
     print("^POST DONE^\n")
     send_get("/uploads/test_upload.txt")  # Check if uploaded
     send_get("/uploads/test.txt")

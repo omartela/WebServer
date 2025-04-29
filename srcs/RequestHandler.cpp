@@ -4,7 +4,10 @@
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
 #include <map>
 #include <vector>
 #include <cstdio>
@@ -110,13 +113,59 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
     return result;
 }
 
-HTTPResponse RequestHandler::executeCGI(const HTTPRequest& request)
+HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
 {
-    (void)request;
-    std::string body = "CGI BODY";
+    std::string path = "." + req.path;
+    if (access(path.c_str(), X_OK) != 0)
+        return  HTTPResponse(403, "Forbidden");
+    int inPipe[2], outPipe[2];
+    pipe(inPipe);
+    pipe(outPipe);
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        dup2(inPipe[0], STDIN_FILENO);
+        dup2(outPipe[1], STDOUT_FILENO);
+        close(inPipe[1]);
+        close(outPipe[0]);
+        setenv("REQUEST_METHOD", req.method.c_str(), 1);
+        setenv("SCRIPT_NAME", req.path.c_str(), 1);
+        setenv("CONTENT_LENGTH", std::to_string(req.body.size()).c_str(), 1);
+        if (req.headers.count("Content-Type"))
+            setenv("CONTENT_TYPE", req.headers.at("Content-Type").c_str(), 1);
+        char *argv[] = { const_cast<char*>(path.c_str()), NULL };
+        execve(argv[0], argv, environ);
+        _exit(1);
+    }
+    close(inPipe[0]);
+    close(outPipe[1]);
+    write(inPipe[1], req.body.c_str(), req.body.size());
+    close(inPipe[1]);
+    char buffer[4096];
+    std::string output;
+    ssize_t n;
+    while ((n = read(outPipe[0], buffer, sizeof(buffer))) > 0)
+        output.append(buffer, n);
+    close(outPipe[0]);
+    waitpid(pid, NULL, 0);
+    std::string::size_type end = output.find("\r\n\r\n");
+    if (end == std::string::npos)
+        return HTTPResponse(500, "Invalid CGI output");
+    std::string headers = output.substr(0, end);
+    std::string body = output.substr(end + 4);
     HTTPResponse res(200, "OK");
     res.body = body;
-    res.headers["Content-Length"] = body.size();
+    std::istringstream header(headers);
+    std::string line;
+    while (std::getline(header, line))
+    {
+        if (line.back() == '\r')
+            line.pop_back();
+        size_t colon = line.find(':');
+        if (colon != std::string::npos)
+            res.headers[line.substr(0, colon)] = line.substr(colon + 2);
+    }
+    res.headers["Content-Length"] = std::to_string(res.body.size());
     return res;
 }
 

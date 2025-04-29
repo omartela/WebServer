@@ -12,5 +12,5 @@ class RequestHandler
         static HTTPResponse handleGET(const std::string& path);
         static HTTPResponse handlePOST(const HTTPRequest& req);
         static HTTPResponse handleDELETE(const std::string& path);
-        static HTTPResponse executeCGI(const HTTPRequest& reg);
+        static HTTPResponse executeCGI(const HTTPRequest& req);
 };

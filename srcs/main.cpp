@@ -45,7 +45,6 @@ int main()
         return 1;
     }
     std::cout << "Server is running on http://localhost:8080" << std::endl;
-    // wslog.writeToLogFile(INFO, "First line", false);
     while (true)
     {
         int clientFD = accept(servFD, NULL, NULL);
