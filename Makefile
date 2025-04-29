@@ -3,10 +3,11 @@ COMPILER = c++
 TARGET = webserver
 INC_DIR = includes
 SRC = srcs/main.cpp\
-	srcs/Logger.cpp\
-	srcs/HTTPRequest.cpp\
-	srcs/HTTPResponse.cpp\
-	srcs/RequestHandler.cpp
+	srcs/logger/Logger.cpp\
+	srcs/configparser/Parser.cpp \
+	srcs/HTTP/HTTPRequest.cpp\
+	srcs/HTTP/HTTPResponse.cpp\
+	srcs/HTTP/RequestHandler.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)

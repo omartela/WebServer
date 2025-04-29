@@ -98,7 +98,14 @@ int main(int argc, char *argv[])
         std::string rawReq(buffer, bRead);
         HTTPRequest req(rawReq);
         HTTPResponse res = RequestHandler::handleRequest(req);
-        std::string rawRes = res.toString();
+        std::string rawRes;
+        if (res.getStatusCode() >= 400)
+        {
+            res = res.generateErrorResponse(res.getStatusCode(), res.getErrMsg());
+            rawRes = res.toString();
+        }
+        else
+            rawRes = res.toString();
         send(clientFD, rawRes.c_str(), rawRes.size(), 0);
         close(clientFD);
     }
