@@ -5,7 +5,26 @@ import uuid
 
 
 HOST = "localhost"
-PORT = 8080  # Change to your server's port
+PORT = 8080
+
+def check_response(response, expected_status, expected_in_body=""):
+    status_ok = response.status == expected_status
+    body = response.read().decode()
+    body_ok = expected_in_body in body
+    print(f"-> Status: {response.status} {'✓' if status_ok else '✗'}")
+    print(f"-> Body contains '{expected_in_body}': {'✓' if status_ok else '✗'}")
+    return status_ok and body_ok
+
+def static_file(path, expected_type):
+    conn = http.client.HTTPConnection(HOST, PORT)
+    conn.request("GET", path)
+    response = conn.getresponse()
+    type = response.getheader("Content-Type")
+    print(f"GET {path}: {response.status} {response.reason}")
+    print(f"-> Content-Type: {type}")
+    print(response.read().decode())
+    conn.close()
+    return type == expected_type
 
 def send_get(path):
     conn = http.client.HTTPConnection(HOST, PORT)
@@ -73,9 +92,10 @@ def send_delete(path):
 
 # Example usage
 if __name__ == "__main__":
-    send_get("www/index.html")
+    send_get("/www/index.html")
     send_get("/cgi-bin/echo.py")
     print("^GET DONE^\n")
+
     send_post("/uploads/test.txt", "This is a test upload.")
     file_name = "test_upload.txt"
     file_content = "This is content of the test file."
@@ -83,11 +103,17 @@ if __name__ == "__main__":
     form_data = "name=NikolaiTest&lang=Python"
     send_cgi_post("/cgi-bin/echo_post.py", form_data)
     print("^POST DONE^\n")
+    
+    static_file("/www/index.html", "text/html")
+    print("^Static file DONE^\n")
+
     send_get("/uploads/test_upload.txt")  # Check if uploaded
     send_get("/uploads/test.txt")
     print("^GET DONE^\n")
+    
     send_delete("/uploads/test_upload.txt")
     send_delete("/uploads/test.txt")
     print("^DELETE DONE^\n")
+    
     send_get("/uploads/test_upload.txt")  # Check if deleted
     send_get("uploads/test.txt")

@@ -202,7 +202,6 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
 
 HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 {
-    // printRequest(req);
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
@@ -260,6 +259,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
     std::string base_path = "." + path;
+    // std::cout << base_path << std::endl;
     if (base_path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "Forbidden", false);
