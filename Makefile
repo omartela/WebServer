@@ -2,7 +2,11 @@ COMPILER = c++
 
 TARGET = webserver
 INC_DIR = includes
-SRC = srcs/configparser/Parser.cpp srcs/main.cpp srcs/logger/Logger.cpp
+SRC = srcs/main.cpp\
+	srcs/Logger.cpp\
+	srcs/HTTPRequest.cpp\
+	srcs/HTTPResponse.cpp\
+	srcs/RequestHandler.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
@@ -14,21 +18,21 @@ CFLAGS = -Wall -Wextra -Werror -std=c++20 -I$(INC_DIR) -MMD -MP
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(COMPILER) $(CFLAGS) -o $(TARGET) $(OBJ)
+	@$(COMPILER) $(CFLAGS) -o $(TARGET) $(OBJ)
 
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(OBJ_DIR)/$(dir $<)
-	$(COMPILER) $(CFLAGS) -c $< -o $@
+	@$(COMPILER) $(CFLAGS) -c $< -o $@
 
 #This takes into account the .d depency files
 -include $(DEP)
 
 clean:
-	rm -rf $(OBJ_DIR)
+	@rm -rf $(OBJ_DIR)
 
 fclean: clean
-	rm -rf $(OBJ_DIR)
-	rm -f $(TARGET)
+	@rm -rf $(OBJ_DIR)
+	@rm -f $(TARGET)
 
 re: fclean all
 
