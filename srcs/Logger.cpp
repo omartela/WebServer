@@ -1,13 +1,18 @@
 #include "../includes/Logger.hpp"
 
+#include <filesystem>
+
 Logger::Logger() 
 {
-    logstream.open("logfile.log");
+     // Ensure the log directory exists
+    std::filesystem::create_directories("logfiles");
+    std::string name;
+    name = "logfiles/" + get_current_time_string() + "logfile.log";
+    logstream.open(name);
     if (!logstream.is_open())
     {
-        throw std::runtime_error("Error opening log file: logfile.txt");
+        throw std::runtime_error("Error opening log file:" + name);
     }
-
 }
 
 std::string Logger::get_current_time_string() 

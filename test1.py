@@ -109,6 +109,7 @@ if __name__ == "__main__":
 
     send_get("/uploads/test_upload.txt")  # Check if uploaded
     send_get("/uploads/test.txt")
+    send_get("uploads/this")
     print("^GET DONE^\n")
     
     send_delete("/uploads/test_upload.txt")

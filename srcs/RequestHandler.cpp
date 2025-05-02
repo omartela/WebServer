@@ -192,11 +192,11 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
         if (file.empty())
         return HTTPResponse(400, "Bad request");
     HTTPResponse res(200, "OK");
-    res.body = "File(s) upploaded successfully\n";
+    res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext); 
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
     return res;
 }
 
@@ -252,7 +252,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext); 
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST (multi) File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
     return res;
 }
 
@@ -282,7 +282,7 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
     std::string ext = getFileExtension(base_path);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
-    wslog.writeToLogFile(INFO, "GET File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "GET File(s) uploaded successfully", false);
     return response;
 }
 
