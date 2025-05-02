@@ -2,3 +2,4 @@ logfiles/
 .vscode/
 logfile.log
 objs/
+webserver
