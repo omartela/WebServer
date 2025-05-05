@@ -1,4 +1,5 @@
-#include "../includes/Logger.hpp"
+#include "Logger.hpp"
+#include <filesystem>
 
 #include <filesystem>
 
@@ -62,6 +63,7 @@ void Logger::writeToLogFile(LoggerStatus status, const std::string message, bool
         std::cout << logmessage.str();
     }
     logstream << logmessage.str();
+    // This flush is important.
     logstream.flush();
 }
 

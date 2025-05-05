@@ -211,11 +211,17 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     if (ct.find("multipart/form-data") == std::string::npos)
         return nonMultipart(req);
     if (its == req.headers.end())
-        return HTTPResponse(400, "Bad Request: No headers");
+    {
+        HTTPResponse response(400, "Bad Request");
+        response.setErrMsg("No headers");
+    }
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-        return HTTPResponse(400, "Bad Request: No boundary");
+    {
+        HTTPResponse response(400, "Bad Request: No boundary");
+        response.setErrMsg("No boundary");
+    }
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
@@ -305,6 +311,7 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
 
 HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
 {
+    printRequest(req);
     if (req.method == "GET")
         return handleGET(req.path);
     else if (req.method == "POST")
