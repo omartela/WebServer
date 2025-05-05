@@ -7,14 +7,15 @@ SRC = srcs/main.cpp\
 	srcs/configparser/Parser.cpp \
 	srcs/HTTP/HTTPRequest.cpp\
 	srcs/HTTP/HTTPResponse.cpp\
-	srcs/HTTP/RequestHandler.cpp
+	srcs/HTTP/RequestHandler.cpp \
+	srcs/socketshandler/SocketsHandler.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)
 #-MMD flag makes depency file .d for every .cpp file
 #-MP flag creates phony for every header file so if header file is deleted
 #the making process will not throw an error missing file so it allows deleting and creating new header files
-CFLAGS = -Wall -Wextra -Werror -std=c++20 -I$(INC_DIR) -MMD -MP
+CFLAGS = -g -Wall -Wextra -Werror -std=c++20 -I$(INC_DIR) -MMD -MP
 
 all: $(TARGET)
 

@@ -3,6 +3,7 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
+#include "Socketshandler.hpp"
 #include <sys/socket.h>
 #include <cstring>
 #include <netinet/in.h>
@@ -29,8 +30,11 @@ int main(int argc, char *argv[])
         parser.printServerConfigs();
 
         wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
+        SocketsHandler sockethandler(parser.getServerConfigs());
+        sockethandler.Run();
+
     
-        int servFD = socket(AF_INET, SOCK_STREAM, 0);
+        /* int servFD = socket(AF_INET, SOCK_STREAM, 0);
         if (servFD == -1)
         {
             perror("socket");
@@ -54,6 +58,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         if (listen(servFD, SOMAXCONN) < 0)
+        
         {
             perror("listen");
             close(servFD);
@@ -94,7 +99,7 @@ int main(int argc, char *argv[])
             send(clientFD, rawRes.c_str(), rawRes.size(), 0);
             close(clientFD);
         }
-        close(servFD);
+        close(servFD); */
     }
     catch (const std::invalid_argument& e)
     {
