@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 
         wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
         SocketsHandler sockethandler(parser.getServerConfigs());
-        sockethandler.Run();
+        sockethandler.Run(); 
 
 
         /* int servFD = socket(AF_INET, SOCK_STREAM, 0);
