@@ -2,13 +2,13 @@
 #include "Connection.hpp"
 #include "Server.hpp"
 
-void        serverLoop(std::vector<ServerConfig> servers);
+void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket();
 static int  acceptNewConnection(int listenerSocket, std::map<int, Connection> connections);
 static int  findNewFd(std::map<int, Connection> connections);
 static void handleClientRequest();
 
-void serverLoop(std::vector<ServerConfig> serverConfigs)
+void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
     //Connection::nActiveConnections = 0;
     std::map<int, Server> servers;
@@ -59,16 +59,16 @@ void serverLoop(std::vector<ServerConfig> serverConfigs)
 
 static int initServerSocket(ServerConfig server)
 {
-    int listenerSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
+    int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
 
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(server.port);
 
-    bind(listenerSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
-    listen(listenerSocket, SOMAXCONN);
+    bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
+    listen(serverSocket, SOMAXCONN);
     
-    return (listenerSocket);
+    return (serverSocket);
 }
 
 static int acceptNewConnection(int listenerSocket, std::map<int, Connection> connections)

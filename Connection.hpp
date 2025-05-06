@@ -4,6 +4,14 @@
 #include <string>
 #include <cstring>
 
+struct httpRequest
+{
+    std::string method;
+    std::string path;
+    std::map<std::string, std::string> headers;
+    std::string body;
+} s_httpRequest;
+
 enum connectionStates {
     IDLE,
     READ_HEADER,
@@ -23,15 +31,13 @@ class Connection {
         std::vector<char> writeBuffer;
         size_t bytesRead;
         size_t bytesWritten;
+
         static int nConnections;
         static int nextFreeSocketIndex;
-        //std::vector<int> vacantFds;
+        //std::vector<int> vacantFds; //maybe good to have
         //static int nActiveConnections;
 
-        std::string method;
-        std::string path;
-        std::map<std::string, std::string> headers;
-        std::string body;
+        httpRequest request;
 
         Connection();
         Connection(const Connection& copy);
