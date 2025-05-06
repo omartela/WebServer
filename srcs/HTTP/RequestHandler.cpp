@@ -1,6 +1,7 @@
 
-#include "../includes/RequestHandler.hpp"
-#include "../includes/Logger.hpp"
+#include "RequestHandler.hpp"
+#include "Logger.hpp"
+#include "Enums.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -12,6 +13,7 @@
 #include <vector>
 #include <cstdio>
 #include <iostream>
+#include <filesystem>
 
 
 void printRequest(const HTTPRequest &req)
@@ -65,7 +67,7 @@ static std::string extractFilename(const std::string& path, int method)
         if (start == std::string::npos)
             return path;
         return path.substr(start + 1);
-    } 
+    }
 }
 
 static std::string extractContent(const std::string& part)
@@ -194,7 +196,7 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     HTTPResponse res(200, "OK");
     res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(req.path);
-    res.headers["Content-Type"] = getMimeType(ext); 
+    res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
     return res;
@@ -256,7 +258,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     HTTPResponse res(200, "OK");
     res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(req.path);
-    res.headers["Content-Type"] = getMimeType(ext); 
+    res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
     return res;
@@ -299,7 +301,7 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
         return HTTPResponse(403, "Forbidden");
     if (access(full_path.c_str(), F_OK) != 0)
         return HTTPResponse(404, "Not Found");
-    if (remove(full_path.c_str()) != 0)
+    if (remove(path.c_str()) != 0)
         return HTTPResponse(500, "Delete Failed");
     HTTPResponse res(200, "OK");
     res.body = "File deleted successfully\n";
@@ -309,14 +311,48 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
     return res;
 }
 
+
+bool RequestHandler::isAllowedMethod(std::string method)
+{
+    if (method == "GET" || method == "POST" || method == "DELETE")
+        return true;
+    return false;
+}
+
 HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
 {
-    printRequest(req);
-    if (req.method == "GET")
-        return handleGET(req.path);
-    else if (req.method == "POST")
-        return handlePOST(req);
-    else if (req.method == "DELETE")
-        return handleDELETE(req.path);
-    return HTTPResponse(501, "Not Implemented");
+    // printRequest(req);
+     std::string fullPath = "." + req.path;
+    bool validFile = false;
+    try
+    {
+        validFile = std::filesystem::exists(fullPath);
+    }
+    catch(const std::exception& e)
+    {
+        wslog.writeToLogFile(ERROR, "Invalid file name", false);
+        return HTTPResponse(400, "Invalid file name");
+    }
+    if (!isAllowedMethod(req.method))
+        return HTTPResponse(400, "Method not allowed");
+    switch (req.eMethod)
+    {
+        case GET:
+        {
+            if (validFile)
+                return handleGET(req.path);
+            else
+                return HTTPResponse(400, "Invalid file");
+        }
+        case POST:
+        {
+            return handlePOST(req);
+        }
+        case DELETE:
+        {
+            return handleDELETE(req.path);
+        }
+        default:
+            return HTTPResponse(501, "Not Implemented");
+    }
 }

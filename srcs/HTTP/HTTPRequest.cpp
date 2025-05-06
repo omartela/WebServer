@@ -1,5 +1,6 @@
 
-#include "../includes/HTTPRequest.hpp"
+#include "HTTPRequest.hpp"
+#include "Enums.hpp"
 #include <sstream>
 #include <iostream>
 #include <vector>
@@ -16,7 +17,16 @@ HTTPRequest::HTTPRequest(const std::string& raw){ parser(raw); }
 
     Body: Appends the body content after the headers.
 */
-void HTTPRequest::parser(const std::string& raw) 
+
+reqTypes getMethodEnum(const std::string& method)
+{
+    if (method == "GET") return GET;
+    if (method == "POST") return POST;
+    if (method == "DELETE") return DELETE;
+    return INVALID;
+}
+
+void HTTPRequest::parser(const std::string& raw)
 {
     std::istringstream stream(raw);
     std::string line;
@@ -26,6 +36,7 @@ void HTTPRequest::parser(const std::string& raw)
         line.pop_back();
     std::istringstream request_line(line);
     request_line >> method >> path;
+    eMethod = getMethodEnum(method);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')

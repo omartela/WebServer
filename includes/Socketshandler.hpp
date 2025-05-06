@@ -21,7 +21,3 @@ class SocketsHandler
         void signalHandler(int sig);
         ~SocketsHandler();
 };
-
-
-
-

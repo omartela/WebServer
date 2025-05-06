@@ -1,16 +1,18 @@
 
 #pragma once
 
+#include "Enums.hpp"
 #include <string>
 #include <map>
 
-class HTTPRequest 
+class HTTPRequest
 {
     private:
         void parser(const std::string  &raw);
 
     public:
         std::string method;
+        reqTypes eMethod;
         std::string path;
         std::map<std::string, std::string> headers;
         std::string body;

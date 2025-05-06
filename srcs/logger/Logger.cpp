@@ -1,9 +1,7 @@
 #include "Logger.hpp"
 #include <filesystem>
 
-#include <filesystem>
-
-Logger::Logger() 
+Logger::Logger()
 {
      // Ensure the log directory exists
     std::filesystem::create_directories("logfiles");
@@ -16,7 +14,7 @@ Logger::Logger()
     }
 }
 
-std::string Logger::get_current_time_string() 
+std::string Logger::get_current_time_string()
 {
     auto now = std::chrono::system_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
@@ -68,7 +66,7 @@ void Logger::writeToLogFile(LoggerStatus status, const std::string message, bool
 }
 
 
-Logger::~Logger() 
+Logger::~Logger()
 {
     logstream.close();
 }
