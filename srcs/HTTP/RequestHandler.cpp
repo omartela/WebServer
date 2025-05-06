@@ -198,7 +198,7 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST File(s) downloaded successfully", false);
     return res;
 }
 
@@ -260,7 +260,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) downloaded successfully", false);
     return res;
 }
 
