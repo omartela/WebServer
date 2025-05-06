@@ -2,32 +2,52 @@
 
 Connection::Connection()
 {
-    this->fd = nConnections;
+    this->fd = -1;
     this->state = VACANT;
-    this->read_buffer.clear();
-    this->write_buffer.clear();
-    this->bytes_read = 0;
-    this->bytes_written = 0;
+    this->readBuffer.reserve(1024);
+    this->writeBuffer.reserve(1024);
+    this->bytesRead = 0;
+    this->bytesWritten = 0;
     nConnections++;
 }
 
-Connection::Connection(int newFd)
+Connection::~Connection() {
+    nConnections--;
+};
+
+Connection::Connection(const Connection& copy)
 {
-    this->fd = newFd;
-    this->state = VACANT;
-    this->read_buffer.clear();
-    this->write_buffer.clear();
-    this->bytes_read = 0;
-    this->bytes_written = 0;
-    nConnections++;
+    *this = copy;
 }
 
-void Connection::reset()
+Connection& Connection::operator=(const Connection& copy)
+{
+    if (this != & copy)
+    {
+        this->state = copy.state;
+        this->readBuffer = copy.readBuffer;
+        this->writeBuffer = copy.writeBuffer;
+        this->bytesRead = copy.bytesRead;
+        this->bytesWritten = copy.bytesWritten;
+    }
+    return *this;
+}
+
+void Connection::softReset()
+{
+    this->state = IDLE;
+    this->readBuffer.clear();
+    this->writeBuffer.clear();
+    this->bytesRead = 0;
+    this->bytesWritten = 0;
+}
+
+void Connection::hardReset()
 {
     this->state = VACANT;
-    this->read_buffer.clear();
-    this->write_buffer.clear();
-    this->bytes_read = 0;
-    this->bytes_written = 0;
-    nActiveConnections--;
+    this->readBuffer.clear();
+    this->writeBuffer.clear();
+    this->bytesRead = 0;
+    this->bytesWritten = 0;
+    nConnections--;
 }
