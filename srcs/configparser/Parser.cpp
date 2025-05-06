@@ -372,6 +372,8 @@ bool Parser::validateBrackets(const std::string& config_file)
     std::string line;
     while (getline(file, line))
     {
+        if (line.empty() || line.at(0) == '#')
+            continue;
         for (char ch: line)
         {
             if (ch == '{')
@@ -480,6 +482,8 @@ bool Parser::parseConfigFile(const std::string& config_file)
     {
         // Check if the line contains "server {" with a space in between
         trimLeadingAndTrailingSpaces(line);
+        if (line.empty() || line.at(0) == '#')
+            continue;
         if (line.find("server {") != std::string::npos) 
         {
             ServerConfig server_config{}; // alustaa default arvoihin structin siksi kaarisulkeet
