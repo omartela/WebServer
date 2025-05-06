@@ -214,7 +214,6 @@ bool Parser::validateListenDirective(const std::string& line)
     if (std::regex_match(line, listen_regex))
         return true;
     else
-
         return false;
 }
 
@@ -424,6 +423,7 @@ bool Parser::validateFile(const std::string& config_file)
     if (!validateExtension(config_file, extension))
     {
         wslog.writeToLogFile(ERROR, "Error invalid extension in file: " + config_file, true);
+        wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", true);
         return false;
     }
     
@@ -455,6 +455,7 @@ bool Parser::validateFile(const std::string& config_file)
             wslog.writeToLogFile(ERROR, "Error invalid line", true);
             wslog.writeToLogFile(ERROR, "Error failed to parse line: " + line, true);
             wslog.writeToLogFile(ERROR, "Error file validation failed ", true);
+            wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", true);
             return false;
         }
     }
