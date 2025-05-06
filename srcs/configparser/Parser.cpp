@@ -3,6 +3,7 @@
 
 Parser::Parser(const std::string& config_file) 
 {
+    extension = ".conf";
     if (!parseConfigFile(config_file)) 
     {
         throw std::runtime_error("Failed to parse config file: " + config_file);
@@ -411,8 +412,19 @@ bool Parser::validateDirectives(const std::string& line)
     return false;
 }
 
+bool Parser::validateExtension(const std::string& filename, const std::string& expectedExt) 
+{
+    return std::filesystem::path(filename).extension() == expectedExt;
+}
+
 bool Parser::validateFile(const std::string& config_file)
 {
+    if (!validateExtension(config_file, extension))
+    {
+        wslog.writeToLogFile(ERROR, "Error invalid extension in file: " + config_file, true);
+        return false;
+    }
+    
     if (!validateBrackets(config_file))
         return false;
     std::ifstream file(config_file);
