@@ -91,12 +91,12 @@ def send_delete(path, HOST, PORT):
 # Example usage
 if __name__ == "__main__":
     HOST = "127.0.0.1"
-    PORT = 8080
+    PORT = 8001
     HOST2 = "127.0.0.2"
-    PORT2 = 8081
- 
-    send_get("/www/index.html", HOST, PORT)
-    send_get("/www/index.html", HOST2, PORT2)
+    PORT2 = 8002
+
+    send_get("/index.html", HOST, PORT)
+    send_get("/index.html", HOST2, PORT2)
     send_get("/cgi-bin/echo.py", HOST, PORT)
     send_get("/cgi-bin/echo.py", HOST2, PORT2)
     print("^GET DONE^\n")

@@ -14,5 +14,5 @@ class RequestHandler
         static HTTPResponse handlePOST(const HTTPRequest& req);
         static HTTPResponse handleDELETE(const std::string& path);
         static HTTPResponse executeCGI(const HTTPRequest& req);
-        static bool isAllowedMethod(std::string method, ServerConfig config);
+        static bool isAllowedMethod(std::string method, Route route);
 };

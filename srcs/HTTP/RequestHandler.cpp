@@ -267,7 +267,7 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
     std::string base_path = "." + path;
-    // std::cout << base_path << std::endl;
+    std::cout << base_path << std::endl;
     if (base_path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "Forbidden", false);
@@ -312,17 +312,24 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
 }
 
 
-bool RequestHandler::isAllowedMethod(std::string method, ServerConfig config)
+bool RequestHandler::isAllowedMethod(std::string method, Route route)
 {
-    if ((config == "GET" || config == "POST" || config == "DELETE") && method)
-        return true;
+    for (size_t i = 0; i < route.accepted_methods.size(); i++)
+    {
+        if (method == route.accepted_methods[i])
+            return true;
+    }
     return false;
 }
 
 HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
 {
     // printRequest(req);
-    std::string fullPath = "." + req.path;
+    // std::cout << "Req path: " << req.path << std::endl;
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    // std::cout << "Key: " << key << std::endl;
+    std::string fullPath = "." + config.routes[key].root + req.path;
+
     bool validFile = false;
     try
     {
@@ -330,17 +337,17 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig 
     }
     catch(const std::exception& e)
     {
-        wslog.writeToLogFile(ERROR, "Invalid file name", false);
+        wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(400, "Invalid file name");
     }
-    if (!isAllowedMethod(req.method, config))
+    if (!isAllowedMethod(req.method, config.routes[key]))
         return HTTPResponse(400, "Method not allowed");
     switch (req.eMethod)
     {
         case GET:
         {
             if (validFile)
-                return handleGET(req.path);
+                return handleGET(config.routes[key].root + req.path);
             else
                 return HTTPResponse(400, "Invalid file");
         }
