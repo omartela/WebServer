@@ -114,7 +114,7 @@ void SocketsHandler::Run()
                     {
                         std::string rawReq(buffer, bRead);
                         HTTPRequest req(rawReq);
-                        HTTPResponse res = RequestHandler::handleRequest(req);
+                        HTTPResponse res = RequestHandler::handleRequest(req, clientFDs[fds[i].fd]);
                         std::string rawRes;
                         if (res.getStatusCode() >= 400)
                         {

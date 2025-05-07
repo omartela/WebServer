@@ -312,17 +312,17 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
 }
 
 
-bool RequestHandler::isAllowedMethod(std::string method)
+bool RequestHandler::isAllowedMethod(std::string method, ServerConfig config)
 {
-    if (method == "GET" || method == "POST" || method == "DELETE")
+    if ((config == "GET" || config == "POST" || config == "DELETE") && method)
         return true;
     return false;
 }
 
-HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
+HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
 {
     // printRequest(req);
-     std::string fullPath = "." + req.path;
+    std::string fullPath = "." + req.path;
     bool validFile = false;
     try
     {
@@ -333,7 +333,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
         wslog.writeToLogFile(ERROR, "Invalid file name", false);
         return HTTPResponse(400, "Invalid file name");
     }
-    if (!isAllowedMethod(req.method))
+    if (!isAllowedMethod(req.method, config))
         return HTTPResponse(400, "Method not allowed");
     switch (req.eMethod)
     {
