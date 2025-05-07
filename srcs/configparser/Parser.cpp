@@ -153,7 +153,14 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
 {
     size_t pos = line.find("cgi_extension ") + 14; // Skip "cgi_extension "
     size_t end_pos = line.find(";");
-    route.cgi_extension = line.substr(pos, end_pos - pos);
+    std::string cgi_extensions = line.substr(pos, end_pos - pos);
+    size_t space_pos = 0;
+    while ((space_pos = cgi_extensions.find(" ")) != std::string::npos)
+    {
+        route.accepted_methods.push_back(cgi_extensions.substr(0, space_pos));
+        cgi_extensions.erase(0, space_pos + 1);
+    }
+    route.accepted_methods.push_back(cgi_extensions); // Add the last cgi_extension
 }
 
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
@@ -551,7 +558,10 @@ void Parser::printRoute(const Route& route) const
     std::cout << "Redirect To: " << route.redirect.target_url << std::endl;
     std::cout << "Autoindex: " << (route.autoindex ? "on" : "off") << std::endl;
     std::cout << "Index File: " << route.index_file << std::endl;
-    std::cout << "CGI Extension: " << route.cgi_extension << std::endl;
+    for (const auto& cgi_extension : route.cgi_extension)
+    {
+        std::cout << cgi_extension << " ";
+    }
     std::cout << "Upload Path: " << route.upload_path << std::endl;
 
 }

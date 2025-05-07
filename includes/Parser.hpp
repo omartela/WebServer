@@ -31,7 +31,7 @@ struct Route
     Redirect redirect;
     bool autoindex;
     std::string index_file;
-    std::string cgi_extension;
+    std::vector<std::string> cgi_extension;
     std::string upload_path;
 };
 
