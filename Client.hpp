@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <cstring>
+#include <sstream>
 //#include "Parser.hpp"
 
 struct httpRequest
@@ -25,6 +26,7 @@ enum connectionStates {
 class Client {
     public:  //change all these to private? fix later
         int fd;
+        int serverFd;
         enum connectionStates state;
         std::vector<char> readBuffer;
         std::vector<char> writeBuffer;
@@ -41,4 +43,5 @@ class Client {
         ~Client();
 
         void reset();
+        void requestParser()
 };

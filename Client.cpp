@@ -40,3 +40,9 @@ void Client::reset()
     this->bytesWritten = 0;
     //clean httpRequest struct
 }
+
+void Client::requestParser()
+{
+    std::string bufferString(this->readBuffer.begin(), this->readBuffer.end());
+    std::istringstream stream(bufferString);
+}

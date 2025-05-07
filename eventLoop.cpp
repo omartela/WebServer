@@ -38,10 +38,12 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         {
             if (servers.find(eventLog[i].data.fd) != servers.end())
             {
+                serverSocket = eventLog[i].data.fd;
                 Client newClient;
                 int clientFd = acceptNewClient(loop, serverSocket, clients);
                 setup.data.fd = clientFd;
                 setup.events = EPOLLIN | EPOLLOUT;
+                newClient.serverFd = serverSocket;
                 newClient.serverInfo = servers[serverSocket];
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
@@ -98,17 +100,36 @@ static void handleClientRequest(Client client)
             client.state = READ_HEADER;
         case READ_HEADER:
         {
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), 0); 
-            //check size limit?
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT); 
             if (client.bytesRead < 0)
-                throw std::runtime_error("recv failed"); //more comprehensive later
-            
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) //can we do this???
+                    return ;
+                else
+                    throw std::runtime_error("header recv failed"); //more comprehensive later
+            }
+            if (client.bytesRead >= 4)
+            {
+                std::string last4bytes(client.readBuffer.end() - 4, client.readBuffer.end());
+                if (last4bytes == "\r\n\r\n")
+                {
+                    client.requestParser(client.readBuffer);
+                    client.state = READ_BODY;
+                }
+                else
+                    return ;
+            }
         }
         case READ_BODY:
         {
-
+            
         }
         case SEND_HEADER:
+        {
+            client.bytesWritten = send(client.serverFd, client.writeBuffer.data(), sizeof(client.writeBuffer), MSG_DONTWAIT);
+            if (client.bytesWritten < 0)
+                throw std::runtime_error("header send failed"); //more comprehensive later
+        }
         case SEND_BODY:
         case DONE:
             client.reset();
