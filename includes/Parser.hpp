@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <filesystem>
 
 // Erilaisia redirect status koodeja ja käyttötarkoituksia
 /*
@@ -41,7 +42,7 @@ struct ServerConfig
     std::vector<std::string> server_names;
     std::map<int, std::string> error_pages;
     size_t client_max_body_size;
-    std::vector<Route> routes;
+    std::map<std::string, Route> routes;
 };
 
 class Parser
@@ -50,6 +51,7 @@ class Parser
     private:
         // Variables
         std::vector<ServerConfig> server_configs;
+        std::string extension;
         // Parsing functions
         void parseListenDirective(const std::string& line, ServerConfig& server_config);
         void parseServerNameDirective(const std::string& line, ServerConfig& server_config);
@@ -80,6 +82,7 @@ class Parser
         bool validateDirectives(const std::string& line);
         bool validateBrackets(const std::string& config_file);
         bool validateFile(const std::string& config_file);
+        bool validateExtension(const std::string& filename, const std::string& expectedExt);
     public:
         Parser(const std::string& config_file);
         Parser(const Parser& src) = delete; // Disable copy constructor
