@@ -3,7 +3,7 @@
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
 
-SocketsHandler::SocketsHandler(std::vector<ServerConfig> server_configs) 
+SocketsHandler::SocketsHandler(std::vector<ServerConfig> server_configs)
 {
     std::cout << "amount of servers " << server_configs.size() << std::endl;
     for (size_t i = 0; i < server_configs.size(); i++)
@@ -30,7 +30,7 @@ SocketsHandler::SocketsHandler(std::vector<ServerConfig> server_configs)
             throw std::runtime_error("bind");
         }
         // Set the socket to non-blocking mode
-        if (fcntl(servFD, F_SETFL, O_NONBLOCK) < 0) 
+        if (fcntl(servFD, F_SETFL, O_NONBLOCK) < 0)
         {
             throw std::runtime_error("fcntl");
         }
@@ -46,7 +46,7 @@ SocketsHandler::SocketsHandler(std::vector<ServerConfig> server_configs)
     run = true;
 }
 
-SocketsHandler::~SocketsHandler() 
+SocketsHandler::~SocketsHandler()
 {
     for (size_t i = 0; i < fds.size(); i++)
     {
@@ -93,7 +93,7 @@ void SocketsHandler::Run()
                         fds.push_back(pollfd{clientFD, POLLIN, 0});
                     }
                     // Set the socket to non-blocking mode
-                    if (fcntl(clientFD, F_SETFL, O_NONBLOCK) < 0) 
+                    if (fcntl(clientFD, F_SETFL, O_NONBLOCK) < 0)
                     {
                         perror("client fd fcntl");
                         continue;
@@ -101,7 +101,6 @@ void SocketsHandler::Run()
                 }
                 else
                 {
-                    // handle connection
                     char buffer[8192];
                     ssize_t bRead = read(fds[i].fd, buffer, sizeof(buffer));
                     if (bRead <= 0)
@@ -115,7 +114,7 @@ void SocketsHandler::Run()
                     {
                         std::string rawReq(buffer, bRead);
                         HTTPRequest req(rawReq);
-                        HTTPResponse res = RequestHandler::handleRequest(req);
+                        HTTPResponse res = RequestHandler::handleRequest(req, clientFDs[fds[i].fd]);
                         std::string rawRes;
                         if (res.getStatusCode() >= 400)
                         {

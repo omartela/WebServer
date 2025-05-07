@@ -1,10 +1,10 @@
 #include "Parser.hpp"
 #include "Logger.hpp"
 
-Parser::Parser(const std::string& config_file) 
+Parser::Parser(const std::string& config_file)
 {
     extension = ".conf";
-    if (!parseConfigFile(config_file)) 
+    if (!parseConfigFile(config_file))
     {
         throw std::runtime_error("Failed to parse config file: " + config_file);
     }
@@ -28,12 +28,12 @@ void Parser::parseListenDirective(const std::string& line, ServerConfig& server_
     size_t end_pos = line.find(";", pos);
     std::string host_port = line.substr(pos, end_pos - pos);
     size_t colon_pos = host_port.find(":");
-    if (colon_pos != std::string::npos) 
+    if (colon_pos != std::string::npos)
     {
         server_config.host = host_port.substr(0, colon_pos);
         server_config.port = std::stoi(host_port.substr(colon_pos + 1));
-    } 
-    else 
+    }
+    else
     {
         // If no port is specified, assume default HTTP port 80
         // not sure if not specied host can you only specify port
@@ -48,8 +48,8 @@ void Parser::parseServerNameDirective(const std::string& line, ServerConfig& ser
     size_t pos = line.find("server_name ") + 12; // Skip "server_name "
     size_t end_pos = line.find(";", pos);
     std::string server_names = line.substr(pos, end_pos - pos);
-    size_t space_pos = 0;   
-    while ((space_pos = server_names.find(" ")) != std::string::npos) 
+    size_t space_pos = 0;
+    while ((space_pos = server_names.find(" ")) != std::string::npos)
     {
         server_config.server_names.push_back(server_names.substr(0, space_pos));
         server_names.erase(0, space_pos + 1);
@@ -63,17 +63,17 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, ServerConf
     size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
     size_t end_pos = line.find(";", pos);
     std::string size_str = line.substr(pos, end_pos - pos);
-    if (size_str.find("K") != std::string::npos) 
+    if (size_str.find("K") != std::string::npos)
     {
         size_str.erase(size_str.find("K"));
         server_config.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
-    } 
-    else if (size_str.find("M") != std::string::npos) 
+    }
+    else if (size_str.find("M") != std::string::npos)
     {
         size_str.erase(size_str.find("M"));
         server_config.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
-    } 
-    else 
+    }
+    else
     {
         server_config.client_max_body_size = std::stoul(size_str); // Assume bytes
     }
@@ -126,7 +126,7 @@ void Parser::parseAllowMethodsDirective(const std::string& line, Route& route)
     size_t end_pos = line.find(";");
     std::string methods = line.substr(pos, end_pos - pos);
     size_t space_pos = 0;
-    while ((space_pos = methods.find(" ")) != std::string::npos) 
+    while ((space_pos = methods.find(" ")) != std::string::npos)
     {
         route.accepted_methods.push_back(methods.substr(0, space_pos));
         methods.erase(0, space_pos + 1);
@@ -153,7 +153,14 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
 {
     size_t pos = line.find("cgi_extension ") + 14; // Skip "cgi_extension "
     size_t end_pos = line.find(";");
-    route.cgi_extension = line.substr(pos, end_pos - pos);
+    std::string cgi_extensions = line.substr(pos, end_pos - pos);
+    size_t space_pos = 0;
+    while ((space_pos = cgi_extensions.find(" ")) != std::string::npos)
+    {
+        route.accepted_methods.push_back(cgi_extensions.substr(0, space_pos));
+        cgi_extensions.erase(0, space_pos + 1);
+    }
+    route.accepted_methods.push_back(cgi_extensions); // Add the last cgi_extension
 }
 
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
@@ -208,7 +215,7 @@ bool Parser::validateServerDirective(const std::string& line)
         return false;
 }
 
-bool Parser::validateListenDirective(const std::string& line) 
+bool Parser::validateListenDirective(const std::string& line)
 {
     std::regex listen_regex(R"(^\s*listen \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5};$)");
     if (std::regex_match(line, listen_regex))
@@ -362,7 +369,7 @@ bool Parser::validateCgiExtensionDirective(const std::string& line)
 bool Parser::validateBrackets(const std::string& config_file)
 {
     std::ifstream file(config_file);
-    if (!file.is_open()) 
+    if (!file.is_open())
     {
         wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
         return false;
@@ -413,7 +420,7 @@ bool Parser::validateDirectives(const std::string& line)
     return false;
 }
 
-bool Parser::validateExtension(const std::string& filename, const std::string& expectedExt) 
+bool Parser::validateExtension(const std::string& filename, const std::string& expectedExt)
 {
     return std::filesystem::path(filename).extension() == expectedExt;
 }
@@ -426,11 +433,11 @@ bool Parser::validateFile(const std::string& config_file)
         wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", true);
         return false;
     }
-    
+
     if (!validateBrackets(config_file))
         return false;
     std::ifstream file(config_file);
-    if (!file.is_open()) 
+    if (!file.is_open())
     {
         wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
         return false;
@@ -470,7 +477,7 @@ bool Parser::parseConfigFile(const std::string& config_file)
         return false;
 
     std::ifstream file(config_file);
-    if (!file.is_open()) 
+    if (!file.is_open())
     {
         wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
         return false;
@@ -479,13 +486,13 @@ bool Parser::parseConfigFile(const std::string& config_file)
     // For example, read lines and populate server_configs vector
 
     std::string line;
-    while (getline(file, line)) 
+    while (getline(file, line))
     {
         // Check if the line contains "server {" with a space in between
         trimLeadingAndTrailingSpaces(line);
         if (line.empty() || line.at(0) == '#')
             continue;
-        if (line.find("server {") != std::string::npos) 
+        if (line.find("server {") != std::string::npos)
         {
             ServerConfig server_config{}; // alustaa default arvoihin structin siksi kaarisulkeet
             while (getline(file, line) && line.find("}") == std::string::npos)
@@ -514,13 +521,13 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 // Populate server_config based on the line content
             }
             server_configs.push_back(server_config);
-        } 
+        }
     }
     file.close();
     return true;
 }
 
-std::vector<ServerConfig> Parser::getServerConfigs() 
+std::vector<ServerConfig> Parser::getServerConfigs()
 {
     return server_configs;
 }
@@ -542,7 +549,7 @@ void Parser::printRoute(const Route& route) const
     std::cout << "Route Path: " << route.path << std::endl;
     std::cout << "Root: " << route.root << std::endl;
     std::cout << "Accepted Methods: ";
-    for (const auto& method : route.accepted_methods) 
+    for (const auto& method : route.accepted_methods)
     {
         std::cout << method << " ";
     }
@@ -551,7 +558,10 @@ void Parser::printRoute(const Route& route) const
     std::cout << "Redirect To: " << route.redirect.target_url << std::endl;
     std::cout << "Autoindex: " << (route.autoindex ? "on" : "off") << std::endl;
     std::cout << "Index File: " << route.index_file << std::endl;
-    std::cout << "CGI Extension: " << route.cgi_extension << std::endl;
+    for (const auto& cgi_extension : route.cgi_extension)
+    {
+        std::cout << cgi_extension << " ";
+    }
     std::cout << "Upload Path: " << route.upload_path << std::endl;
 
 }
@@ -562,13 +572,13 @@ void Parser::printServerConfig(const ServerConfig& server_config) const
     std::cout << "Host: " << server_config.host << std::endl;
     std::cout << "Port: " << server_config.port << std::endl;
     std::cout << "Server Names: ";
-    for (const auto& name : server_config.server_names) 
+    for (const auto& name : server_config.server_names)
     {
         std::cout << name << " ";
     }
     std::cout << std::endl;
     std::cout << "Client Max Body Size: " << server_config.client_max_body_size << std::endl;
-    for (const auto& route : server_config.routes) 
+    for (const auto& route : server_config.routes)
     {
         printRoute(route.second);
     }
@@ -576,13 +586,13 @@ void Parser::printServerConfig(const ServerConfig& server_config) const
 
 void Parser::printServerConfigs() const
 {
-    for (const auto& server_config : server_configs) 
+    for (const auto& server_config : server_configs)
     {
         printServerConfig(server_config);
     }
 }
 
-Parser::~Parser() 
+Parser::~Parser()
 {
     // Destructor implementation (if needed)
 }

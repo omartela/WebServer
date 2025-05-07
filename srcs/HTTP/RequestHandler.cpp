@@ -1,14 +1,19 @@
 
-#include "../includes/RequestHandler.hpp"
-#include "../includes/Logger.hpp"
+#include "RequestHandler.hpp"
+#include "Logger.hpp"
+#include "Enums.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
 #include <map>
 #include <vector>
 #include <cstdio>
 #include <iostream>
+#include <filesystem>
 
 
 void printRequest(const HTTPRequest &req)
@@ -62,7 +67,7 @@ static std::string extractFilename(const std::string& path, int method)
         if (start == std::string::npos)
             return path;
         return path.substr(start + 1);
-    } 
+    }
 }
 
 static std::string extractContent(const std::string& part)
@@ -110,13 +115,59 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
     return result;
 }
 
-HTTPResponse RequestHandler::executeCGI(const HTTPRequest& request)
+HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
 {
-    (void)request;
-    std::string body = "CGI BODY";
+    std::string path = "." + req.path;
+    if (access(path.c_str(), X_OK) != 0)
+        return  HTTPResponse(403, "Forbidden");
+    int inPipe[2], outPipe[2];
+    pipe(inPipe);
+    pipe(outPipe);
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        dup2(inPipe[0], STDIN_FILENO);
+        dup2(outPipe[1], STDOUT_FILENO);
+        close(inPipe[1]);
+        close(outPipe[0]);
+        setenv("REQUEST_METHOD", req.method.c_str(), 1);
+        setenv("SCRIPT_NAME", req.path.c_str(), 1);
+        setenv("CONTENT_LENGTH", std::to_string(req.body.size()).c_str(), 1);
+        if (req.headers.count("Content-Type"))
+            setenv("CONTENT_TYPE", req.headers.at("Content-Type").c_str(), 1);
+        char *argv[] = { const_cast<char*>(path.c_str()), NULL };
+        execve(argv[0], argv, environ);
+        _exit(1);
+    }
+    close(inPipe[0]);
+    close(outPipe[1]);
+    write(inPipe[1], req.body.c_str(), req.body.size());
+    close(inPipe[1]);
+    char buffer[4096];
+    std::string output;
+    ssize_t n;
+    while ((n = read(outPipe[0], buffer, sizeof(buffer))) > 0)
+        output.append(buffer, n);
+    close(outPipe[0]);
+    waitpid(pid, NULL, 0);
+    std::string::size_type end = output.find("\r\n\r\n");
+    if (end == std::string::npos)
+        return HTTPResponse(500, "Invalid CGI output");
+    std::string headers = output.substr(0, end);
+    std::string body = output.substr(end + 4);
     HTTPResponse res(200, "OK");
     res.body = body;
-    res.headers["Content-Length"] = body.size();
+    std::istringstream header(headers);
+    std::string line;
+    while (std::getline(header, line))
+    {
+        if (line.back() == '\r')
+            line.pop_back();
+        size_t colon = line.find(':');
+        if (colon != std::string::npos)
+            res.headers[line.substr(0, colon)] = line.substr(colon + 2);
+    }
+    res.headers["Content-Length"] = std::to_string(res.body.size());
     return res;
 }
 
@@ -143,17 +194,16 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
         if (file.empty())
         return HTTPResponse(400, "Bad request");
     HTTPResponse res(200, "OK");
-    res.body = "File(s) upploaded successfully\n";
+    res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(req.path);
-    res.headers["Content-Type"] = getMimeType(ext); 
+    res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST File(s) downloaded successfully", false);
     return res;
 }
 
 HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 {
-    // printRequest(req);
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
@@ -208,15 +258,16 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     HTTPResponse res(200, "OK");
     res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(req.path);
-    res.headers["Content-Type"] = getMimeType(ext); 
+    res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST (multi) File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) downloaded successfully", false);
     return res;
 }
 
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
     std::string base_path = "." + path;
+    std::cout << base_path << std::endl;
     if (base_path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "Forbidden", false);
@@ -239,7 +290,7 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
     std::string ext = getFileExtension(base_path);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
-    wslog.writeToLogFile(INFO, "GET File(s) upploaded successfully", false);
+    wslog.writeToLogFile(INFO, "GET File(s) uploaded successfully", false);
     return response;
 }
 
@@ -250,7 +301,7 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
         return HTTPResponse(403, "Forbidden");
     if (access(full_path.c_str(), F_OK) != 0)
         return HTTPResponse(404, "Not Found");
-    if (remove(full_path.c_str()) != 0)
+    if (remove(path.c_str()) != 0)
         return HTTPResponse(500, "Delete Failed");
     HTTPResponse res(200, "OK");
     res.body = "File deleted successfully\n";
@@ -260,14 +311,55 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
     return res;
 }
 
-HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
+
+bool RequestHandler::isAllowedMethod(std::string method, Route route)
 {
-    printRequest(req);
-    if (req.method == "GET")
-        return handleGET(req.path);
-    else if (req.method == "POST")
-        return handlePOST(req);
-    else if (req.method == "DELETE")
-        return handleDELETE(req.path);
-    return HTTPResponse(501, "Not Implemented");
+    for (size_t i = 0; i < route.accepted_methods.size(); i++)
+    {
+        if (method == route.accepted_methods[i])
+            return true;
+    }
+    return false;
+}
+
+HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
+{
+    // printRequest(req);
+    // std::cout << "Req path: " << req.path << std::endl;
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    // std::cout << "Key: " << key << std::endl;
+    std::string fullPath = "." + config.routes[key].root + req.path;
+
+    bool validFile = false;
+    try
+    {
+        validFile = std::filesystem::exists(fullPath);
+    }
+    catch(const std::exception& e)
+    {
+        wslog.writeToLogFile(ERROR, "Invalid file name", true);
+        return HTTPResponse(400, "Invalid file name");
+    }
+    if (!isAllowedMethod(req.method, config.routes[key]))
+        return HTTPResponse(400, "Method not allowed");
+    switch (req.eMethod)
+    {
+        case GET:
+        {
+            if (validFile)
+                return handleGET(config.routes[key].root + req.path);
+            else
+                return HTTPResponse(400, "Invalid file");
+        }
+        case POST:
+        {
+            return handlePOST(req);
+        }
+        case DELETE:
+        {
+            return handleDELETE(req.path);
+        }
+        default:
+            return HTTPResponse(501, "Not Implemented");
+    }
 }
