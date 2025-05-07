@@ -196,7 +196,7 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
             parseCgiExtensionDirective(line, route);
         }
     }
-    server_config.routes.push_back(route);
+    server_config.routes[route.path] = route;
 }
 
 bool Parser::validateServerDirective(const std::string& line)
@@ -570,7 +570,7 @@ void Parser::printServerConfig(const ServerConfig& server_config) const
     std::cout << "Client Max Body Size: " << server_config.client_max_body_size << std::endl;
     for (const auto& route : server_config.routes) 
     {
-        printRoute(route);
+        printRoute(route.second);
     }
 }
 
