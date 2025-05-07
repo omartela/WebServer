@@ -159,7 +159,7 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
 {
     Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
-    size_t pos = line.find("location /") + 10; // Skip "location /"
+    size_t pos = line.find("location ") + 9; // Skip "location /"
     size_t end_pos = line.find("{");
     line = line.substr(pos, end_pos - pos);
     trimLeadingAndTrailingSpaces(line);
