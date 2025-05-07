@@ -1,43 +1,36 @@
 #include "eventLoop.hpp"
-#include "Connection.hpp"
-#include "Server.hpp"
+#include "Client.hpp"
+//#include "Server.hpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
-static int  initServerSocket();
-static int  acceptNewConnection(int listenerSocket, std::map<int, Connection> connections);
-static int  findNewFd(std::map<int, Connection> connections);
-static void handleClientRequest();
+static int  initServerSocket(ServerConfig server);
+static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
+static void handleClientRequest(Client client);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
     //Connection::nActiveConnections = 0;
-    std::map<int, Server> servers;
-    std::map<int, Connection> connections;
+    std::map<int, ServerConfig> servers;
+    std::map<int, Client> clients;
     int serverSocket;
     struct epoll_event setup;
     std::vector<epoll_event> eventLog(MAX_CONNECTIONS);
 
-    int eventLoop = epoll_create1(0);
+    int loop = epoll_create1(0);
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
-        Server newServer;
-
+        ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
         newServer.fd = serverSocket;
-
         setup.data.fd = newServer.fd;
         setup.events = EPOLLIN;
-
+        if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
+            throw std::runtime_error("serverSocket epoll_ctl ADD failed");
         servers[serverSocket] = newServer;
-
-        if (epoll_ctl(eventLoop, EPOLL_CTL_ADD, servers.at(i).fd, &setup) < 0)
-            throw std::runtime_error("serverSocket epoll_ctl failed");
     }
-    Connection::nextFreeSocketIndex = servers.size() + 3;
-    Connection::nConnections = 0;
     while (true)
     {
-        int nReady = epoll_wait(eventLoop, eventLog.data(), MAX_CONNECTIONS, -1);
+        int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
             throw std::runtime_error("epoll_wait failed");
             
@@ -45,14 +38,17 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         {
             if (servers.find(eventLog[i].data.fd) != servers.end())
             {
-                int newConnection = acceptNewConnection(serverSocket, connections);
+                Client newClient;
+                int clientFd = acceptNewClient(loop, serverSocket, clients);
+                setup.data.fd = clientFd;
                 setup.events = EPOLLIN | EPOLLOUT;
-                setup.data.fd = newConnection;
-                if (epoll_ctl(eventLoop, EPOLL_CTL_ADD, newConnection, &setup) < 0)
-                    throw std::runtime_error("newConnection epoll_ctl failed");
+                newClient.serverInfo = servers[serverSocket];
+                if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
+                    throw std::runtime_error("newClient epoll_ctl ADD failed");
+                clients[clientFd] = newClient;
             }
             else
-                handleClientRequest(connections, eventLog[i]);
+                handleClientRequest(clients[eventLog[i].data.fd]);
         }
     }
 }
@@ -71,62 +67,40 @@ static int initServerSocket(ServerConfig server)
     return (serverSocket);
 }
 
-static int acceptNewConnection(int listenerSocket, std::map<int, Connection> connections)
+static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients)
 {
-    int newFd = findNewFd(connections);
     struct sockaddr_in clientAddress;
     socklen_t clientLen = sizeof(clientAddress);
 
-    connections.at(newFd).fd = accept(listenerSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
-    return newFd;
-}
-
-static int  findNewFd(std::map<int, Connection> connections)
-{
-    int newFd = -1;
-
-    if (Connection::nextFreeSocketIndex < MAX_CONNECTIONS)
+    int newFd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+    if (newFd < 0)
     {
-        //go thru earlier connections for vacancy
-        for (const std::pair<const int, Connection>& oldConnection : connections)
+        if (errno == EMFILE) //max fds reached
         {
-            if (oldConnection.second.state == VACANT)
-            {
-                newFd = oldConnection.first;
-                connections.at(newFd).state = IDLE;
-                return newFd;
-            }
+            int oldFd = findOldClient(clients); //to do
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
+                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            close(oldFd);
+            clients.at(oldFd).reset();
+            newFd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
         }
-        //if no vacancy, make new instance
-        if (newFd == -1)
-        {
-            newFd = Connection::nextFreeSocketIndex;
-            connections[newFd] = Connection();
-            Connection::nextFreeSocketIndex++;
-        }
-    }
-    else
-    {
-        //newFd = least active connection
-        connections.at(newFd).hardReset();
-        //close()?
+        else
+            throw std::runtime_error("accept failed");
     }
     return newFd;
 }
 
-static void handleClientRequest(std::map<int, Connection> connections, struct epoll_event event)
+static void handleClientRequest(Client client)
 {
-    int fd = event.data.fd;
-
-    switch (connections.at(fd).state)
+    switch (client.state)
     {
         case IDLE:
-            connections.at(fd).state = READ_HEADER;
+            client.state = READ_HEADER;
         case READ_HEADER:
         {
-            connections.at(fd).bytesRead = recv(fd, connections.at(fd).readBuffer.data(), sizeof(connections.at(fd).readBuffer), 0); 
-            //size limit?
-            if (connections.at(fd).bytesRead < 0)
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), 0); 
+            //check size limit?
+            if (client.bytesRead < 0)
                 throw std::runtime_error("recv failed"); //more comprehensive later
             
         }
@@ -137,6 +111,6 @@ static void handleClientRequest(std::map<int, Connection> connections, struct ep
         case SEND_HEADER:
         case SEND_BODY:
         case DONE:
-            connections.at(fd).softReset();
+            client.reset();
     }
 };

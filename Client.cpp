@@ -1,26 +1,24 @@
-#include "Connection.hpp"
+#include "Client.hpp"
 
-Connection::Connection()
+Client::Client()
 {
     this->fd = -1;
-    this->state = VACANT;
+    this->state = IDLE;
     this->readBuffer.reserve(1024);
     this->writeBuffer.reserve(1024);
     this->bytesRead = 0;
     this->bytesWritten = 0;
-    nConnections++;
 }
 
-Connection::~Connection() {
-    nConnections--;
-};
+Client::~Client() {
+}
 
-Connection::Connection(const Connection& copy)
+Client::Client(const Client& copy)
 {
     *this = copy;
 }
 
-Connection& Connection::operator=(const Connection& copy)
+Client& Client::operator=(const Client& copy)
 {
     if (this != & copy)
     {
@@ -33,21 +31,12 @@ Connection& Connection::operator=(const Connection& copy)
     return *this;
 }
 
-void Connection::softReset()
+void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
     this->writeBuffer.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
-}
-
-void Connection::hardReset()
-{
-    this->state = VACANT;
-    this->readBuffer.clear();
-    this->writeBuffer.clear();
-    this->bytesRead = 0;
-    this->bytesWritten = 0;
-    nConnections--;
+    //clean httpRequest struct
 }

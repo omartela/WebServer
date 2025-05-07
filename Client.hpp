@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <cstring>
+//#include "Parser.hpp"
 
 struct httpRequest
 {
@@ -10,7 +11,7 @@ struct httpRequest
     std::string path;
     std::map<std::string, std::string> headers;
     std::string body;
-} s_httpRequest;
+};
 
 enum connectionStates {
     IDLE,
@@ -18,13 +19,11 @@ enum connectionStates {
     READ_BODY,
     SEND_HEADER,
     SEND_BODY,
-    DONE,
-    VACANT
-} e_connectionStates;
+    DONE
+};
 
-class Connection {
-    public:
-        //change all these to private? fix later
+class Client {
+    public:  //change all these to private? fix later
         int fd;
         enum connectionStates state;
         std::vector<char> readBuffer;
@@ -32,18 +31,14 @@ class Connection {
         size_t bytesRead;
         size_t bytesWritten;
 
-        static int nConnections;
-        static int nextFreeSocketIndex;
-        //std::vector<int> vacantFds; //maybe good to have
-        //static int nActiveConnections;
+        ServerConfig serverInfo;
 
         httpRequest request;
 
-        Connection();
-        Connection(const Connection& copy);
-        Connection& operator=(const Connection& copy);
-        ~Connection();
+        Client();
+        Client(const Client& copy);
+        Client& operator=(const Client& copy);
+        ~Client();
 
-        void softReset();
-        void hardReset();
+        void reset();
 };
