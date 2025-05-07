@@ -8,7 +8,6 @@ class HTTPResponse
     private:
         int status;
         std::string stat_msg;
-        std::string err_msg;
     public:
         HTTPResponse(int code = 200, const std::string& msg = "OK");
         std::map<std::string, std::string> headers;
@@ -17,8 +16,6 @@ class HTTPResponse
 
         // Functions
         int getStatusCode();
-        std::string getStatusMessage();
-        void setErrMsg(std::string str);
-        std::string getErrMsg();
+        std::string getStatusMessage();;
         HTTPResponse generateErrorResponse(int statusCode, std::string errmessage);
 };

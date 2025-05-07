@@ -207,23 +207,17 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
-        return HTTPResponse(400, "Bad Request: Missing Content-Type");
+        return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
     std::string ct = its->second;
     if (ct.find("multipart/form-data") == std::string::npos)
         return nonMultipart(req);
     if (its == req.headers.end())
-    {
-        HTTPResponse response(400, "Bad Request");
-        response.setErrMsg("No headers");
-    }
+        HTTPResponse response(400, "Invalid headers");
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-    {
-        HTTPResponse response(400, "Bad Request: No boundary");
-        response.setErrMsg("No boundary");
-    }
+        HTTPResponse response(400, "No boundary");
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
@@ -266,20 +260,20 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
-    std::string base_path = "." + path;
-    std::cout << base_path << std::endl;
-    if (base_path.find("..") != std::string::npos)
+    // std::string base_path = "." + path;
+    std::cout << path << std::endl;
+    if (path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "Forbidden", false);
         return HTTPResponse(403, "Forbidden");
     }
     struct stat s;
-    if (stat(base_path.c_str(), &s) != 0 || access(base_path.c_str(), R_OK) != 0)
+    if (stat(path.c_str(), &s) != 0 || access(path.c_str(), R_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
-    std::ifstream file(base_path.c_str(), std::ios::binary);
+    std::ifstream file(path.c_str(), std::ios::binary);
     if (!file.is_open())
         return HTTPResponse(500, "Internal Server Error");
     std::ostringstream content;
@@ -287,7 +281,7 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
     file.close();
     HTTPResponse response(200, "OK");
     response.body = content.str();
-    std::string ext = getFileExtension(base_path);
+    std::string ext = getFileExtension(path);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
     wslog.writeToLogFile(INFO, "GET File(s) uploaded successfully", false);
@@ -324,7 +318,7 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 
 HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
 {
-    // printRequest(req);
+    printRequest(req);
     // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
@@ -347,7 +341,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig 
         case GET:
         {
             if (validFile)
-                return handleGET(config.routes[key].root + req.path);
+                return handleGET(fullPath);
             else
                 return HTTPResponse(400, "Invalid file");
         }

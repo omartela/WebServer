@@ -118,7 +118,7 @@ void SocketsHandler::Run()
                         std::string rawRes;
                         if (res.getStatusCode() >= 400)
                         {
-                            res = res.generateErrorResponse(res.getStatusCode(), res.getErrMsg());
+                            res = res.generateErrorResponse(res.getStatusCode(), res.getStatusMessage());
                             rawRes = res.toString();
                         }
                         else

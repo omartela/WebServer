@@ -26,16 +26,6 @@ std::string HTTPResponse::getStatusMessage()
     return stat_msg;
 }
 
-void HTTPResponse::setErrMsg(std::string errmsg)
-{
-    err_msg = errmsg;
-}
-
-std::string HTTPResponse::getErrMsg()
-{
-    return err_msg;
-}
-
 HTTPResponse HTTPResponse::generateErrorResponse(int statusCode, std::string errmessage)
 {
        static std::unordered_map<int, std::string> statusMessages =
