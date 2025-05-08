@@ -131,7 +131,11 @@ static void handleClientRequest(Client client)
         }
         case READ_BODY:
         {
-            
+             if (client.request.headers["Transfer-Encoding"] == "chunked")
+                 readChunkedBody(client);
+             else
+                 readNormalBody(client);
+             break; // tai return
         }
         case SEND_HEADER:
         {
@@ -147,3 +151,39 @@ static void handleClientRequest(Client client)
         }
     }
 };
+
+static void readChunkedBody(Client &client)
+{
+    // Lisää luettu data chunkBufferiin
+    client.chunkBuffer.append(client.readBuffer.begin(), client.readBuffer.begin() + client.bytesRead);
+    client.readBuffer.clear();
+
+    // Tarkistetaan, onko chunkin koko jo saatavilla
+    size_t pos = client.chunkBuffer.find("\r\n");
+    if (pos == std::string::npos)
+        return;  // Ei voida vielä lukea chunkin kokoa
+
+    // Lue chunkin koko
+    std::string sizeStr = client.chunkBuffer.substr(0, pos);
+    client.currentChunkSize = std::stoul(sizeStr, nullptr, 16);
+    chunkBuffer.erase(0, pos + 2);  // Poista chunkin koko ja \r\n
+
+    if (client.currentChunkSize == 0)
+    {
+        // Loppu chunk
+        client.state = SEND_HEADER;  // Kaikki chunkit luettu
+        client.request.body = client.bodyBuffer;  // Tallenna body
+        client.currentChunkSize = 0;
+        client.chunkBuffer = "";
+        client.bodyBuffer = "";
+        return;
+    }
+
+    // Varmistetaan, että chunk on kokonaan luettu
+    if (client.chunkBuffer.size() < client.currentChunkSize + 2)
+        return;  // Ei vielä koko chunkia, palauta hallinta takaisin epollille
+
+    // Lisää chunk bodyyn
+    client.bodyBuffer += client.chunkBuffer.substr(0, client.currentChunkSize);
+    chunkBuffer.erase(0, client.currentChunkSize + 2);  // Poista chunk ja \r\n
+}
