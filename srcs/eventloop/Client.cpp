@@ -45,4 +45,7 @@ void Client::requestParser()
 {
     std::string bufferString(this->readBuffer.begin(), this->readBuffer.end());
     std::istringstream stream(bufferString);
+    std::string line;
+    if (!std::getline(stream, line))
+        return ;
 }

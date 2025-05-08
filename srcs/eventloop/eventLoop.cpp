@@ -1,6 +1,6 @@
 #include "eventLoop.hpp"
 #include "Client.hpp"
-//#include "Server.hpp"
+#include "Parser.hpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
@@ -9,7 +9,6 @@ static void handleClientRequest(Client client);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
-    //Connection::nActiveConnections = 0;
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;
@@ -79,7 +78,7 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     {
         if (errno == EMFILE) //max fds reached
         {
-            int oldFd = findOldClient(clients); //to do
+            int oldFd = 0; //findOldClient(clients); //to do
             if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
                 throw std::runtime_error("oldFd epoll_ctl DEL failed");
             close(oldFd);
@@ -89,11 +88,13 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
         else
             throw std::runtime_error("accept failed");
     }
+    std::cout << "New client connected, FD: " << newFd << std::endl;
     return newFd;
 }
 
 static void handleClientRequest(Client client)
 {
+    std::cout << "Client connected on FD: " << client.fd << std::endl;
     switch (client.state)
     {
         case IDLE:
@@ -113,7 +114,7 @@ static void handleClientRequest(Client client)
                 std::string last4bytes(client.readBuffer.end() - 4, client.readBuffer.end());
                 if (last4bytes == "\r\n\r\n")
                 {
-                    client.requestParser(client.readBuffer);
+                    //client.requestParser(client.readBuffer);
                     client.state = READ_BODY;
                 }
                 else
@@ -132,6 +133,9 @@ static void handleClientRequest(Client client)
         }
         case SEND_BODY:
         case DONE:
+        {
+            //if connection close, then close connection 
             client.reset();
+        }
     }
 };
