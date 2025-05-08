@@ -43,5 +43,5 @@ class Client {
         ~Client();
 
         void reset();
-        void requestParser()
+        void requestParser();
 };
