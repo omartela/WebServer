@@ -10,8 +10,10 @@ struct httpRequest
 {
     std::string method;
     std::string path;
+    std::string version;
     std::map<std::string, std::string> headers;
     std::string body;
+    size_t contentLen;
 };
 
 enum connectionStates {
@@ -26,8 +28,9 @@ enum connectionStates {
 class Client {
     public:  //change all these to private? fix later
         int fd;
-        int serverFd;
         enum connectionStates state;
+        size_t timeConnected;
+        
         std::vector<char> readBuffer;
         std::vector<char> writeBuffer;
         size_t bytesRead;
@@ -44,4 +47,6 @@ class Client {
 
         void reset();
         void requestParser();
+        void resetRequest();
+        bool validateHeader();
 };
