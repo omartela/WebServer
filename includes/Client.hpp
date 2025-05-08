@@ -53,9 +53,5 @@ class Client {
         ~Client();
 
         void reset();
-        void resetRequest();
         void requestParser();
-        void removeWhitespaces(std::string& key, std::string& value);
-        void validateHeader();
-        reqTypes getMethodEnum();
 };
