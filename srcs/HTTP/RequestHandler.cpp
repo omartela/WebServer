@@ -51,6 +51,7 @@ static std::string getMimeType(const std::string& ext)
 
 static std::string extractFilename(const std::string& path, int method)
 {
+    std::cout << "Extract path: " << path << std::endl;
     size_t start;
     if (method)
     {
@@ -170,48 +171,74 @@ HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
     res.headers["Content-Length"] = std::to_string(res.body.size());
     return res;
 }
+// HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
+// {
+//     if (req.serverInfo.routes["/cgi/"].root.find("/www/cgi/") == 0)
+//         return executeCGI(req);
+//     if (req.headers.count("Content-Type") == 0)
+//         return HTTPResponse(400, "Missing Content-Type");
+//     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
+//     std::string ct = its->second;
+//     if (ct.find("multipart/form-data") == std::string::npos)
+//         return nonMultipart(req);
+//     if (its == req.headers.end())
+//         HTTPResponse response(400, "Invalid headers");
+//     std::string boundary;
+//     std::string::size_type pos = ct.find("boundary=");
+//     if (pos == std::string::npos)
+//         HTTPResponse response(400, "No boundary");
+//     boundary = ct.substr(pos + 9);
+//     if (!boundary.empty() && boundary[0] == '"')
+//         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
+//     std::string bound_mark = "--" + boundary;
+//     std::vector<std::string> parts = split(req.body, bound_mark);
+//     std::string lastPath;
+//     for (std::vector<std::string>::iterator it = parts.begin(); it != parts.end(); ++it)
+//     {
+//         std::string& part = *it;
+//         if (part.empty() || part == "--\r\n" || part == "--")
+//             continue;
+//         std::string file = extractFilename(part, 1);
+//         std::cout << "File: " << file << std::endl;
+//         if (file.empty())
+//             continue;
+//         std::string content = extractContent(part);
+//         std::string folder = req.path;
+//         std::cout << "Folder: " << std::endl;
+//         if (folder[0] == '/')
+//             folder.erase(0, 1);
+//         std::string path = folder + "/" + file;
+//         lastPath = path;
+//         std::cout << "Last path: " << std::endl;
+//         std::ofstream out(path.c_str(), std::ios::binary);
+//         if (!out.is_open())
+//         {
+//             wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
+//             return HTTPResponse(500, "Failed to open file for writing");
+//         }
+//         out.write(content.c_str(), content.size());
+//         out.close();
+//     }
+//     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
+//         return HTTPResponse(400, "File not uploaded");
+//     HTTPResponse res(200, "OK");
+//     res.body = "File(s) uploaded successfully\n";
+//     std::string ext = getFileExtension(req.path);
+//     res.headers["Content-Type"] = getMimeType(ext);
+//     res.headers["Content-Length"] = std::to_string(res.body.size());
+//     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
+//     return res;
+// }
 
-HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
+HTTPResponse RequestHandler::handleMultipart(HTTPRequest& req)
 {
-    std::string folder = req.path;
-    if (folder[0] == '/')
-        folder.erase(0, 1);
-    std::string path = folder;
-    std::ofstream out(path.c_str(), std::ios::binary);
-    if (!out.is_open())
-    {
-        wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
-        return HTTPResponse(500, "Failed to open file for writing");
-    }
-    out.write(req.body.c_str(), req.body.size());
-    out.close();
-    if (access(path.c_str(), R_OK) != 0)
-    {
-        wslog.writeToLogFile(ERROR, "File not uploaded", false);
-        return HTTPResponse(400, "File not uploaded");
-    }
-    std::string file = extractFilename(req.path, 0);
-        if (file.empty())
-        return HTTPResponse(400, "Bad request");
-    HTTPResponse res(200, "OK");
-    res.body = "File(s) uploaded successfully\n";
-    std::string ext = getFileExtension(req.path);
-    res.headers["Content-Type"] = getMimeType(ext);
-    res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
-    return res;
-}
-
-HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
-{
-    if (req.serverInfo.routes.at("/cgi/").root.find("/www/cgi/") == 0)
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    if (req.serverInfo.routes[key].root == "/www/cgi/")
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
     std::string ct = its->second;
-    if (ct.find("multipart/form-data") == std::string::npos)
-        return nonMultipart(req);
     if (its == req.headers.end())
         HTTPResponse response(400, "Invalid headers");
     std::string boundary;
@@ -230,18 +257,21 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
         std::string file = extractFilename(part, 1);
+        std::cout << "File: " << file << std::endl;
         if (file.empty())
             continue;
         std::string content = extractContent(part);
         std::string folder = req.path;
+        std::cout << "Folder: " << std::endl;
         if (folder[0] == '/')
             folder.erase(0, 1);
         std::string path = folder + "/" + file;
         lastPath = path;
+        std::cout << "Last path: " << std::endl;
         std::ofstream out(path.c_str(), std::ios::binary);
         if (!out.is_open())
         {
-            wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
+            wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
             return HTTPResponse(500, "Failed to open file for writing");
         }
         out.write(content.c_str(), content.size());
@@ -258,23 +288,93 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     return res;
 }
 
+// {
+//     std::string folder = req.path;
+//     if (folder[0] == '/')
+//         folder.erase(0, 1);
+//     std::string path = folder;
+//     std::ofstream out(path.c_str(), std::ios::binary);
+//     if (!out.is_open())
+//     {
+//         wslog.writeToLogFile(ERROR, "Failed to open file for writing", false);
+//         return HTTPResponse(500, "Failed to open file for writing");
+//     }
+//     out.write(req.body.c_str(), req.body.size());
+//     out.close();
+//     if (access(path.c_str(), R_OK) != 0)
+//     {
+//         wslog.writeToLogFile(ERROR, "File not uploaded", false);
+//         return HTTPResponse(400, "File not uploaded");
+//     }
+//     std::string file = extractFilename(req.path, 0);
+//     if (file.empty())
+//         return HTTPResponse(400, "Bad request");
+//     HTTPResponse res(200, "OK");
+//     res.body = "File(s) uploaded successfully\n";
+//     std::string ext = getFileExtension(req.path);
+//     res.headers["Content-Type"] = getMimeType(ext);
+//     res.headers["Content-Length"] = std::to_string(res.body.size());
+//     wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
+//     return res;
+// }
+HTTPResponse RequestHandler::handlePOST(HTTPRequest& req)
+{
+    if (req.headers.count("Content-Type") == 0)
+    return HTTPResponse(400, "Missing Content-Type");
+    if (req.headers["Content-Type"] == "multipart/form-data")
+    return handleMultipart(req);
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    std::cout << "Key: " << key << std::endl;
+    std::string path = "." + req.serverInfo.routes[key].root + req.file;
+    std::cout << "Path: " << path << std::endl;
+    std::ofstream out(path.c_str(), std::ios::binary);
+    if (!out.is_open())
+    {
+        std::cout << "HERE" << std::endl;
+        wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
+        return HTTPResponse(500, "Failed to open file for writing");
+    }
+    out.write(req.body.c_str(), req.body.size());
+    out.close();
+    if (access(path.c_str(), R_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "400 File not uploaded", false);
+        return HTTPResponse(400, "File not uploaded");
+    }
+    if (req.file.empty())
+    {
+        wslog.writeToLogFile(ERROR, "400 Bad request", false);
+        return HTTPResponse(400, "Bad request");
+    }
+    HTTPResponse res(200, "OK");
+    res.body = "File(s) uploaded successfully\n";
+    std::string ext = getFileExtension(req.path);
+    res.headers["Content-Type"] = getMimeType(ext);
+    res.headers["Content-Length"] = std::to_string(res.body.size());
+    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
+    return res;
+}
+
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
     // std::cout << path << std::endl;
     if (path.find("..") != std::string::npos)
     {
-        wslog.writeToLogFile(ERROR, "Forbidden", false);
+        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
         return HTTPResponse(403, "Forbidden");
     }
     struct stat s;
     if (stat(path.c_str(), &s) != 0 || access(path.c_str(), R_OK) != 0)
     {
-        wslog.writeToLogFile(ERROR, "Not Found", false);
+        wslog.writeToLogFile(ERROR, "404 Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
     std::ifstream file(path.c_str(), std::ios::binary);
     if (!file.is_open())
+    {
+        wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
         return HTTPResponse(500, "Internal Server Error");
+    }
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
@@ -315,15 +415,15 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
     return false;
 }
 
-HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
+HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
 {
     // printRequest(req);
-    std::cout << "Req path: " << req.path << std::endl;
+    // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string fullPath = "." + req.serverInfo.routes[key].root + req.file;
-    std::cout << "Map key: " << req.serverInfo.routes.at(key).path << std::endl;
-    std::cout << "Full path: " << fullPath << std::endl;
+    // std::cout << "Map key: " << req.serverInfo.routes[key].path << std::endl;
+    // std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {
@@ -334,7 +434,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(400, "Invalid file name");
     }
-    if (!isAllowedMethod(req.method, req.serverInfo.routes.at(key)))
+    if (!isAllowedMethod(req.method, req.serverInfo.routes[key]))
         return HTTPResponse(400, "Method not allowed");
     switch (req.eMethod)
     {
