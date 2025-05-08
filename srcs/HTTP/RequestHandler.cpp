@@ -198,13 +198,13 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST File(s) downloaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
     return res;
 }
 
 HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
 {
-    if (req.path.find("/cgi-bin/") == 0)
+    if (req.serverInfo.routes.at("/cgi/").root.find("/www/cgi/") == 0)
         return executeCGI(req);
     if (req.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
@@ -254,14 +254,13 @@ HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
     std::string ext = getFileExtension(req.path);
     res.headers["Content-Type"] = getMimeType(ext);
     res.headers["Content-Length"] = std::to_string(res.body.size());
-    wslog.writeToLogFile(INFO, "POST (multi) File(s) downloaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
     return res;
 }
 
 HTTPResponse RequestHandler::handleGET(const std::string& path)
 {
-    // std::string base_path = "." + path;
-    std::cout << path << std::endl;
+    // std::cout << path << std::endl;
     if (path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "Forbidden", false);
@@ -284,7 +283,7 @@ HTTPResponse RequestHandler::handleGET(const std::string& path)
     std::string ext = getFileExtension(path);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
-    wslog.writeToLogFile(INFO, "GET File(s) uploaded successfully", false);
+    wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
     return response;
 }
 
@@ -316,14 +315,15 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
     return false;
 }
 
-HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
+HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req)
 {
-    printRequest(req);
-    // std::cout << "Req path: " << req.path << std::endl;
+    // printRequest(req);
+    std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    // std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + config.routes[key].root + req.path;
-
+    std::cout << "Key: " << key << std::endl;
+    std::string fullPath = "." + req.serverInfo.routes[key].root + req.file;
+    std::cout << "Map key: " << req.serverInfo.routes.at(key).path << std::endl;
+    std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {
@@ -334,7 +334,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig 
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(400, "Invalid file name");
     }
-    if (!isAllowedMethod(req.method, config.routes[key]))
+    if (!isAllowedMethod(req.method, req.serverInfo.routes.at(key)))
         return HTTPResponse(400, "Method not allowed");
     switch (req.eMethod)
     {

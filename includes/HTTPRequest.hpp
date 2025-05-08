@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Enums.hpp"
+#include "Parser.hpp"
 #include <string>
 #include <map>
 
@@ -14,7 +15,9 @@ class HTTPRequest
         std::string method;
         reqTypes eMethod;
         std::string path;
+        std::string file;
+        ServerConfig serverInfo;
         std::map<std::string, std::string> headers;
         std::string body;
-        HTTPRequest(const std::string& raw);
+        HTTPRequest(const std::string& raw, ServerConfig server);
 };

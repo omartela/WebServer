@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-HTTPRequest::HTTPRequest(const std::string& raw){ parser(raw); }
+HTTPRequest::HTTPRequest(const std::string& raw, ServerConfig server) : serverInfo(server) { parser(raw); }
 
 /*
     How it works:
@@ -37,6 +37,7 @@ void HTTPRequest::parser(const std::string& raw)
     std::istringstream request_line(line);
     request_line >> method >> path;
     eMethod = getMethodEnum(method);
+    file = path.substr(path.find_last_of("/"));
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')
