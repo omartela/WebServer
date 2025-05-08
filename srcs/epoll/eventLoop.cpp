@@ -1,6 +1,5 @@
 #include "eventLoop.hpp"
 #include "Client.hpp"
-#include "Parser.hpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
@@ -26,6 +25,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
             throw std::runtime_error("serverSocket epoll_ctl ADD failed");
         servers[serverSocket] = newServer;
+        std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
     }
     while (true)
     {
@@ -44,12 +44,19 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 setup.events = EPOLLIN | EPOLLOUT;
                 newClient.serverFd = serverSocket;
                 newClient.serverInfo = servers[serverSocket];
+                newClient.fd = clientFd;
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
+                std::cout << "Client with key " << clientFd << " has a FD of " << clients[clientFd].fd << std::endl;
+                std::cout << "New client with FD "<< newClient.fd << " connected to server with FD " << serverSocket << std::endl;
             }
             else
+            {
+                for (auto pair : clients)
+                    std::cout << "Key: " << pair.first << ", Value FD: " << pair.second.fd << std::endl;
                 handleClientRequest(clients[eventLog[i].data.fd]);
+            }
         }
     }
 }
@@ -88,13 +95,14 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
         else
             throw std::runtime_error("accept failed");
     }
-    std::cout << "New client connected, FD: " << newFd << std::endl;
     return newFd;
 }
 
 static void handleClientRequest(Client client)
 {
-    std::cout << "Client connected on FD: " << client.fd << std::endl;
+    std::cout << "Request received from client FD " << client.fd << std::endl;
+    std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
+    exit(0);
     switch (client.state)
     {
         case IDLE:
