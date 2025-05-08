@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <cstdlib>
 #include <stdexcept>
-#include <fcntl.h>
+#include "Parser.hpp"
 
 #define MAX_CONNECTIONS 1000
 #define TIMEOUT 100

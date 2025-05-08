@@ -22,6 +22,7 @@ Client& Client::operator=(const Client& copy)
 {
     if (this != & copy)
     {
+        this->fd = copy.fd;
         this->state = copy.state;
         this->readBuffer = copy.readBuffer;
         this->writeBuffer = copy.writeBuffer;
