@@ -116,9 +116,10 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
     return result;
 }
 
-HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
+HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
 {
-    std::string path = "." + req.path;
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    std::string path = "." + req.serverInfo.routes[key].root + req.file;
     if (access(path.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
@@ -175,8 +176,7 @@ HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
 HTTPResponse RequestHandler::handleMultipart(HTTPRequest& req)
 {
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    if (req.serverInfo.routes[key].root == "/www/cgi/")
-        return executeCGI(req);
+
     if (req.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
@@ -269,14 +269,20 @@ HTTPResponse RequestHandler::handlePOST(HTTPRequest& req)
     return res;
 }
 
-HTTPResponse RequestHandler::handleGET(const std::string& path)
+HTTPResponse RequestHandler::handleGET(HTTPRequest& req)
 {
     // std::cout << path << std::endl;
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    // std::cout << "Key: " << key << std::endl;
+    std::string path = "." + req.serverInfo.routes[key].root + req.file;
+    // std::cout << "Path: " << path << std::endl;
     if (path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
         return HTTPResponse(403, "Forbidden");
     }
+    if (path.find("/www/cgi/") != std::string::npos)
+        return executeCGI(req);
     struct stat s;
     if (stat(path.c_str(), &s) != 0 || access(path.c_str(), R_OK) != 0)
     {
@@ -355,7 +361,7 @@ HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
         case GET:
         {
             if (validFile)
-                return handleGET(fullPath);
+                return handleGET(req);
             else
                 return HTTPResponse(400, "Invalid file");
         }
