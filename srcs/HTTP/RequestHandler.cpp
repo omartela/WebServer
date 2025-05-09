@@ -328,7 +328,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig 
     // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + config.routes[key].root + req.path;
+    std::string fullPath = "." + config.routes[key].abspath + req.path;
 
     bool validFile = false;
     try
@@ -347,7 +347,7 @@ HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig 
         case GET:
         {
             if (validFile)
-                return handleGET(config.routes[key].root + req.path);
+                return handleGET(config.routes[key].abspath + req.path);
             else
                 return HTTPResponse(400, "Invalid file");
         }
