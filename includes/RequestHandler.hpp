@@ -8,7 +8,7 @@ class RequestHandler
 {
     public:
         static HTTPResponse handleRequest(HTTPRequest& req);
-        static HTTPResponse nonMultipart(const HTTPRequest& req);
+        // static HTTPResponse nonMultipart(const HTTPRequest& req);
         static HTTPResponse handleMultipart(HTTPRequest& req);
     private:
         static HTTPResponse handleGET(const std::string& path);
