@@ -8,6 +8,7 @@ static void handleClientRequest(Client client);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
+    //TO DO create timeout
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;
@@ -42,19 +43,15 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 int clientFd = acceptNewClient(loop, serverSocket, clients);
                 setup.data.fd = clientFd;
                 setup.events = EPOLLIN | EPOLLOUT;
-                newClient.serverFd = serverSocket;
                 newClient.serverInfo = servers[serverSocket];
                 newClient.fd = clientFd;
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
-                std::cout << "Client with key " << clientFd << " has a FD of " << clients[clientFd].fd << std::endl;
-                std::cout << "New client with FD "<< newClient.fd << " connected to server with FD " << serverSocket << std::endl;
+                std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
             }
             else
             {
-                for (auto pair : clients)
-                    std::cout << "Key: " << pair.first << ", Value FD: " << pair.second.fd << std::endl;
                 handleClientRequest(clients[eventLog[i].data.fd]);
             }
         }
@@ -77,6 +74,7 @@ static int initServerSocket(ServerConfig server)
 
 static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients)
 {
+    //TODO findOldClient(clients);
     struct sockaddr_in clientAddress;
     socklen_t clientLen = sizeof(clientAddress);
 
@@ -85,7 +83,7 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     {
         if (errno == EMFILE) //max fds reached
         {
-            int oldFd = 0; //findOldClient(clients); //to do
+            int oldFd = -1; //findOldClient(clients);
             if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
                 throw std::runtime_error("oldFd epoll_ctl DEL failed");
             close(oldFd);
@@ -122,7 +120,7 @@ static void handleClientRequest(Client client)
                 std::string last4bytes(client.readBuffer.end() - 4, client.readBuffer.end());
                 if (last4bytes == "\r\n\r\n")
                 {
-                    //client.requestParser(client.readBuffer);
+                    client.requestParser();
                     client.state = READ_BODY;
                 }
                 else
@@ -139,14 +137,14 @@ static void handleClientRequest(Client client)
         }
         case SEND_HEADER:
         {
-            client.bytesWritten = send(client.serverFd, client.writeBuffer.data(), sizeof(client.writeBuffer), MSG_DONTWAIT);
+            client.bytesWritten = send(client.serverInfo.fd, client.writeBuffer.data(), sizeof(client.writeBuffer), MSG_DONTWAIT);
             if (client.bytesWritten < 0)
                 throw std::runtime_error("header send failed"); //more comprehensive later
         }
         case SEND_BODY:
         case DONE:
         {
-            //if connection close, then close connection 
+            //if connection = close, then close connection 
             client.reset();
         }
     }
