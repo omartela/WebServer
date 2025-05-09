@@ -189,7 +189,7 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     while (getline(file, line) && line.find("}") == std::string::npos)
     {
         trimLeadingAndTrailingSpaces(line);
-        if (line.find("root ") != std::string::npos)
+        if (line.find("abspath ") != std::string::npos)
         {
            parseAbsPathDirective(line, route);
         }
@@ -320,16 +320,16 @@ bool Parser::validateAbsPathDirective(const std::string& line)
 {
     /*
     ### Explanation of the Regex:
-        1. **`^root`**: Ensures the line starts with the word "root".
-        2. **`\s+`**: Matches one or more whitespace characters after "root".
+        1. **`^abspath`**: Ensures the line starts with the word "abspath".
+        2. **`\s+`**: Matches one or more whitespace characters after "abspath".
         3. **`(/[^\s;]+)+`**: Matches one or more paths:
         - `/`: Each path starts with a forward slash.
         - `[^\s;]+`: Matches one or more characters that are not whitespace or a semicolon.
         4. **`;`**: Ensures the line ends with a semicolon.
         5. **`$`**: Ensures the match goes to the end of the line.
     */
-    std::regex root_regex(R"(^\s*abspath\s+(/[^\s;]+)+;$)");
-    if (std::regex_match(line, root_regex))
+    std::regex abspath_regex(R"(^\s*abspath\s+(/[^\s;]+)+;$)");
+    if (std::regex_match(line, abspath_regex))
         return true;
     else
         return false;
@@ -431,9 +431,9 @@ bool Parser::validateBrackets(const std::string& config_file)
 
 bool Parser::validateDirectives(const std::string& line)
 {
-    if (line.find("cgipathpython "))
+    if (line.find("cgipathpython ") != std::string::npos)
         return true;
-    if (line.find("cgipathphp "))
+    if (line.find("cgipathphp ") != std::string::npos)
         return true;
     // Check if the line contains any of the directives
     if (validateServerDirective(line) || validateListenDirective(line) || validateServerNameDirective(line) ||
@@ -574,7 +574,7 @@ void Parser::printRoute(const Route& route) const
 {
     std::cout << "\033[1;34mPrinting Route struct\033[0m" << std::endl;
     std::cout << "Route Path: " << route.path << std::endl;
-    std::cout << "Root: " << route.abspath << std::endl;
+    std::cout << "Abspath: " << route.abspath << std::endl;
     std::cout << "Accepted Methods: ";
     for (const auto& method : route.accepted_methods)
     {
