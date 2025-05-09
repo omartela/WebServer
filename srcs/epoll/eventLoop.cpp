@@ -129,6 +129,7 @@ static void handleClientRequest(Client client)
         }
         case READ_BODY:
         {
+            client.bytesRead = 0;
             
         }
         case SEND_HEADER:

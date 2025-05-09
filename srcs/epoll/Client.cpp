@@ -75,14 +75,29 @@ void Client::requestParser()
         {
             std::string key = line.substr(0, colon);
             std::string value = line.substr(colon + 1);
-            // check for space between colon and key
-            if (value.empty())
-                return ; //400 bad request response
-            while (value[0] == ' ') //removes preceding whitespace, should remove trailing too!
-                value.erase(0, 1);
+            this->removeWhitespaces(key, value);
             this->request.headers[key] = value;
         }
     }
+}
+
+void Client::removeWhitespaces(std::string& key, std::string& value)
+{
+    if (key.empty() || value.empty())
+        throw std::runtime_error("400 bad request"); //change to an actual response
+
+    // check for whitespaces in key
+    size_t whitespace = key.find_first_of(" \t");
+    if (whitespace != std::string::npos)
+        throw std::runtime_error("400 bad request"); //change to an actual response
+    
+    // remove leading and trailing whitespaces from value
+    size_t start = value.find_first_not_of(" \t");
+    size_t end = value.find_last_not_of(" \t");
+    if (start != std::string::npos)
+        value = value.substr(start, end - start + 1);
+    else // only whitespace
+        throw std::runtime_error("400 bad request"); //change to an actual response
 }
 
 bool Client::validateHeader()
@@ -93,13 +108,14 @@ bool Client::validateHeader()
 
     //check if request line is valid
     if (this->request.method.empty() || this->request.path.empty() || this->request.version.empty())
-        return ; //400 bad request response
+        throw std::runtime_error("400 bad request"); //change to an actual response
+
     // if HTTP/1.1 must have host header
     if (this->request.version == "HTTP/1.1")
     {
         auto it = this->request.headers.find("Host");
         if (it == this->request.headers.end())
-            return ; //400 bad request response
+            throw std::runtime_error("400 bad request"); //change to an actual response
     }
     //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
     if (this->request.method == "POST")
@@ -111,8 +127,8 @@ bool Client::validateHeader()
         if (it != this->request.headers.end())
         {
             transferEncoding = true;
-            if (it->second != "chunked") //this will not work if value is "chunked "
-                return ; //400 bad request response
+            if (it->second != "chunked")
+                throw std::runtime_error("400 bad request"); //change to an actual response
         }
 
         it = this->request.headers.find("Content-Length");
@@ -125,11 +141,7 @@ bool Client::validateHeader()
         if ((transferEncoding == false && contentLength == false)
             || (transferEncoding == true && contentLength == true))
         {
-            return ; //400 bad request response
+            throw std::runtime_error("400 bad request"); //change to an actual response
         }
-
     }
-
-
-    
 };

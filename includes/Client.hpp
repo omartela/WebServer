@@ -46,7 +46,8 @@ class Client {
         ~Client();
 
         void reset();
-        void requestParser();
         void resetRequest();
+        void requestParser();
+        void removeWhitespaces(std::string& key, std::string& value);
         bool validateHeader();
 };
