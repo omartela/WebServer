@@ -1,5 +1,7 @@
 #include "eventLoop.hpp"
 #include "Client.hpp"
+#include "HTTPResponse.hpp"
+#include "RequestHandler.hpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
@@ -101,6 +103,7 @@ static void handleClientRequest(Client client)
     std::cout << "Request received from client FD " << client.fd << std::endl;
     std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
     exit(0);
+
     switch (client.state)
     {
         case IDLE:
@@ -110,7 +113,7 @@ static void handleClientRequest(Client client)
             client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT); 
             if (client.bytesRead < 0)
             {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) //can we do this???
+                if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
                     return ;
                 else
                     throw std::runtime_error("header recv failed"); //more comprehensive later
@@ -121,16 +124,35 @@ static void handleClientRequest(Client client)
                 if (last4bytes == "\r\n\r\n")
                 {
                     client.requestParser();
+                    client.bytesRead = 0;
                     client.state = READ_BODY;
                 }
                 else
                     return ;
             }
+            else
+                return ;
         }
         case READ_BODY:
         {
-            client.bytesRead = 0;
-            
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT);
+            if (client.bytesRead < 0)
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
+                    break ;
+                else
+                     throw std::runtime_error("body recv failed"); //more comprehensive later
+            }
+            if (client.bytesRead == client.request.contentLen)
+            {
+                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                RequestHandler requestHandler;
+                requestHandler.handleRequest(client.request, client.serverInfo);
+                client.state = SEND_HEADER;
+            }
+            else
+                return ;
+
         }
         case SEND_HEADER:
         {

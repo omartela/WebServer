@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sstream>
 #include "Parser.hpp"
+//#include "HTTPResponse.hpp"
 
 struct httpRequest
 {
