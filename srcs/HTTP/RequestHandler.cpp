@@ -119,7 +119,7 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
 HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
 {
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    std::string path = "." + req.serverInfo.routes[key].root + req.file;
+    std::string path = "." + req.serverInfo.routes[key].abspath + req.file;
     if (access(path.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
@@ -203,7 +203,7 @@ HTTPResponse RequestHandler::handleMultipart(HTTPRequest& req)
         if (file.empty())
             continue;
         std::string content = extractContent(part);
-        std::string folder = req.serverInfo.routes[key].root;
+        std::string folder = req.serverInfo.routes[key].abspath;
         // std::cout << "Folder: " << std::endl;
         if (folder[0] == '/')
             folder.erase(0, 1);
@@ -240,7 +240,7 @@ HTTPResponse RequestHandler::handlePOST(HTTPRequest& req)
         return handleMultipart(req);
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     std::cout << "Key: " << key << std::endl;
-    std::string path = "." + req.serverInfo.routes[key].root + req.file;
+    std::string path = "." + req.serverInfo.routes[key].abspath + req.file;
     std::cout << "Path: " << path << std::endl;
     std::ofstream out(path.c_str(), std::ios::binary);
     if (!out.is_open())
@@ -274,7 +274,7 @@ HTTPResponse RequestHandler::handleGET(HTTPRequest& req)
     // std::cout << path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string path = "." + req.serverInfo.routes[key].root + req.file;
+    std::string path = "." + req.serverInfo.routes[key].abspath + req.file;
     // std::cout << "Path: " << path << std::endl;
     if (path.find("..") != std::string::npos)
     {
@@ -341,9 +341,8 @@ HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
     // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + req.serverInfo.routes[key].root + req.file;
-    // std::cout << "Map key: " << req.serverInfo.routes[key].path << std::endl;
-    // std::cout << "Full path: " << fullPath << std::endl;
+    std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.path;
+
     bool validFile = false;
     try
     {
