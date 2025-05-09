@@ -164,7 +164,7 @@ static void readChunkedBody(Client &client)
     // Lue chunkin koko
     std::string sizeStr = client.chunkBuffer.substr(0, pos);
     client.currentChunkSize = std::stoul(sizeStr, nullptr, 16);
-    chunkBuffer.erase(0, pos + 2);  // Poista chunkin koko ja \r\n
+    client.chunkBuffer.erase(0, pos + 2);  // Poista chunkin koko ja \r\n
 
     if (client.currentChunkSize == 0)
     {
@@ -183,5 +183,5 @@ static void readChunkedBody(Client &client)
 
     // Lisää chunk bodyyn
     client.bodyBuffer += client.chunkBuffer.substr(0, client.currentChunkSize);
-    chunkBuffer.erase(0, client.currentChunkSize + 2);  // Poista chunk ja \r\n
+    client.chunkBuffer.erase(0, client.currentChunkSize + 2);  // Poista chunk ja \r\n
 }
