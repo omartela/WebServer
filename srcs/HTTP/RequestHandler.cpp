@@ -133,11 +133,11 @@ HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
         close(inPipe[1]);
         close(outPipe[0]);
         setenv("REQUEST_METHOD", req.method.c_str(), 1);
-        setenv("SCRIPT_NAME", req.path.c_str(), 1);
+        setenv("SCRIPT_NAME", req.file.c_str(), 1);
         setenv("CONTENT_LENGTH", std::to_string(req.body.size()).c_str(), 1);
         if (req.headers.count("Content-Type"))
             setenv("CONTENT_TYPE", req.headers.at("Content-Type").c_str(), 1);
-        char *argv[] = { const_cast<char*>(path.c_str()), NULL };
+        char *argv[] = { const_cast<char*>(req.serverInfo.routes[key].cgipathpython.c_str()), NULL };
         execve(argv[0], argv, environ);
         _exit(1);
     }
@@ -327,8 +327,10 @@ HTTPResponse RequestHandler::handleDELETE(const std::string& path)
 
 bool RequestHandler::isAllowedMethod(std::string method, Route route)
 {
+    std::cout << route.accepted_methods.size() << std::endl;
     for (size_t i = 0; i < route.accepted_methods.size(); i++)
     {
+        std::cout << route.accepted_methods[i] << std::endl;
         if (method == route.accepted_methods[i])
             return true;
     }
@@ -337,12 +339,12 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 
 HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
 {
-    printRequest(req);
-    // std::cout << "Req path: " << req.path << std::endl;
+    // printRequest(req);
+    std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    // std::cout << "Key: " << key << std::endl;
+    std::cout << "Key: " << key << std::endl;
     std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.path;
-
+    std::cout << fullPath << std::endl;
     bool validFile = false;
     try
     {
