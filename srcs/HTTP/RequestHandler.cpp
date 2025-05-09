@@ -120,6 +120,7 @@ HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
 {
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     std::string path = "." + req.serverInfo.routes[key].abspath + req.file;
+    std::cout << "CGI exe path: " << path << std::endl;
     if (access(path.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
@@ -137,8 +138,9 @@ HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
         setenv("CONTENT_LENGTH", std::to_string(req.body.size()).c_str(), 1);
         if (req.headers.count("Content-Type"))
             setenv("CONTENT_TYPE", req.headers.at("Content-Type").c_str(), 1);
-        char *argv[] = { const_cast<char*>(req.serverInfo.routes[key].cgipathpython.c_str()), NULL };
-        execve(argv[0], argv, environ);
+        std::string pyth = "python3";
+        char *argv[] = { const_cast<char*>(pyth.c_str()), const_cast<char*>(path.c_str()), NULL };
+        execve(req.serverInfo.routes[key].cgipathpython.c_str(), argv, environ);
         _exit(1);
     }
     close(inPipe[0]);
@@ -149,7 +151,10 @@ HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
     std::string output;
     ssize_t n;
     while ((n = read(outPipe[0], buffer, sizeof(buffer))) > 0)
+    {
         output.append(buffer, n);
+        std::cout << output << std::endl;
+    }
     close(outPipe[0]);
     waitpid(pid, NULL, 0);
     std::string::size_type end = output.find("\r\n\r\n");
@@ -343,7 +348,7 @@ HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
     std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.path;
+    std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.file;
     std::cout << fullPath << std::endl;
     bool validFile = false;
     try

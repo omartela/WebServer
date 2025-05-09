@@ -94,7 +94,7 @@ void Parser::parseErrorPageDirective(const std::string& line, ServerConfig& serv
 
 void Parser::parseAbsPathDirective(const std::string& line, Route& route)
 {
-    size_t pos = line.find("abspath ") + 5; // Skip "abspath "
+    size_t pos = line.find("abspath ") + 8; // Skip "abspath "
     size_t end_pos = line.find(";");
     route.abspath = line.substr(pos, end_pos - pos);
 }
