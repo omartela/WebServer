@@ -93,13 +93,13 @@ bool Client::validateHeader()
 
     //check if request line is valid
     if (this->request.method.empty() || this->request.path.empty() || this->request.version.empty())
-        return ; //400 bad request response
+        return false; //400 bad request response
     // if HTTP/1.1 must have host header
     if (this->request.version == "HTTP/1.1")
     {
         auto it = this->request.headers.find("Host");
         if (it == this->request.headers.end())
-            return ; //400 bad request response
+            return false; //400 bad request response
     }
     //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
     if (this->request.method == "POST")
@@ -112,7 +112,7 @@ bool Client::validateHeader()
         {
             transferEncoding = true;
             if (it->second != "chunked") //this will not work if value is "chunked "
-                return ; //400 bad request response
+                return false; //400 bad request response
         }
 
         it = this->request.headers.find("Content-Length");
@@ -125,11 +125,11 @@ bool Client::validateHeader()
         if ((transferEncoding == false && contentLength == false)
             || (transferEncoding == true && contentLength == true))
         {
-            return ; //400 bad request response
+            return false; //400 bad request response
         }
 
     }
 
-
+    return true;
     
 };
