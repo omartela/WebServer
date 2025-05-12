@@ -13,7 +13,7 @@ class RequestHandler
     private:
         static HTTPResponse handleGET(HTTPRequest& req);
         static HTTPResponse handlePOST(HTTPRequest& req);
-        static HTTPResponse handleDELETE(const std::string& path);
+        static HTTPResponse handleDELETE(HTTPRequest& req);
         static HTTPResponse executeCGI(HTTPRequest& req);
         static bool isAllowedMethod(std::string method, Route route);
 };

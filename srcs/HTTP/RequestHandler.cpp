@@ -312,14 +312,18 @@ HTTPResponse RequestHandler::handleGET(HTTPRequest& req)
     return response;
 }
 
-HTTPResponse RequestHandler::handleDELETE(const std::string& path)
+HTTPResponse RequestHandler::handleDELETE(HTTPRequest& req)
 {
-    std::string full_path = "." + path;
-    if (full_path.find("..") != std::string::npos || full_path.find("/uploads/") == std::string::npos)
+    std::cout << "Req path: " << req.path << std::endl;
+    std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
+    std::cout << "Key: " << key << std::endl;
+    std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.file;
+    std::cout << "Full path: " << fullPath << std::endl;
+    if (fullPath.find("..") != std::string::npos || fullPath.find("/uploads/") == std::string::npos)
         return HTTPResponse(403, "Forbidden");
-    if (access(full_path.c_str(), F_OK) != 0)
+    if (access(fullPath.c_str(), F_OK) != 0)
         return HTTPResponse(404, "Not Found");
-    if (remove(path.c_str()) != 0)
+    if (remove(fullPath.c_str()) != 0)
         return HTTPResponse(500, "Delete Failed");
     HTTPResponse res(200, "OK");
     res.body = "File deleted successfully\n";
@@ -349,7 +353,7 @@ HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
     std::cout << "Key: " << key << std::endl;
     std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.file;
-    std::cout << fullPath << std::endl;
+    std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {
@@ -377,7 +381,7 @@ HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
         }
         case DELETE:
         {
-            return handleDELETE(req.path);
+            return handleDELETE(req);
         }
         default:
             return HTTPResponse(501, "Not Implemented");

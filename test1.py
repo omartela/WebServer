@@ -96,29 +96,29 @@ if __name__ == "__main__":
     PORT2 = 8002
 
     print("\tTEST 1")
-    print("\tGET")
+    # print("\tGET")
     # send_get("/index.html", HOST, PORT)
     # send_get("/cgi/echo.py", HOST, PORT)
-    send_get("/cgi/GETpy.py", HOST2, PORT2)
-    print("\tGET DONE\n")
-    # print("\tPOST")
-    # send_post("/images/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT)
-    # file_name = "test_upload.txt"
-    # file_content = "This is content of the test file."
-    # send_multipart("/images/uploads/", file_name, file_content, HOST, PORT)
+    # send_get("/cgi/GETpy.py", HOST2, PORT2)
+    # print("\tGET DONE\n")
+    print("\tPOST")
+    send_post("/images/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT2)
+    file_name = "test_upload.txt"
+    file_content = "This is content of the test file."
+    send_multipart("/images/uploads/", file_name, file_content, HOST, PORT2)
     # form_data = "name=NikolaiTest&lang=Python"
     # send_cgi_post("/cgi/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST2, PORT2)
-    # print("\tPOST DONE\n")
+    print("\tPOST DONE\n")
     # print("\tStatic file")
     # static_file("/index.html", "text/html", HOST, PORT)
     # print("\tStatic file DONE\n")
     # print("\tGET");
     # send_get("/images/uploads/test_upload.txt", HOST, PORT)
     # print("\tGET DONE\n")
-    # print("\tDELETE")
-    # send_delete("/images/uploads/test.txt", HOST, PORT)
-    # send_delete("/images/uploads/test_upload.txt", HOST, PORT)
-    # print("\tDELETE DONE\n")
+    print("\tDELETE")
+    send_delete("/images/uploads/test.txt", HOST, PORT2)
+    send_delete("/images/uploads/test_upload.txt", HOST, PORT2)
+    print("\tDELETE DONE\n")
 
     # print("\tTEST 2")
     # print("\tGET")
