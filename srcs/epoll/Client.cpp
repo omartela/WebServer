@@ -6,8 +6,11 @@ Client::Client()
     this->state = IDLE;
     this->timeConnected = 0;
     this->readBuffer.resize(1024);
+<<<<<<< Updated upstream
     this->rawRequest.resize(1024);
     this->writeBuffer.resize(1024);
+=======
+>>>>>>> Stashed changes
     this->bytesRead = 0;
     this->bytesWritten = 0;
 }

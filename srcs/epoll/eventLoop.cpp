@@ -6,7 +6,12 @@
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
+<<<<<<< Updated upstream
 static void handleClientRequest(Client &client, int loop);
+=======
+static void handleClientRequest(Client client);
+static void handleClientRequestSend(Client client, int loop);
+>>>>>>> Stashed changes
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
@@ -55,7 +60,10 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             }
             else
             {
-                handleClientRequest(clients[eventLog[i].data.fd], loop);
+                if (eventLog[i].events & EPOLLIN)
+                    handleClientRequest(clients[eventLog[i].data.fd]);
+                if (eventLog[i].events & EPOLLOUT)
+                    handleClientRequestSend(clients[eventLog[i].data.fd], loop);
             }
         }
     }
@@ -109,7 +117,36 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     return newFd;
 }
 
+<<<<<<< Updated upstream
 static void handleClientRequest(Client &client, int loop)
+=======
+static void handleClientRequestSend(Client client, int loop)
+{
+    // std::cout << "Request received from client FD " << client.fd << std::endl;
+    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
+    // exit(0);
+
+    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+    if (client.bytesWritten == 0)
+        return;
+    if (client.bytesWritten < 0)
+        throw std::runtime_error("header send failed"); //more comprehensive later
+    if (static_cast<size_t>(client.bytesWritten) == client.writeBuffer.size())
+    {
+        auto it = client.request.headers.find("Connection");
+        if (it->second == "close" || it->second == "Close" || client.request.version == "HTTP/1.0")
+        {
+            close(client.fd);
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+        }
+        else
+            client.reset();
+    }
+};
+
+static void handleClientRequest(Client client)
+>>>>>>> Stashed changes
 {
     //std::cout << "Request received from client FD " << client.fd << std::endl;
     // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
@@ -122,14 +159,20 @@ static void handleClientRequest(Client &client, int loop)
 
         case READ_HEADER:
         {
+<<<<<<< Updated upstream
             client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT); 
+=======
+            client.bytesRead = 0;
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
+>>>>>>> Stashed changes
             if (client.bytesRead < 0)
             {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
-                    return ;
-                else
+                //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
+                    //return ;
+                //else
                     throw std::runtime_error("header recv failed"); //more comprehensive later
             }
+<<<<<<< Updated upstream
             client.rawRequest += client.readBuffer;
             if (client.bytesRead >= 4)
             {
@@ -141,6 +184,23 @@ static void handleClientRequest(Client &client, int loop)
                     client.bytesRead = 0;
                     client.rawRequest.clear();
                     client.state = READ_BODY;
+=======
+            client.readRaw += client.readBuffer;
+            if (client.bytesRead >= 4)
+            {
+                size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+                if (headerEnd != std::string::npos)
+                {
+                    if (client.request.contentLen > 0) 
+                    {
+                        client.state = READ_BODY;
+                    } 
+                    else 
+                    {
+                        client.requestParser();
+                        client.bytesRead = 0;
+                    }
+>>>>>>> Stashed changes
                 }
                 else
                     return ;
@@ -148,30 +208,46 @@ static void handleClientRequest(Client &client, int loop)
             else
                 return ;
         }
-
         case READ_BODY:
         {
             client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
-            if (client.bytesRead < 0)
-            {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
-                    break ;
-                else
-                     throw std::runtime_error("body recv failed"); //more comprehensive later
-            }
-            client.rawRequest += client.readBuffer;
-            if (client.bytesRead == client.request.contentLen) //or end of chunks?
+<<<<<<< Updated upstream
+=======
+            if (client.bytesRead == 0)
             {
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                 RequestHandler requestHandler;
                 HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
                 client.writeBuffer = response.toString();
-                client.state = SEND;
+                return;
+            }
+>>>>>>> Stashed changes
+            if (client.bytesRead < 0)
+            {
+                //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
+                    //break ;
+                //else
+                     throw std::runtime_error("body recv failed"); //more comprehensive later
+            }
+<<<<<<< Updated upstream
+            client.rawRequest += client.readBuffer;
+            if (client.bytesRead == client.request.contentLen) //or end of chunks?
+=======
+            client.readRaw += client.readBuffer;
+            client.readBuffer[client.bytesRead] = '\0';
+            if (client.readRaw.size() == client.request.contentLen) //or end of chunks?
+>>>>>>> Stashed changes
+            {
+                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                RequestHandler requestHandler;
+                HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
+                client.writeBuffer = response.toString();
             }
             else
                 return ;
 
         }
+<<<<<<< Updated upstream
 
         case SEND:
         {
@@ -191,5 +267,7 @@ static void handleClientRequest(Client &client, int loop)
                     client.reset();
             }
         }
+=======
+>>>>>>> Stashed changes
     }
 };

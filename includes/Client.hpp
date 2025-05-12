@@ -22,8 +22,7 @@ struct httpRequest
 enum connectionStates {
     IDLE,
     READ_HEADER,
-    READ_BODY,
-    SEND
+    READ_BODY
 };
 
 class Client {
@@ -32,6 +31,7 @@ class Client {
         size_t timeConnected;
         enum connectionStates state;
         
+        std::string readRaw;
         std::string readBuffer;
         std::string rawRequest;
         std::string writeBuffer;
