@@ -8,6 +8,7 @@
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
 
+#define READBUFFERSIZE 1000
 struct httpRequest
 {
     std::string method;
@@ -31,6 +32,7 @@ class Client {
         size_t timeConnected;
         enum connectionStates state;
         
+        std::string headerString;
         std::string readRaw;
         std::string readBuffer;
         std::string rawRequest;

@@ -6,12 +6,8 @@
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-<<<<<<< Updated upstream
-static void handleClientRequest(Client &client, int loop);
-=======
-static void handleClientRequest(Client client);
-static void handleClientRequestSend(Client client, int loop);
->>>>>>> Stashed changes
+static void handleClientRequest(Client client, struct epoll_event& fdLog);
+static void handleClientRequestSend(Client client, int loop, struct epoll_event& fdLog);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
@@ -35,7 +31,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         servers[serverSocket] = newServer;
         std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
     }
-    createTimerFd();
+    //createTimerFd();
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -61,15 +57,21 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             else
             {
                 if (eventLog[i].events & EPOLLIN)
-                    handleClientRequest(clients[eventLog[i].data.fd]);
+                {
+                    std::cout << "EPOLLIN" << std::endl;
+                    handleClientRequest(clients[eventLog[i].data.fd], eventLog[i]);
+                }
                 if (eventLog[i].events & EPOLLOUT)
-                    handleClientRequestSend(clients[eventLog[i].data.fd], loop);
+                {
+                    std::cout << "EPOLLOUT" << std::endl;
+                    handleClientRequestSend(clients[eventLog[i].data.fd], loop, eventLog[i]);
+                }
             }
         }
     }
 }
 
-static void createTimerFd()
+/* static void createTimerFd()
 {
     int timerFd = timerfd_create();
     
@@ -77,7 +79,7 @@ static void createTimerFd()
 
 
 }
-
+ */
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
@@ -117,22 +119,23 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     return newFd;
 }
 
-<<<<<<< Updated upstream
-static void handleClientRequest(Client &client, int loop)
-=======
-static void handleClientRequestSend(Client client, int loop)
+static void handleClientRequestSend(Client client, int loop, struct epoll_event& fdLog)
 {
-    // std::cout << "Request received from client FD " << client.fd << std::endl;
-    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
+    std::cout << "Request received from client FD " << client.fd << std::endl;
     // exit(0);
 
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)
-        return;
+    {
+        return ;
+    }
     if (client.bytesWritten < 0)
         throw std::runtime_error("header send failed"); //more comprehensive later
     if (static_cast<size_t>(client.bytesWritten) == client.writeBuffer.size())
     {
+        // client.reset();
+        // fdLog.events &= ~EPOLLOUT;
+        // return;
         auto it = client.request.headers.find("Connection");
         if (it->second == "close" || it->second == "Close" || client.request.version == "HTTP/1.0")
         {
@@ -141,12 +144,15 @@ static void handleClientRequestSend(Client client, int loop)
                 throw std::runtime_error("oldFd epoll_ctl DEL failed");
         }
         else
+        {
+            std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
             client.reset();
+            fdLog.events |= ~EPOLLOUT;
+        }
     }
 };
 
-static void handleClientRequest(Client client)
->>>>>>> Stashed changes
+static void handleClientRequest(Client client, struct epoll_event& fdLog)
 {
     //std::cout << "Request received from client FD " << client.fd << std::endl;
     // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
@@ -159,12 +165,10 @@ static void handleClientRequest(Client client)
 
         case READ_HEADER:
         {
-<<<<<<< Updated upstream
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT); 
-=======
             client.bytesRead = 0;
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
->>>>>>> Stashed changes
+            char buffer[READBUFFERSIZE];
+            client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
+            
             if (client.bytesRead < 0)
             {
                 //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -172,35 +176,30 @@ static void handleClientRequest(Client client)
                 //else
                     throw std::runtime_error("header recv failed"); //more comprehensive later
             }
-<<<<<<< Updated upstream
-            client.rawRequest += client.readBuffer;
-            if (client.bytesRead >= 4)
-            {
-                std::string last4bytes(client.rawRequest.end() - 4, client.rawRequest.end());
-                //std::cout << "last4bytes: [" << last4bytes << "]" <<  std::endl;
-                if (last4bytes == "\r\n\r\n")
-                {
-                    client.requestParser();
-                    client.bytesRead = 0;
-                    client.rawRequest.clear();
-                    client.state = READ_BODY;
-=======
+            buffer[client.bytesRead] = '\0';
+            std::string temp(buffer, client.bytesRead);
+            client.readBuffer += temp;
             client.readRaw += client.readBuffer;
             if (client.bytesRead >= 4)
             {
-                size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+                size_t headerEnd = client.readRaw.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
-                    if (client.request.contentLen > 0) 
-                    {
-                        client.state = READ_BODY;
-                    } 
-                    else 
-                    {
+                        client.headerString = client.readRaw.substr(0, headerEnd + 4);
                         client.requestParser();
                         client.bytesRead = 0;
-                    }
->>>>>>> Stashed changes
+                        client.readRaw = client.readRaw.substr(headerEnd + 4);
+                        /// POST request has only body, GET and DELETE do not have body
+                        if (client.request.method == "POST")
+                            client.state = READ_BODY;
+                        else
+                        {
+                            client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                            RequestHandler requestHandler;
+                            HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
+                            client.writeBuffer = response.toString();
+                            return ;
+                        }
                 }
                 else
                     return ;
@@ -210,18 +209,18 @@ static void handleClientRequest(Client client)
         }
         case READ_BODY:
         {
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
-<<<<<<< Updated upstream
-=======
-            if (client.bytesRead == 0)
+            if (client.readRaw.size() == stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                 RequestHandler requestHandler;
                 HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
                 client.writeBuffer = response.toString();
-                return;
+                fdLog.events |= EPOLLOUT;
+                return ;
             }
->>>>>>> Stashed changes
+            else
+                return ;
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
             if (client.bytesRead < 0)
             {
                 //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -229,45 +228,8 @@ static void handleClientRequest(Client client)
                 //else
                      throw std::runtime_error("body recv failed"); //more comprehensive later
             }
-<<<<<<< Updated upstream
-            client.rawRequest += client.readBuffer;
-            if (client.bytesRead == client.request.contentLen) //or end of chunks?
-=======
             client.readRaw += client.readBuffer;
             client.readBuffer[client.bytesRead] = '\0';
-            if (client.readRaw.size() == client.request.contentLen) //or end of chunks?
->>>>>>> Stashed changes
-            {
-                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
-                RequestHandler requestHandler;
-                HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
-                client.writeBuffer = response.toString();
-            }
-            else
-                return ;
-
         }
-<<<<<<< Updated upstream
-
-        case SEND:
-        {
-            client.bytesWritten = send(client.serverInfo.fd, client.writeBuffer.data(), sizeof(client.writeBuffer), MSG_DONTWAIT);
-            if (client.bytesWritten < 0)
-                throw std::runtime_error("header send failed"); //more comprehensive later
-            if (client.bytesWritten == client.writeBuffer.size())
-            {
-                auto it = client.request.headers.find("Connection");
-                if (it->second == "close" || (client.request.version == "HTTP/1.0" && it->second != "keep_alive"))
-                {
-                    close(client.fd);
-                    if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                        throw std::runtime_error("oldFd epoll_ctl DEL failed");
-                }
-                else
-                    client.reset();
-            }
-        }
-=======
->>>>>>> Stashed changes
     }
 };

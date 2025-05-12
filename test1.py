@@ -95,13 +95,13 @@ if __name__ == "__main__":
     HOST2 = "127.0.0.2"
     PORT2 = 8002
 
-    send_get("/index.html", HOST, PORT)
+    # send_get("/index.html", HOST, PORT)
     # send_get("/index.html", HOST2, PORT2)
     # send_get("/cgi-bin/echo.py", HOST, PORT)
     # send_get("/cgi-bin/echo.py", HOST2, PORT2)
     # print("^GET DONE^\n")
 
-    # send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT)
+    send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT)
     # send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST2, PORT2)
     # file_name = "test_upload.txt"
     # file_content = "This is content of the test file."

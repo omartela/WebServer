@@ -5,14 +5,9 @@ Client::Client()
     this->fd = -1;
     this->state = IDLE;
     this->timeConnected = 0;
-    this->readBuffer.resize(1024);
-<<<<<<< Updated upstream
-    this->rawRequest.resize(1024);
-    this->writeBuffer.resize(1024);
-=======
->>>>>>> Stashed changes
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->request.contentLen = 0;
 }
 
 Client::~Client() {
@@ -61,8 +56,7 @@ void Client::resetRequest()
 
 void Client::requestParser()
 {
-    std::string bufferString(this->rawRequest.begin(), this->rawRequest.end());
-    std::istringstream stream(bufferString);
+    std::istringstream stream(headerString);
     std::string line;
     if (std::getline(stream, line).fail())
         return ;
