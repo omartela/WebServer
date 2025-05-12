@@ -5,11 +5,13 @@
 #include <cstring>
 #include <sstream>
 #include "Parser.hpp"
-//#include "HTTPResponse.hpp"
+#include "Enums.hpp"
+#include "HTTPResponse.hpp"
 
 struct httpRequest
 {
     std::string method;
+    reqTypes    eMethod;
     std::string path;
     std::string version;
     std::map<std::string, std::string> headers;
@@ -21,19 +23,17 @@ enum connectionStates {
     IDLE,
     READ_HEADER,
     READ_BODY,
-    SEND_HEADER,
-    SEND_BODY,
-    DONE
+    SEND
 };
 
 class Client {
     public:  //change all these to private? fix later
         int fd;
-        enum connectionStates state;
         size_t timeConnected;
+        enum connectionStates state;
         
-        std::vector<char> readBuffer;
-        std::vector<char> writeBuffer;
+        std::string readBuffer;
+        std::string writeBuffer;
         size_t bytesRead;
         size_t bytesWritten;
 
@@ -51,4 +51,5 @@ class Client {
         void requestParser();
         void removeWhitespaces(std::string& key, std::string& value);
         bool validateHeader();
+        reqTypes getMethodEnum();
 };

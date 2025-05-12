@@ -79,6 +79,8 @@ void Client::requestParser()
             this->request.headers[key] = value;
         }
     }
+    this->validateHeader();
+    this->request.eMethod = getMethodEnum();
 }
 
 void Client::removeWhitespaces(std::string& key, std::string& value)
@@ -104,7 +106,7 @@ bool Client::validateHeader()
 {
     //TODO: Check how nginx reacts if there is more than single space between request line fields. RFC 7230 determines there should be only 1
     //TODO: Check what if multiple headers have same key. std::map will overwrite them, so 1 remains, but what nginx does?
-    //TODO: If there is space between key and :, send 400 (example "host :")
+    //TODO: Check that method and version are valid and no typos
 
     //check if request line is valid
     if (this->request.method.empty() || this->request.path.empty() || this->request.version.empty())
@@ -144,4 +146,15 @@ bool Client::validateHeader()
             throw std::runtime_error("400 bad request"); //change to an actual response
         }
     }
-};
+}
+
+reqTypes Client::getMethodEnum()
+{
+    if (request.method == "GET")
+        return GET;
+    if (request.method == "POST")
+        return POST;
+    if (request.method == "DELETE")
+        return DELETE;
+    return INVALID;
+}

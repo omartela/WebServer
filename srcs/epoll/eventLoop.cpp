@@ -54,7 +54,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             }
             else
             {
-                handleClientRequest(clients[eventLog[i].data.fd]);
+                handleClientRequest(clients[eventLog[i].data.fd], loop);
             }
         }
     }
@@ -98,16 +98,17 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     return newFd;
 }
 
-static void handleClientRequest(Client client)
+static void handleClientRequest(Client client, int loop)
 {
-    std::cout << "Request received from client FD " << client.fd << std::endl;
-    std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
-    exit(0);
+    // std::cout << "Request received from client FD " << client.fd << std::endl;
+    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
+    // exit(0);
 
     switch (client.state)
     {
         case IDLE:
             client.state = READ_HEADER;
+
         case READ_HEADER:
         {
             client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT); 
@@ -133,6 +134,7 @@ static void handleClientRequest(Client client)
             else
                 return ;
         }
+
         case READ_BODY:
         {
             client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT);
@@ -143,28 +145,36 @@ static void handleClientRequest(Client client)
                 else
                      throw std::runtime_error("body recv failed"); //more comprehensive later
             }
-            if (client.bytesRead == client.request.contentLen)
+            if (client.bytesRead == client.request.contentLen) //or end of chunks?
             {
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                 RequestHandler requestHandler;
-                requestHandler.handleRequest(client.request, client.serverInfo);
-                client.state = SEND_HEADER;
+                HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
+                client.writeBuffer = response.toString();
+                client.state = SEND;
             }
             else
                 return ;
 
         }
-        case SEND_HEADER:
+
+        case SEND:
         {
             client.bytesWritten = send(client.serverInfo.fd, client.writeBuffer.data(), sizeof(client.writeBuffer), MSG_DONTWAIT);
             if (client.bytesWritten < 0)
                 throw std::runtime_error("header send failed"); //more comprehensive later
-        }
-        case SEND_BODY:
-        case DONE:
-        {
-            //if connection = close, then close connection 
-            client.reset();
+            if (client.bytesWritten == client.writeBuffer.size())
+            {
+                auto it = client.request.headers.find("Connection");
+                if (it->second == "close" || it->second == "Close" || client.request.version == "HTTP/1.0")
+                {
+                    close(client.fd);
+                    if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                        throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                }
+                else
+                    client.reset();
+            }
         }
     }
 };

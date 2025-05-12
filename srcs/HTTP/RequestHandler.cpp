@@ -16,7 +16,7 @@
 #include <filesystem>
 
 
-void printRequest(const HTTPRequest &req)
+void printRequest(const httpRequest &req)
 {
     std::cout << req.method << " " << req.path << std::endl;
     for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
@@ -115,7 +115,7 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
     return result;
 }
 
-HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
+HTTPResponse RequestHandler::executeCGI(const httpRequest& req)
 {
     std::string path = "." + req.path;
     if (access(path.c_str(), X_OK) != 0)
@@ -171,7 +171,7 @@ HTTPResponse RequestHandler::executeCGI(const HTTPRequest& req)
     return res;
 }
 
-HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
+HTTPResponse RequestHandler::nonMultipart(const httpRequest& req)
 {
     std::string folder = req.path;
     if (folder[0] == '/')
@@ -202,7 +202,7 @@ HTTPResponse RequestHandler::nonMultipart(const HTTPRequest& req)
     return res;
 }
 
-HTTPResponse RequestHandler::handlePOST(const HTTPRequest& req)
+HTTPResponse RequestHandler::handlePOST(const httpRequest& req)
 {
     if (req.path.find("/cgi-bin/") == 0)
         return executeCGI(req);
@@ -316,7 +316,7 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
     return false;
 }
 
-HTTPResponse RequestHandler::handleRequest(const HTTPRequest& req, ServerConfig config)
+HTTPResponse RequestHandler::handleRequest(const httpRequest& req, ServerConfig config)
 {
     printRequest(req);
     // std::cout << "Req path: " << req.path << std::endl;
