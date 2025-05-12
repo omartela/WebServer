@@ -33,9 +33,10 @@ class Client {
         enum connectionStates state;
         
         std::string readBuffer;
+        std::string rawRequest;
         std::string writeBuffer;
-        size_t bytesRead;
-        size_t bytesWritten;
+        int bytesRead;
+        int bytesWritten;
 
         ServerConfig serverInfo;
 
@@ -50,6 +51,6 @@ class Client {
         void resetRequest();
         void requestParser();
         void removeWhitespaces(std::string& key, std::string& value);
-        bool validateHeader();
+        void validateHeader();
         reqTypes getMethodEnum();
 };

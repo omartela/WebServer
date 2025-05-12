@@ -6,7 +6,7 @@
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-static void handleClientRequest(Client client);
+static void handleClientRequest(Client &client, int loop);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
@@ -30,6 +30,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         servers[serverSocket] = newServer;
         std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
     }
+    createTimerFd();
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -60,14 +61,24 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     }
 }
 
+static void createTimerFd()
+{
+    int timerFd = timerfd_create();
+    
+
+
+
+}
+
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
+    int opt = 1;
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); //REMOVE LATER
 
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(server.port);
-
     bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
     listen(serverSocket, SOMAXCONN);
     
@@ -98,9 +109,9 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     return newFd;
 }
 
-static void handleClientRequest(Client client, int loop)
+static void handleClientRequest(Client &client, int loop)
 {
-    // std::cout << "Request received from client FD " << client.fd << std::endl;
+    //std::cout << "Request received from client FD " << client.fd << std::endl;
     // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
     // exit(0);
 
@@ -111,7 +122,7 @@ static void handleClientRequest(Client client, int loop)
 
         case READ_HEADER:
         {
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT); 
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT); 
             if (client.bytesRead < 0)
             {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -119,13 +130,16 @@ static void handleClientRequest(Client client, int loop)
                 else
                     throw std::runtime_error("header recv failed"); //more comprehensive later
             }
+            client.rawRequest += client.readBuffer;
             if (client.bytesRead >= 4)
             {
-                std::string last4bytes(client.readBuffer.end() - 4, client.readBuffer.end());
+                std::string last4bytes(client.rawRequest.end() - 4, client.rawRequest.end());
+                //std::cout << "last4bytes: [" << last4bytes << "]" <<  std::endl;
                 if (last4bytes == "\r\n\r\n")
                 {
                     client.requestParser();
                     client.bytesRead = 0;
+                    client.rawRequest.clear();
                     client.state = READ_BODY;
                 }
                 else
@@ -137,7 +151,7 @@ static void handleClientRequest(Client client, int loop)
 
         case READ_BODY:
         {
-            client.bytesRead = recv(client.fd, client.readBuffer.data(), sizeof(client.readBuffer), MSG_DONTWAIT);
+            client.bytesRead = recv(client.fd, client.readBuffer.data(), client.readBuffer.size(), MSG_DONTWAIT);
             if (client.bytesRead < 0)
             {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -145,6 +159,7 @@ static void handleClientRequest(Client client, int loop)
                 else
                      throw std::runtime_error("body recv failed"); //more comprehensive later
             }
+            client.rawRequest += client.readBuffer;
             if (client.bytesRead == client.request.contentLen) //or end of chunks?
             {
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
@@ -166,7 +181,7 @@ static void handleClientRequest(Client client, int loop)
             if (client.bytesWritten == client.writeBuffer.size())
             {
                 auto it = client.request.headers.find("Connection");
-                if (it->second == "close" || it->second == "Close" || client.request.version == "HTTP/1.0")
+                if (it->second == "close" || (client.request.version == "HTTP/1.0" && it->second != "keep_alive"))
                 {
                     close(client.fd);
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)

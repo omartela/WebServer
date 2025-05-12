@@ -5,8 +5,9 @@ Client::Client()
     this->fd = -1;
     this->state = IDLE;
     this->timeConnected = 0;
-    this->readBuffer.reserve(1024);
-    this->writeBuffer.reserve(1024);
+    this->readBuffer.resize(1024);
+    this->rawRequest.resize(1024);
+    this->writeBuffer.resize(1024);
     this->bytesRead = 0;
     this->bytesWritten = 0;
 }
@@ -26,6 +27,7 @@ Client& Client::operator=(const Client& copy)
         this->fd = copy.fd;
         this->state = copy.state;
         this->readBuffer = copy.readBuffer;
+        this->rawRequest = copy.rawRequest;
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
@@ -37,6 +39,7 @@ void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
+    this->rawRequest.clear();
     this->writeBuffer.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
@@ -55,7 +58,7 @@ void Client::resetRequest()
 
 void Client::requestParser()
 {
-    std::string bufferString(this->readBuffer.begin(), this->readBuffer.end());
+    std::string bufferString(this->rawRequest.begin(), this->rawRequest.end());
     std::istringstream stream(bufferString);
     std::string line;
     if (std::getline(stream, line).fail())
@@ -102,7 +105,7 @@ void Client::removeWhitespaces(std::string& key, std::string& value)
         throw std::runtime_error("400 bad request"); //change to an actual response
 }
 
-bool Client::validateHeader()
+void Client::validateHeader()
 {
     //TODO: Check how nginx reacts if there is more than single space between request line fields. RFC 7230 determines there should be only 1
     //TODO: Check what if multiple headers have same key. std::map will overwrite them, so 1 remains, but what nginx does?
