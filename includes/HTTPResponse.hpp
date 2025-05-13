@@ -17,5 +17,5 @@ class HTTPResponse
         // Functions
         int getStatusCode();
         std::string getStatusMessage();;
-        HTTPResponse generateErrorResponse(int statusCode, std::string errmessage);
+        HTTPResponse generateErrorResponse(HTTPResponse res);
 };
