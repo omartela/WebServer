@@ -6,8 +6,8 @@
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-static void handleClientRequest(Client client, struct epoll_event& fdLog);
-static void handleClientRequestSend(Client client, int loop, struct epoll_event& fdLog);
+static void handleClientRequest(Client& client,  int loop, struct epoll_event& fdLog);
+static void handleClientRequestSend(Client& client, int loop, struct epoll_event& fdLog);
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
@@ -23,6 +23,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     {
         ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
+        newServer = serverConfigs[i];
         newServer.fd = serverSocket;
         setup.data.fd = newServer.fd;
         setup.events = EPOLLIN;
@@ -59,7 +60,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (eventLog[i].events & EPOLLIN)
                 {
                     std::cout << "EPOLLIN" << std::endl;
-                    handleClientRequest(clients[eventLog[i].data.fd], eventLog[i]);
+                    handleClientRequest(clients[eventLog[i].data.fd], loop, eventLog[i]);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
@@ -119,7 +120,7 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
     return newFd;
 }
 
-static void handleClientRequestSend(Client client, int loop, struct epoll_event& fdLog)
+static void handleClientRequestSend(Client& client, int loop, struct epoll_event& fdLog)
 {
     std::cout << "Request received from client FD " << client.fd << std::endl;
     // exit(0);
@@ -133,26 +134,28 @@ static void handleClientRequestSend(Client client, int loop, struct epoll_event&
         throw std::runtime_error("header send failed"); //more comprehensive later
     if (static_cast<size_t>(client.bytesWritten) == client.writeBuffer.size())
     {
-        // client.reset();
-        // fdLog.events &= ~EPOLLOUT;
-        // return;
-        auto it = client.request.headers.find("Connection");
-        if (it->second == "close" || it->second == "Close" || client.request.version == "HTTP/1.0")
+        std::string cl = client.request.headers["Connection"];
+        if (!cl.empty() || client.request.version == "HTTP/1.0")
         {
-            close(client.fd);
-            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            if (cl == "close" || cl == "Close" || client.request.version == "HTTP/1.0")
+            {
+                close(client.fd);
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            }
         }
         else
         {
             std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
             client.reset();
-            fdLog.events |= ~EPOLLOUT;
+            fdLog.events &= ~EPOLLOUT;
+            epoll_ctl(loop, EPOLL_CTL_MOD, client.fd, &fdLog);
+
         }
     }
 };
 
-static void handleClientRequest(Client client, struct epoll_event& fdLog)
+static void handleClientRequest(Client& client,  int loop, struct epoll_event& fdLog)
 {
     //std::cout << "Request received from client FD " << client.fd << std::endl;
     // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
@@ -214,8 +217,12 @@ static void handleClientRequest(Client client, struct epoll_event& fdLog)
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                 RequestHandler requestHandler;
                 HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
+                if (response.getStatusCode() >= 400)
+                    response = response.generateErrorResponse(response.getStatusCode(), response.getStatusMessage());
                 client.writeBuffer = response.toString();
                 fdLog.events |= EPOLLOUT;
+                fdLog.events &= ~EPOLLIN;
+                epoll_ctl(loop, EPOLL_CTL_MOD, client.fd, &fdLog);
                 return ;
             }
             else

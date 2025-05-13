@@ -29,6 +29,7 @@ Client& Client::operator=(const Client& copy)
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
+        this->serverInfo = copy.serverInfo;
     }
     return *this;
 }
