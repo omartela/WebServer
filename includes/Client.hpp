@@ -23,7 +23,8 @@ struct httpRequest
 enum connectionStates {
     IDLE,
     READ_HEADER,
-    READ_BODY
+    READ_BODY,
+    READY_TO_SEND
 };
 
 class Client {
