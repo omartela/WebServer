@@ -104,70 +104,6 @@ void Client::removeWhitespaces(std::string& key, std::string& value)
         throw std::runtime_error("400 bad request"); //change to an actual response
 }
 
-// void Client::validateHeader()
-// {
-//     //TODO: Check how nginx reacts if there is more than single space between request line fields. RFC 7230 determines there should be only 1
-//     //TODO: Check what if multiple headers have same key. std::map will overwrite them, so 1 remains, but what nginx does?
-//     //TODO: Check that method and version are valid and no typos
-
-<<<<<<< HEAD
-    //check if request line is valid
-    if (this->request.method.empty() || this->request.path.empty() || this->request.version.empty())
-<<<<<<< HEAD
-        return false; //400 bad request response
-=======
-        throw std::runtime_error("400 bad request"); //change to an actual response
-
->>>>>>> 4-plan-and-make-an-event-loop
-    // if HTTP/1.1 must have host header
-    if (this->request.version == "HTTP/1.1")
-    {
-        auto it = this->request.headers.find("Host");
-        if (it == this->request.headers.end())
-<<<<<<< HEAD
-            return false; //400 bad request response
-=======
-            throw std::runtime_error("400 bad request"); //change to an actual response
->>>>>>> 4-plan-and-make-an-event-loop
-    }
-    //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
-    if (this->request.method == "POST")
-    {
-        bool transferEncoding = false;
-        bool contentLength = false;
-
-        auto it = this->request.headers.find("Transfer-encoding");
-        if (it != this->request.headers.end())
-        {
-            transferEncoding = true;
-<<<<<<< HEAD
-            if (it->second != "chunked") //this will not work if value is "chunked "
-                return false; //400 bad request response
-=======
-            if (it->second != "chunked")
-                throw std::runtime_error("400 bad request"); //change to an actual response
->>>>>>> 4-plan-and-make-an-event-loop
-        }
-
-        it = this->request.headers.find("Content-Length");
-        if (it != this->request.headers.end())
-        {
-            contentLength = true;
-            this->request.contentLen = stoi(it->second);
-        }
-        
-        if ((transferEncoding == false && contentLength == false)
-            || (transferEncoding == true && contentLength == true))
-        {
-<<<<<<< HEAD
-            return false; //400 bad request response
-=======
-            throw std::runtime_error("400 bad request"); //change to an actual response
->>>>>>> 4-plan-and-make-an-event-loop
-        }
-    }
-}
-=======
 //     //check if request line is valid
 //     if (this->request.method.empty() || this->request.path.empty() || this->request.version.empty())
 //         throw std::runtime_error("400 bad request"); //change to an actual response
@@ -207,13 +143,7 @@ void Client::removeWhitespaces(std::string& key, std::string& value)
 //         }
 //     }
 // }
->>>>>>> http-cgi-file-handling
 
-<<<<<<< HEAD
-    return true;
-    
-};
-=======
 reqTypes Client::getMethodEnum()
 {
     if (request.method == "GET")
@@ -224,4 +154,3 @@ reqTypes Client::getMethodEnum()
         return DELETE;
     return INVALID;
 }
->>>>>>> 4-plan-and-make-an-event-loop
