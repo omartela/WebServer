@@ -122,7 +122,7 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
 {
     std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
     std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
-    std::cout << "CGI exe path: " << path << std::endl;
+    // std::cout << "CGI exe path: " << path << std::endl;
     if (access(path.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
@@ -155,7 +155,7 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
     while ((n = read(outPipe[0], buffer, sizeof(buffer))) > 0)
     {
         output.append(buffer, n);
-        std::cout << output << std::endl;
+        // std::cout << output << std::endl;
     }
     close(outPipe[0]);
     waitpid(pid, NULL, 0);
@@ -183,7 +183,7 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
 HTTPResponse RequestHandler::handleMultipart(Client& client)
 {
     std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
-    std::cout << "Key: {" << key << "}" << std::endl;
+    // std::cout << "Key: {" << key << "}" << std::endl;
     if (client.request.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = client.request.headers.find("Content-Type");
@@ -207,21 +207,21 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
         std::string file = extractFilename(part, 1);
-        std::cout << "File: " << file << std::endl;
+        // std::cout << "File: " << file << std::endl;
         if (file.empty())
             continue;
         std::string content = extractContent(part);
         std::string folder = client.serverInfo.routes[key].abspath;
-        std::cout << "Folder: " << std::endl;
+        // std::cout << "Folder: " << folder << std::endl;
         if (folder[0] == '/')
             folder.erase(0, 1);
         std::string path = folder + "/" + file;
         lastPath = path;
-        std::cout << "Last path: " << std::endl;
+        // std::cout << "Last path: " << lastPath << std::endl;
         std::ofstream out(path.c_str(), std::ios::binary);
         if (!out.is_open())
         {
-            std::cout << "HERE" << std::endl;
+            // std::cout << "HERE" << std::endl;
             wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
             return HTTPResponse(500, "Failed to open file for writing");
         }
@@ -247,7 +247,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client)
     if (client.request.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
         return handleMultipart(client);
     std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
     // std::cout << "Path: " << path << std::endl;
     std::ofstream out(path.c_str(), std::ios::binary);
@@ -279,11 +279,11 @@ HTTPResponse RequestHandler::handlePOST(Client& client)
 
 HTTPResponse RequestHandler::handleGET(Client& client)
 {
-    std::cout << client.request.path << std::endl;
+    // std::cout << client.request.path << std::endl;
     std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
-    std::cout << "Path: " << path << std::endl;
+    // std::cout << "Path: " << path << std::endl;
     if (path.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
