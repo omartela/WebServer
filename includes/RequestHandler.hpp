@@ -3,16 +3,18 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "Parser.hpp"
+#include "Client.hpp"
 
 class RequestHandler
 {
     public:
-        static HTTPResponse handleRequest(const HTTPRequest& req, ServerConfig config);
-        static HTTPResponse nonMultipart(const HTTPRequest& req);
+        static HTTPResponse handleRequest(Client& client);
+        // static HTTPResponse nonMultipart(const HTTPRequest& req);
+        static HTTPResponse handleMultipart(Client& client);
     private:
-        static HTTPResponse handleGET(const std::string& path);
-        static HTTPResponse handlePOST(const HTTPRequest& req);
-        static HTTPResponse handleDELETE(const std::string& path);
-        static HTTPResponse executeCGI(const HTTPRequest& req);
+        static HTTPResponse handleGET(Client& client);
+        static HTTPResponse handlePOST(Client& client);
+        static HTTPResponse handleDELETE(Client& client);
+        static HTTPResponse executeCGI(Client& client);
         static bool isAllowedMethod(std::string method, Route route);
 };

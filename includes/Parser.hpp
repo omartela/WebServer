@@ -7,6 +7,7 @@
 #include <fstream>
 #include <regex>
 #include <filesystem>
+#include <unistd.h>
 
 // Erilaisia redirect status koodeja ja käyttötarkoituksia
 /*
@@ -26,13 +27,15 @@ struct Redirect
 struct Route
 {
     std::string path;
-    std::string root;
+    std::string abspath;
     std::vector<std::string> accepted_methods;
     Redirect redirect;
     bool autoindex;
     std::string index_file;
     std::vector<std::string> cgi_extension;
     std::string upload_path;
+    std::string cgipathpython;
+    std::string cgipathphp;
 };
 
 struct ServerConfig 
@@ -59,13 +62,15 @@ class Parser
         void parseClientMaxBodySizeDirective(const std::string& line, ServerConfig& server_config);
         void parseErrorPageDirective(const std::string& line, ServerConfig& server_config);
         void parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config);
-        void parseRootDirective(const std::string& line, Route& route);
+        void parseAbsPathDirective(const std::string& line, Route& route);
         void parseIndexDirective(const std::string& line, Route& route);
         void parseAutoIndexDirective(const std::string& line, Route& route);
         void parseAllowMethodsDirective(const std::string& line, Route& route);
         void parseReturnDirective(const std::string& line, Route& route);
         void parseUploadPathDirective(const std::string& line, Route& route);
         void parseCgiExtensionDirective(const std::string& line, Route& route);
+        void parseCgiPathPython(const std::string& line, Route& route);
+        void parseCgiPathPhp(const std::string& line, Route& route);
         // Validation functions
         bool validateServerDirective(const std::string& line);
         bool validateListenDirective(const std::string& line);
@@ -73,7 +78,7 @@ class Parser
         bool validateClientMaxBodySizeDirective(const std::string& line);
         bool validateErrorPageDirective(const std::string& line);
         bool validateLocationDirective(const std::string& line);
-        bool validateRootDirective(const std::string& line);
+        bool validateAbsPathDirective(const std::string& line);
         bool validateIndexDirective(const std::string& line);
         bool validateAutoIndexDirective(const std::string& line);
         bool validateAllowMethodsDirective(const std::string& line);
