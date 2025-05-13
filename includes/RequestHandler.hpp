@@ -3,6 +3,7 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "Parser.hpp"
+#include "Client.hpp"
 
 class RequestHandler
 {

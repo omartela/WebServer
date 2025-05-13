@@ -8,7 +8,8 @@ SRC = srcs/main.cpp\
 	srcs/HTTP/HTTPRequest.cpp\
 	srcs/HTTP/HTTPResponse.cpp\
 	srcs/HTTP/RequestHandler.cpp \
-	srcs/socketshandler/SocketsHandler.cpp
+	srcs/epoll/Client.cpp \
+	srcs/epoll/eventLoop.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)

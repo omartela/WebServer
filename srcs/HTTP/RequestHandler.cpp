@@ -16,7 +16,7 @@
 #include <filesystem>
 
 
-void printRequest(const HTTPRequest &req)
+void printRequest(const httpRequest &req)
 {
     std::cout << req.method << " " << req.path << std::endl;
     for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
