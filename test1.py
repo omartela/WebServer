@@ -95,40 +95,40 @@ if __name__ == "__main__":
     HOST2 = "127.0.0.2"
     PORT2 = 8002
 
-    send_get("/index.html", HOST, PORT)
-    send_get("/index.html", HOST2, PORT2)
-    send_get("/cgi-bin/echo.py", HOST, PORT)
-    send_get("/cgi-bin/echo.py", HOST2, PORT2)
-    print("^GET DONE^\n")
+    # send_get("/index.html", HOST, PORT)
+    # send_get("/index.html", HOST2, PORT2)
+    # send_get("/cgi-bin/echo.py", HOST, PORT)
+    # send_get("/cgi-bin/echo.py", HOST2, PORT2)
+    # print("^GET DONE^\n")
 
     send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT)
-    send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST2, PORT2)
-    file_name = "test_upload.txt"
-    file_content = "This is content of the test file."
-    send_multipart("/uploads", file_name, file_content, HOST, PORT)
-    send_multipart("/uploads", file_name, file_content, HOST2, PORT2)
-    form_data = "name=NikolaiTest&lang=Python"
-    send_cgi_post("/cgi-bin/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST, PORT)
-    send_cgi_post("/cgi-bin/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST2, PORT2)
-    print("^POST DONE^\n")
+    # send_post("/uploads/test.txt", "This is a test upload.", "text/plain", HOST2, PORT2)
+    # file_name = "test_upload.txt"
+    # file_content = "This is content of the test file."
+    # send_multipart("/uploads", file_name, file_content, HOST, PORT)
+    # send_multipart("/uploads", file_name, file_content, HOST2, PORT2)
+    # form_data = "name=NikolaiTest&lang=Python"
+    # send_cgi_post("/cgi-bin/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST, PORT)
+    # send_cgi_post("/cgi-bin/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST2, PORT2)
+    # print("^POST DONE^\n")
 
-    static_file("/www/index.html", "text/html", HOST, PORT)
-    static_file("/www/index.html", "text/html", HOST2, PORT2)
-    print("^Static file DONE^\n")
+    # static_file("/www/index.html", "text/html", HOST, PORT)
+    # static_file("/www/index.html", "text/html", HOST2, PORT2)
+    # print("^Static file DONE^\n")
 
-    send_get("/uploads/test_upload.txt", HOST, PORT)
-    send_get("/uploads/test_upload.txt", HOST2, PORT2)
-    send_get("/uploads/test.txt", HOST, PORT)
-    send_get("/uploads/test.txt", HOST2, PORT2)
-    send_get("uploads/this", HOST,PORT)
-    send_get("uploads/this", HOST2, PORT2)
-    print("^GET DONE^\n")
+    # send_get("/uploads/test_upload.txt", HOST, PORT)
+    # send_get("/uploads/test_upload.txt", HOST2, PORT2)
+    # send_get("/uploads/test.txt", HOST, PORT)
+    # send_get("/uploads/test.txt", HOST2, PORT2)
+    # send_get("uploads/this", HOST,PORT)
+    # send_get("uploads/this", HOST2, PORT2)
+    # print("^GET DONE^\n")
 
-    send_delete("/uploads/test_upload.txt", HOST, PORT)
-    send_delete("/uploads/test_upload.txt", HOST2, PORT2)
-    send_delete("/uploads/test.txt", HOST, PORT)
-    send_delete("/uploads/test.txt", HOST2, PORT2)
-    print("^DELETE DONE^\n")
+    # send_delete("/uploads/test_upload.txt", HOST, PORT)
+    # send_delete("/uploads/test_upload.txt", HOST2, PORT2)
+    # send_delete("/uploads/test.txt", HOST, PORT)
+    # send_delete("/uploads/test.txt", HOST2, PORT2)
+    # print("^DELETE DONE^\n")
 
     #send_get("/uploads/test_upload.txt")  # Check if deleted
     #send_get("uploads/test.txt")
