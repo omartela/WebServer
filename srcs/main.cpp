@@ -3,7 +3,6 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
-#include "Socketshandler.hpp"
 #include "eventLoop.hpp"
 #include <sys/socket.h>
 #include <cstring>
@@ -28,7 +27,7 @@ int main(int argc, char *argv[])
     try
     {
         Parser parser(argv[1]);
-        // parser.printServerConfigs();
+        parser.printServerConfigs();
 
         wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
         //SocketsHandler sockethandler(parser.getServerConfigs());

@@ -7,18 +7,19 @@
 #include "Parser.hpp"
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
+#include "HTTPRequest.hpp"
 
 #define READBUFFERSIZE 1000
-struct httpRequest
-{
-    std::string method;
-    reqTypes    eMethod;
-    std::string path;
-    std::string version;
-    std::map<std::string, std::string> headers;
-    std::string body;
-    size_t contentLen;
-};
+// struct httpRequest
+// {
+//     std::string method;
+//     reqTypes    eMethod;
+//     std::string path;
+//     std::string version;
+//     std::map<std::string, std::string> headers;
+//     std::string body;
+//     size_t contentLen;
+// };
 
 enum connectionStates {
     IDLE,
@@ -32,7 +33,7 @@ class Client {
         int fd;
         size_t timeConnected;
         enum connectionStates state;
-        
+
         std::string headerString;
         std::string readRaw;
         std::string readBuffer;
@@ -43,7 +44,8 @@ class Client {
 
         ServerConfig serverInfo;
 
-        httpRequest request;
+        HTTPRequest request;
+        HTTPResponse response;
 
         Client();
         Client(const Client& copy);

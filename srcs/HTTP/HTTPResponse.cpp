@@ -26,7 +26,7 @@ std::string HTTPResponse::getStatusMessage()
     return stat_msg;
 }
 
-HTTPResponse HTTPResponse::generateErrorResponse(int statusCode, std::string errmessage)
+HTTPResponse HTTPResponse::generateErrorResponse(HTTPResponse res)
 {
        static std::unordered_map<int, std::string> statusMessages =
        {
@@ -39,24 +39,23 @@ HTTPResponse HTTPResponse::generateErrorResponse(int statusCode, std::string err
        };
 
        std::string reason;
-       if (statusMessages.find(statusCode) != statusMessages.end())
+       if (statusMessages.find(res.getStatusCode()) != statusMessages.end())
        {
-        reason = statusMessages[statusCode];
+        reason = statusMessages[res.status];
        }
        else
        {
         reason = "Unknown Error";
        }
 
-       HTTPResponse response(statusCode, reason);
-       std::string body = "<html><head><title>" + std::to_string(statusCode) + " " + reason +
-                       "</title></head><body><h1>" + std::to_string(statusCode) + " " + reason +
-                       "</h1><p>The server encountered an error: " + errmessage + ".</p></body></html>";
+       HTTPResponse response(res.status, reason);
+       std::string body = "<html><head><title>" + std::to_string(res.status) + " " + reason +
+                       "</title></head><body><h1>" + std::to_string(res.status) + " " + reason +
+                       "</h1><p>The server encountered an error: " + res.getStatusMessage() + ".</p></body></html>";
 
         response.headers["Content-Type"] = "text/html; charset=UTF-8";
         response.headers["Content-Length"] = std::to_string(body.size());
         response.body = body;
 
         return response;
-
 }

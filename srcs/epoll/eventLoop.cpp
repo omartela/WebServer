@@ -23,6 +23,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     {
         ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
+        newServer = serverConfigs[i];
         newServer.fd = serverSocket;
         setup.data.fd = newServer.fd;
         setup.events = EPOLLIN;
@@ -74,7 +75,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 /* static void createTimerFd()
 {
     int timerFd = timerfd_create();
-    
+
 
 
 
@@ -91,7 +92,7 @@ static int initServerSocket(ServerConfig server)
     serverAddress.sin_port = htons(server.port);
     bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
     listen(serverSocket, SOMAXCONN);
-    
+
     return (serverSocket);
 }
 
@@ -186,7 +187,7 @@ static void handleClientRequest(Client &client, int loop)
             client.bytesRead = 0;
             char buffer[READBUFFERSIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-            
+
             if (client.bytesRead < 0)
             {
                 //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -213,7 +214,8 @@ static void handleClientRequest(Client &client, int loop)
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
-                        client.requestParser();
+                        // client.requestParser();
+                        client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
                         client.readRaw = client.readRaw.substr(headerEnd + 4);
                         /// POST request has only body, GET and DELETE do not have body
@@ -223,8 +225,7 @@ static void handleClientRequest(Client &client, int loop)
                         {
                             client.state = READY_TO_SEND;
                             client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
-                            RequestHandler requestHandler;
-                            HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
+                            HTTPResponse response = RequestHandler::handleRequest(client);
                             client.writeBuffer = response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
@@ -241,11 +242,10 @@ static void handleClientRequest(Client &client, int loop)
             if (client.readRaw.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
-                RequestHandler requestHandler;
-                HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
-                if (response.getStatusCode() >= 400)
-                    response = response.generateErrorResponse(response.getStatusCode(), response.getStatusMessage());
-                client.writeBuffer = response.toString();
+                client.response = RequestHandler::handleRequest(client);
+                if (client.response.getStatusCode() >= 400)
+                    client.response = client.response.generateErrorResponse(client.response);
+                client.writeBuffer = client.response.toString();
                 client.state = READY_TO_SEND;
                 toggleEpollEvents(client.fd, loop, EPOLLOUT);
                 return ;

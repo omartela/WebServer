@@ -8,13 +8,13 @@
 class RequestHandler
 {
     public:
-        static HTTPResponse handleRequest(HTTPRequest& req);
+        static HTTPResponse handleRequest(Client& client);
         // static HTTPResponse nonMultipart(const HTTPRequest& req);
-        static HTTPResponse handleMultipart(HTTPRequest& req);
+        static HTTPResponse handleMultipart(Client& client);
     private:
-        static HTTPResponse handleGET(HTTPRequest& req);
-        static HTTPResponse handlePOST(HTTPRequest& req);
-        static HTTPResponse handleDELETE(HTTPRequest& req);
-        static HTTPResponse executeCGI(HTTPRequest& req);
+        static HTTPResponse handleGET(Client& client);
+        static HTTPResponse handlePOST(Client& client);
+        static HTTPResponse handleDELETE(Client& client);
+        static HTTPResponse executeCGI(Client& client);
         static bool isAllowedMethod(std::string method, Route route);
 };
