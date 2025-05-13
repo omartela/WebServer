@@ -374,11 +374,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         case GET:
         {
             if (validFile)
-<<<<<<< HEAD
-                return handleGET(config.routes[key].abspath + req.path);
-=======
                 return handleGET(client);
->>>>>>> http-cgi-file-handling
             else
                 return HTTPResponse(400, "Invalid file");
         }
