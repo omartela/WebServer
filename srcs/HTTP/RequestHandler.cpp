@@ -51,7 +51,7 @@ static std::string getMimeType(const std::string& ext)
 
 static std::string extractFilename(const std::string& path, int method)
 {
-    std::cout << "Extract path: " << path << std::endl;
+    // std::cout << "Extract path: " << path << std::endl;
     size_t start;
     if (method)
     {
@@ -181,7 +181,6 @@ HTTPResponse RequestHandler::executeCGI(HTTPRequest& req)
 HTTPResponse RequestHandler::handleMultipart(HTTPRequest& req)
 {
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-
     if (req.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = req.headers.find("Content-Type");
@@ -240,13 +239,13 @@ HTTPResponse RequestHandler::handlePOST(HTTPRequest& req)
 {
     if (req.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
-    std::cout << "Content type: " << req.headers["Content-Type"] << std::endl;
+    // std::cout << "Content type: " << req.headers["Content-Type"] << std::endl;
     if (req.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
         return handleMultipart(req);
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string path = "." + req.serverInfo.routes[key].abspath + req.file;
-    std::cout << "Path: " << path << std::endl;
+    // std::cout << "Path: " << path << std::endl;
     std::ofstream out(path.c_str(), std::ios::binary);
     if (!out.is_open())
     {
@@ -314,11 +313,11 @@ HTTPResponse RequestHandler::handleGET(HTTPRequest& req)
 
 HTTPResponse RequestHandler::handleDELETE(HTTPRequest& req)
 {
-    std::cout << "Req path: " << req.path << std::endl;
+    // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.file;
-    std::cout << "Full path: " << fullPath << std::endl;
+    // std::cout << "Full path: " << fullPath << std::endl;
     if (fullPath.find("..") != std::string::npos || fullPath.find("/uploads/") == std::string::npos)
         return HTTPResponse(403, "Forbidden");
     if (access(fullPath.c_str(), F_OK) != 0)
@@ -336,10 +335,10 @@ HTTPResponse RequestHandler::handleDELETE(HTTPRequest& req)
 
 bool RequestHandler::isAllowedMethod(std::string method, Route route)
 {
-    std::cout << route.accepted_methods.size() << std::endl;
+    // std::cout << route.accepted_methods.size() << std::endl;
     for (size_t i = 0; i < route.accepted_methods.size(); i++)
     {
-        std::cout << route.accepted_methods[i] << std::endl;
+        // std::cout << route.accepted_methods[i] << std::endl;
         if (method == route.accepted_methods[i])
             return true;
     }
@@ -349,11 +348,11 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 HTTPResponse RequestHandler::handleRequest(HTTPRequest& req)
 {
     // printRequest(req);
-    std::cout << "Req path: " << req.path << std::endl;
+    // std::cout << "Req path: " << req.path << std::endl;
     std::string key = req.path.substr(0, req.path.find_last_of("/") + 1);
-    std::cout << "Key: " << key << std::endl;
+    // std::cout << "Key: " << key << std::endl;
     std::string fullPath = "." + req.serverInfo.routes[key].abspath + req.file;
-    std::cout << "Full path: " << fullPath << std::endl;
+    // std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {

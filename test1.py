@@ -109,12 +109,12 @@ if __name__ == "__main__":
     # form_data = "name=NikolaiTest&lang=Python"
     # send_cgi_post("/cgi/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST2, PORT2)
     print("\tPOST DONE\n")
-    # print("\tStatic file")
-    # static_file("/index.html", "text/html", HOST, PORT)
-    # print("\tStatic file DONE\n")
-    # print("\tGET");
-    # send_get("/images/uploads/test_upload.txt", HOST, PORT)
-    # print("\tGET DONE\n")
+    print("\tStatic file")
+    static_file("/index.html", "text/html", HOST, PORT2)
+    print("\tStatic file DONE\n")
+    print("\tGET");
+    send_get("/images/uploads/test_upload.txt", HOST, PORT2)
+    print("\tGET DONE\n")
     print("\tDELETE")
     send_delete("/images/uploads/test.txt", HOST, PORT2)
     send_delete("/images/uploads/test_upload.txt", HOST, PORT2)

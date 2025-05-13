@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     try
     {
         Parser parser(argv[1]);
-        parser.printServerConfigs();
+        // parser.printServerConfigs();
 
         wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
         SocketsHandler sockethandler(parser.getServerConfigs());
