@@ -10,6 +10,7 @@ static void handleClientRecv(Client &client, int loop, std::map<int, Client>& al
 static void handleClientSend(Client &client, int loop, std::map<int, Client>& allClients);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients);
+static int  findOldestClient(std::map<int, Client>& clients);
 
 //TODO: add check if client sends enough data within timeout
 void eventLoop(std::vector<ServerConfig> serverConfigs)

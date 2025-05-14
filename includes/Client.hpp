@@ -13,17 +13,6 @@
 
 #define READBUFFERSIZE 1000
 
-struct httpRequest
-{
-    std::string method;
-    reqTypes    eMethod;
-    std::string path;
-    std::string version;
-    std::map<std::string, std::string> headers;
-    std::string body;
-    size_t contentLen;
-};
-
 enum connectionStates {
     IDLE,
     READ_HEADER,
@@ -58,13 +47,6 @@ class Client {
         ~Client();
 
         void reset();
-<<<<<<< HEAD
-        // void requestParser();
-=======
-        //void resetRequest();
-        //void requestParser();
-        //void removeWhitespaces(std::string& key, std::string& value);
-        //void validateHeader();
         reqTypes getMethodEnum();
 >>>>>>> d9af41e (added early time out event in case client sends too much or not enough data between timeouts)
 };

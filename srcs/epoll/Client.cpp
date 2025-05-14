@@ -39,12 +39,7 @@ void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
-<<<<<<< HEAD
-    this->rawRequest.clear();
-    this->readRaw.clear();
-=======
     this->rawReadData.clear();
->>>>>>> d9af41e (added early time out event in case client sends too much or not enough data between timeouts)
     this->writeBuffer.clear();
     this->headerString.clear();
     this->bytesRead = 0;
@@ -92,24 +87,24 @@ void Client::reset()
 //     this->request.eMethod = getMethodEnum();
 // }
 
-// void Client::removeWhitespaces(std::string& key, std::string& value)
-// {
-//     if (key.empty() || value.empty())
-//         throw std::runtime_error("400 bad request"); //change to an actual response
+void Client::removeWhitespaces(std::string& key, std::string& value)
+{
+    if (key.empty() || value.empty())
+        throw std::runtime_error("400 bad request"); //change to an actual response
 
-//     // check for whitespaces in key
-//     size_t whitespace = key.find_first_of(" \t");
-//     if (whitespace != std::string::npos)
-//         throw std::runtime_error("400 bad request"); //change to an actual response
+    // check for whitespaces in key
+    size_t whitespace = key.find_first_of(" \t");
+    if (whitespace != std::string::npos)
+        throw std::runtime_error("400 bad request"); //change to an actual response
 
-//     // remove leading and trailing whitespaces from value
-//     size_t start = value.find_first_not_of(" \t");
-//     size_t end = value.find_last_not_of(" \t");
-//     if (start != std::string::npos)
-//         value = value.substr(start, end - start + 1);
-//     else // only whitespace
-//         throw std::runtime_error("400 bad request"); //change to an actual response
-// }
+    // remove leading and trailing whitespaces from value
+    size_t start = value.find_first_not_of(" \t");
+    size_t end = value.find_last_not_of(" \t");
+    if (start != std::string::npos)
+        value = value.substr(start, end - start + 1);
+    else // only whitespace
+        throw std::runtime_error("400 bad request"); //change to an actual response
+}
 
 // void Client::validateHeader()
 // {
