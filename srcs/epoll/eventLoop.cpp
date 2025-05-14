@@ -67,6 +67,11 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     // std::cout << "EPOLLOUT" << std::endl;
                     handleClientRequestSend(client, loop);
                 }
+                if (client.erase)
+                {
+                    std::cout << "client erased" << std::endl;
+                    clients.erase(client.fd);
+                }
             }
         }
     }
@@ -141,11 +146,13 @@ static void handleClientRequestSend(Client &client, int loop)
     if (client.bytesWritten == 0)
     {
         close(client.fd);
+        client.erase = true;
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
     }
     if (client.bytesWritten < 0) {
         close(client.fd);
+        client.erase = true;
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return;
     }
@@ -153,13 +160,14 @@ static void handleClientRequestSend(Client &client, int loop)
     if (client.writeBuffer.empty())
     {
         std::string cl = client.request.headers["Connection"];
-        if (!cl.empty() || client.request.version == "HTTP/1.0")
+        if (!cl.empty())
         {
-            if (cl == "close" || cl == "Close" || client.request.version == "HTTP/1.0")
+            if (cl == "close" || cl == "Close")
             {
                 close(client.fd);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                client.erase = true;
             }
             else
             {
@@ -167,6 +175,19 @@ static void handleClientRequestSend(Client &client, int loop)
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
+        }
+        else if (client.request.version == "HTTP/1.0")
+        {
+            close(client.fd);
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            client.erase = true;
+        }
+        else
+        {
+            std::cout << "We don't close, only toggled." << std::endl;
+            client.reset();
+            toggleEpollEvents(client.fd, loop, EPOLLIN);
         }
     }
 };
@@ -231,13 +252,16 @@ static void handleClientRequest(Client &client, int loop)
                     //return ;
                 //else
                 close(client.fd);
+                client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
 			if (client.bytesRead == 0)
             {
 				// Client disconnected
+                std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
+                client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
@@ -251,6 +275,7 @@ static void handleClientRequest(Client &client, int loop)
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
+                        client.headerString[client.headerString.size()] = '\0'; 
                         // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
@@ -261,7 +286,7 @@ static void handleClientRequest(Client &client, int loop)
                         else
                         {
                             client.state = READY_TO_SEND;
-                            client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                            client.request.body = client.readRaw;
                             HTTPResponse response = RequestHandler::handleRequest(client);
                             client.writeBuffer = response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -278,7 +303,7 @@ static void handleClientRequest(Client &client, int loop)
         {
             if (client.readRaw.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
-                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                client.request.body = client.readRaw;
                 client.response = RequestHandler::handleRequest(client);
                 if (client.response.getStatusCode() >= 400)
                     client.response = client.response.generateErrorResponse(client.response);
@@ -298,6 +323,7 @@ static void handleClientRequest(Client &client, int loop)
                     //break ;
                 //else
                 close(client.fd);
+                client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }

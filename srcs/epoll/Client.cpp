@@ -7,6 +7,7 @@ Client::Client()
     this->timeConnected = 0;
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->erase = false;
     // this->request.contentLen = 0;
 }
 
@@ -40,9 +41,12 @@ void Client::reset()
     this->state = IDLE;
     this->readBuffer.clear();
     this->rawRequest.clear();
+    this->readRaw.clear();
     this->writeBuffer.clear();
+    this->headerString.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->erase = false;
     this->request = HTTPRequest();
 }
 
