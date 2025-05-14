@@ -4,7 +4,6 @@ Client::Client()
 {
     this->fd = -1;
     this->state = IDLE;
-    this->timeConnected = 0;
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->request.contentLen = 0;
@@ -24,12 +23,14 @@ Client& Client::operator=(const Client& copy)
     {
         this->fd = copy.fd;
         this->state = copy.state;
+        this->timestamp = copy.timestamp;
         this->readBuffer = copy.readBuffer;
         this->rawRequest = copy.rawRequest;
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
         this->serverInfo = copy.serverInfo;
+        this->request = copy.request;
     }
     return *this;
 }
