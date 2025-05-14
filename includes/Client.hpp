@@ -11,16 +11,6 @@
 #include "HTTPRequest.hpp"
 
 #define READBUFFERSIZE 1000
-// struct httpRequest
-// {
-//     std::string method;
-//     reqTypes    eMethod;
-//     std::string path;
-//     std::string version;
-//     std::map<std::string, std::string> headers;
-//     std::string body;
-//     size_t contentLen;
-// };
 
 enum connectionStates {
     IDLE,
@@ -54,9 +44,5 @@ class Client {
         ~Client();
 
         void reset();
-        //void resetRequest();
-        //void requestParser();
-        //void removeWhitespaces(std::string& key, std::string& value);
-        //void validateHeader();
         reqTypes getMethodEnum();
 };
