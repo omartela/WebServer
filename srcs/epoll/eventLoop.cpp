@@ -66,6 +66,8 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 {
                     // std::cout << "EPOLLOUT" << std::endl;
                     handleClientRequestSend(client, loop);
+                    if (client.erase)
+                        clients.erase(client.fd);
                 }
             }
         }
@@ -153,13 +155,14 @@ static void handleClientRequestSend(Client &client, int loop)
     if (client.writeBuffer.empty())
     {
         std::string cl = client.request.headers["Connection"];
-        if (!cl.empty() || client.request.version == "HTTP/1.0")
+        if (!cl.empty())
         {
-            if (cl == "close" || cl == "Close" || client.request.version == "HTTP/1.0")
+            if (cl == "close" || cl == "Close")
             {
                 close(client.fd);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                client.erase = true;
             }
             else
             {
@@ -167,6 +170,19 @@ static void handleClientRequestSend(Client &client, int loop)
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
+        }
+        else if (client.request.version == "HTTP/1.0")
+        {
+            close(client.fd);
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            client.erase = true;
+        }
+        else
+        {
+            std::cout << "We don't close, only toggled." << std::endl;
+            client.reset();
+            toggleEpollEvents(client.fd, loop, EPOLLIN);
         }
     }
 };
@@ -214,6 +230,7 @@ static void handleClientRequest(Client &client, int loop)
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
+                        client.headerString[client.headerString.size()] = '\0'; 
                         // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;

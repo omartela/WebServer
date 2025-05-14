@@ -41,6 +41,7 @@ class Client {
         std::string writeBuffer;
         int bytesRead;
         int bytesWritten;
+        bool erase;
 
         ServerConfig serverInfo;
 
