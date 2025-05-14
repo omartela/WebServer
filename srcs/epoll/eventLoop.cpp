@@ -77,15 +77,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     }
 }
 
-/* static void createTimerFd()
-{
-    int timerFd = timerfd_create();
-
-
-
-
-}
- */
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
