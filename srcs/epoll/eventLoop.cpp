@@ -91,8 +91,10 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    client.timestamp = std::chrono::steady_clock::now();
-                    handleClientSend(client, loop, clients);
+                    // std::cout << "EPOLLOUT" << std::endl;
+                    handleClientRequestSend(client, loop);
+                    if (client.erase)
+                        clients.erase(client.fd);
                 }
                 if (client.erase)
                     clients.erase(client.fd);
@@ -151,41 +153,23 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
         std::cout << "No more clients connected" << std::endl;
         return ;
     }
-
-    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    for (auto it = clients.begin(); it != clients.end();)
-    {
-        auto& client = it->second;
-
-        std::cout << "checking client FD" << client.fd << std::endl;
-        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(10);
-        if (now > timeout)
-        {
-            std::cout << "client FD" << client.fd << " timed out!" << std::endl;
-            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("timeout epoll_ctl DEL failed");
-            close(client.fd);
-            it = clients.erase(it);
-        }
-        else
-            ++it;
+    if (client.bytesWritten < 0) {
+        close(client.fd);
+        epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+        return;
     }
-}
-
-static int findOldestClient(std::map<int, Client>& clients)
-{
-    int oldestClient = 0;
-    std::chrono::steady_clock::time_point longestTime = std::chrono::steady_clock::now();
-
-    for (auto it : clients)
+    client.writeBuffer.erase(0, client.bytesWritten);
+    if (client.writeBuffer.empty())
     {
-        if (it.second.timestamp < longestTime)
+        std::string cl = client.request.headers["Connection"];
+        if (!cl.empty())
         {
-            if (cl == "close" || cl == "Close" || client.request.version == "HTTP/1.0")
+            if (cl == "close" || cl == "Close")
             {
                 close(client.fd);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                client.erase = true;
             }
             else
             {
@@ -194,13 +178,28 @@ static int findOldestClient(std::map<int, Client>& clients)
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
         }
+        else if (client.request.version == "HTTP/1.0")
+        {
+            close(client.fd);
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("oldFd epoll_ctl DEL failed");
+            client.erase = true;
+        }
+        else
+        {
+            std::cout << "We don't close, only toggled." << std::endl;
+            client.reset();
+            toggleEpollEvents(client.fd, loop, EPOLLIN);
+        }
     }
+};
 
-    return oldestClient;
-}
-
-static void handleClientRecv(Client& client, int loop, std::map<int, Client>& allClients)
+static void handleClientRequest(Client &client, int loop)
 {
+    //std::cout << "Request received from client FD " << client.fd << std::endl;
+    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
+    // exit(0);
+
     switch (client.state)
     {
         case IDLE:
@@ -242,6 +241,7 @@ static void handleClientRecv(Client& client, int loop, std::map<int, Client>& al
                         client.requestParser();
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
                         client.headerString[client.headerString.size()] = '\0';
+                        // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
                         client.rawRequest = client.rawRequest.substr(headerEnd + 4);
@@ -250,6 +250,8 @@ static void handleClientRecv(Client& client, int loop, std::map<int, Client>& al
                             client.state = READ_BODY;
                         else
                         {
+                            client.state = READY_TO_SEND;
+                            client.request.body = client.readRaw;
                             client.state = TO_SEND;
                             client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                             RequestHandler requestHandler;
@@ -274,6 +276,7 @@ static void handleClientRecv(Client& client, int loop, std::map<int, Client>& al
         {
             if (client.rawRequest.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
+                client.request.body = client.readRaw;
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                 RequestHandler requestHandler;
                 HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
