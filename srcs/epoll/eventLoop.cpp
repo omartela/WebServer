@@ -224,7 +224,7 @@ static void handleClientRequest(Client &client, int loop)
                         else
                         {
                             client.state = READY_TO_SEND;
-                            client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                            client.request.body = client.readRaw;
                             HTTPResponse response = RequestHandler::handleRequest(client);
                             client.writeBuffer = response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -241,7 +241,7 @@ static void handleClientRequest(Client &client, int loop)
         {
             if (client.readRaw.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
-                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
+                client.request.body = client.readRaw;
                 client.response = RequestHandler::handleRequest(client);
                 if (client.response.getStatusCode() >= 400)
                     client.response = client.response.generateErrorResponse(client.response);
