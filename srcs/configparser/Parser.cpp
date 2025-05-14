@@ -92,11 +92,11 @@ void Parser::parseErrorPageDirective(const std::string& line, ServerConfig& serv
     server_config.error_pages[error_code] = error_page;
 }
 
-void Parser::parseRootDirective(const std::string& line, Route& route)
+void Parser::parseAbsPathDirective(const std::string& line, Route& route)
 {
-    size_t pos = line.find("root ") + 5; // Skip "root "
+    size_t pos = line.find("abspath ") + 8; // Skip "abspath "
     size_t end_pos = line.find(";");
-    route.root = line.substr(pos, end_pos - pos);
+    route.abspath = line.substr(pos, end_pos - pos);
 }
 
 void Parser::parseIndexDirective(const std::string& line, Route& route)
@@ -163,6 +163,21 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
     route.accepted_methods.push_back(cgi_extensions); // Add the last cgi_extension
 }
 
+void Parser::parseCgiPathPython(const std::string&line, Route& route)
+{
+    size_t pos = line.find("cgipathpython ") + 14; // Skip "cgipathpython "
+    size_t end_pos = line.find(";");
+    route.cgipathpython = line.substr(pos, end_pos - pos);
+}
+
+void Parser::parseCgiPathPhp(const std::string& line, Route &route)
+{
+    size_t pos = line.find("cgipathphp ") + 11; // Skip "cgipathphp "
+    size_t end_pos = line.find(";");
+    route.cgipathphp = line.substr(pos, end_pos - pos);
+}
+
+
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
 {
     Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
@@ -174,9 +189,9 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     while (getline(file, line) && line.find("}") == std::string::npos)
     {
         trimLeadingAndTrailingSpaces(line);
-        if (line.find("root ") != std::string::npos)
+        if (line.find("abspath ") != std::string::npos)
         {
-           parseRootDirective(line, route);
+           parseAbsPathDirective(line, route);
         }
         else if (line.find("index ") != std::string::npos && line.find("autoindex") == std::string::npos)
         {
@@ -201,6 +216,14 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         else if (line.find("cgi_extension ") != std::string::npos)
         {
             parseCgiExtensionDirective(line, route);
+        }
+        else if (line.find("cgipathpython ") != std::string::npos)
+        {
+            parseCgiPathPython(line, route);
+        }
+        else if (line.find("cgipathphp ") != std::string::npos)
+        {
+            parseCgiPathPhp(line, route);
         }
     }
     server_config.routes[route.path] = route;
@@ -293,20 +316,20 @@ bool Parser::validateLocationDirective(const std::string& line)
         return false;
 }
 
-bool Parser::validateRootDirective(const std::string& line)
+bool Parser::validateAbsPathDirective(const std::string& line)
 {
     /*
     ### Explanation of the Regex:
-        1. **`^root`**: Ensures the line starts with the word "root".
-        2. **`\s+`**: Matches one or more whitespace characters after "root".
+        1. **`^abspath`**: Ensures the line starts with the word "abspath".
+        2. **`\s+`**: Matches one or more whitespace characters after "abspath".
         3. **`(/[^\s;]+)+`**: Matches one or more paths:
         - `/`: Each path starts with a forward slash.
         - `[^\s;]+`: Matches one or more characters that are not whitespace or a semicolon.
         4. **`;`**: Ensures the line ends with a semicolon.
         5. **`$`**: Ensures the match goes to the end of the line.
     */
-    std::regex root_regex(R"(^\s*root\s+(/[^\s;]+)+;$)");
-    if (std::regex_match(line, root_regex))
+    std::regex abspath_regex(R"(^\s*abspath\s+(/[^\s;]+)+;$)");
+    if (std::regex_match(line, abspath_regex))
         return true;
     else
         return false;
@@ -408,10 +431,14 @@ bool Parser::validateBrackets(const std::string& config_file)
 
 bool Parser::validateDirectives(const std::string& line)
 {
+    if (line.find("cgipathpython ") != std::string::npos)
+        return true;
+    if (line.find("cgipathphp ") != std::string::npos)
+        return true;
     // Check if the line contains any of the directives
     if (validateServerDirective(line) || validateListenDirective(line) || validateServerNameDirective(line) ||
         validateClientMaxBodySizeDirective(line) || validateErrorPageDirective(line) || validateLocationDirective(line) ||
-        validateRootDirective(line) || validateIndexDirective(line) || validateAutoIndexDirective(line) ||
+        validateAbsPathDirective(line) || validateIndexDirective(line) || validateAutoIndexDirective(line) ||
         validateAllowMethodsDirective(line) || validateReturnDirective(line) || validateUploadPathDirective(line) ||
         validateCgiExtensionDirective(line))
     {
@@ -547,7 +574,7 @@ void Parser::printRoute(const Route& route) const
 {
     std::cout << "\033[1;34mPrinting Route struct\033[0m" << std::endl;
     std::cout << "Route Path: " << route.path << std::endl;
-    std::cout << "Root: " << route.root << std::endl;
+    std::cout << "Abspath: " << route.abspath << std::endl;
     std::cout << "Accepted Methods: ";
     for (const auto& method : route.accepted_methods)
     {
@@ -563,6 +590,8 @@ void Parser::printRoute(const Route& route) const
         std::cout << cgi_extension << " ";
     }
     std::cout << "Upload Path: " << route.upload_path << std::endl;
+    std::cout << "cgipathpython : " << route.cgipathpython << std::endl;
+    std::cout << "cgipathphp : " << route.cgipathphp << std::endl;
 
 }
 
