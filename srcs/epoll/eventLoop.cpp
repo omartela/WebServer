@@ -93,8 +93,11 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 {
                     // std::cout << "EPOLLOUT" << std::endl;
                     handleClientRequestSend(client, loop);
-                    if (client.erase)
-                        clients.erase(client.fd);
+                }
+                if (client.erase)
+                {
+                    std::cout << "client erased" << std::endl;
+                    clients.erase(client.fd);
                 }
                 if (client.erase)
                     clients.erase(client.fd);
@@ -221,12 +224,11 @@ static void handleClientRequest(Client &client, int loop)
             }
 			if (client.bytesRead == 0) // Client disconnected
             {
+				// Client disconnected
                 std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
-                allClients.erase(client.fd);
+                epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
             buffer[client.bytesRead] = '\0';
