@@ -68,10 +68,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     handleClientRequestSend(client, loop);
                 }
                 if (client.erase)
-                {
-                    std::cout << "client erased" << std::endl;
                     clients.erase(client.fd);
-                }
             }
         }
     }
@@ -209,9 +206,6 @@ static void handleClientRequest(Client &client, int loop)
 
             if (client.bytesRead < 0)
             {
-                //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
-                    //return ;
-                //else
                 close(client.fd);
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
@@ -227,16 +221,14 @@ static void handleClientRequest(Client &client, int loop)
             }
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
-            client.readBuffer += temp;
-            client.readRaw += client.readBuffer;
+            client.readRaw += temp;
             if (client.bytesRead >= 4)
             {
                 size_t headerEnd = client.readRaw.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
-                        client.headerString[client.headerString.size()] = '\0'; 
-                        // client.requestParser();
+                        client.headerString[client.headerString.size()] = '\0';
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
                         client.readRaw = client.readRaw.substr(headerEnd + 4);
@@ -277,17 +269,13 @@ static void handleClientRequest(Client &client, int loop)
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
             if (client.bytesRead < 0)
             {
-                //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
-                    //break ;
-                //else
                 close(client.fd);
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
-            client.readBuffer += temp;
-            client.readRaw += client.readBuffer;
+            client.readRaw += temp;
         }
 		case READY_TO_SEND:
 			return;

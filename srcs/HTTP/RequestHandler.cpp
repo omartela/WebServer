@@ -118,12 +118,53 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
     return result;
 }
 
-HTTPResponse RequestHandler::executeCGI(Client& client)
+static bool validateHeader(HTTPRequest req)
 {
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
-    std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
-    // std::cout << "CGI exe path: " << path << std::endl;
-    if (access(path.c_str(), X_OK) != 0)
+    //TODO: Check how nginx reacts if there is more than single space between request line fields. RFC 7230 determines there should be only 1
+    //TODO: Check what if multiple headers have same key. std::map will overwrite them, so 1 remains, but what nginx does?
+    //TODO: Check that method and version are valid and no typos
+
+    //check if request line is valid
+    if (req.method.empty() || req.path.empty() || req.version.empty())
+        return false;
+
+    // if HTTP/1.1 must have host header
+    if (req.version == "HTTP/1.1")
+    {
+        auto it = req.headers.find("Host");
+        if (it == req.headers.end())
+            return false;
+    }
+
+    //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
+    if (req.method == "POST")
+    {
+        bool transferEncoding = false;
+        bool contentLength = false;
+
+        auto it = req.headers.find("Transfer-encoding");
+        if (it != req.headers.end())
+        {
+            transferEncoding = true;
+            if (it->second != "chunked")
+                return false;
+        }
+
+        it = req.headers.find("Content-Length");
+        if (it != req.headers.end())
+            contentLength = true;
+
+        if ((transferEncoding == false && contentLength == false)
+            || (transferEncoding == true && contentLength == true))
+            return false;
+    }
+    return true;
+}
+
+HTTPResponse RequestHandler::executeCGI(Client& client, std::string fullPath)
+{
+    // std::cout << "CGI exe path: " << fullPath << std::endl;
+    if (access(fullPath.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
     pipe(inPipe);
@@ -141,8 +182,8 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
         if (client.request.headers.count("Content-Type"))
             setenv("CONTENT_TYPE", client.request.headers.at("Content-Type").c_str(), 1);
         std::string pyth = "python3";
-        char *argv[] = { const_cast<char*>(pyth.c_str()), const_cast<char*>(path.c_str()), NULL };
-        execve(client.serverInfo.routes[key].cgipathpython.c_str(), argv, environ);
+        char *argv[] = { const_cast<char*>(pyth.c_str()), const_cast<char*>(fullPath.c_str()), NULL };
+        execve(client.serverInfo.routes[client.request.location].cgipathpython.c_str(), argv, environ);
         _exit(1);
     }
     close(inPipe[0]);
@@ -182,8 +223,7 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
 
 HTTPResponse RequestHandler::handleMultipart(Client& client)
 {
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
-    // std::cout << "Key: {" << key << "}" << std::endl;
+    // std::cout << "Key: {" << client.request.location << "}" << std::endl;
     if (client.request.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     std::map<std::string, std::string>::const_iterator its = client.request.headers.find("Content-Type");
@@ -211,7 +251,7 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         if (file.empty())
             continue;
         std::string content = extractContent(part);
-        std::string folder = client.serverInfo.routes[key].abspath;
+        std::string folder = client.serverInfo.routes[client.request.location].abspath;
         // std::cout << "Folder: " << folder << std::endl;
         if (folder[0] == '/')
             folder.erase(0, 1);
@@ -239,18 +279,16 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     return res;
 }
 
-HTTPResponse RequestHandler::handlePOST(Client& client)
+HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 {
     if (client.request.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
     // std::cout << "Content type: " << req.headers["Content-Type"] << std::endl;
     if (client.request.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
         return handleMultipart(client);
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
     // std::cout << "Path: " << path << std::endl;
-    std::ofstream out(path.c_str(), std::ios::binary);
+    std::ofstream out(fullPath.c_str(), std::ios::binary);
     if (!out.is_open())
     {
         wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
@@ -258,7 +296,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client)
     }
     out.write(client.request.body.c_str(), client.request.body.size());
     out.close();
-    if (access(path.c_str(), R_OK) != 0)
+    if (access(fullPath.c_str(), R_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "400 File not uploaded", false);
         return HTTPResponse(400, "File not uploaded");
@@ -277,27 +315,24 @@ HTTPResponse RequestHandler::handlePOST(Client& client)
     return res;
 }
 
-HTTPResponse RequestHandler::handleGET(Client& client)
+HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    // std::cout << client.request.path << std::endl;
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string path = "." + client.serverInfo.routes[key].abspath + client.request.file;
     // std::cout << "Path: " << path << std::endl;
-    if (path.find("..") != std::string::npos)
+    if (fullPath.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
         return HTTPResponse(403, "Forbidden");
     }
-    if (path.find("/www/cgi/") != std::string::npos)
-        return executeCGI(client);
+    if (fullPath.find("/www/cgi/") != std::string::npos)
+        return executeCGI(client, fullPath);
     struct stat s;
-    if (stat(path.c_str(), &s) != 0 || access(path.c_str(), R_OK) != 0)
+    if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "404 Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
-    std::ifstream file(path.c_str(), std::ios::binary);
+    std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
     {
         wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
@@ -308,19 +343,18 @@ HTTPResponse RequestHandler::handleGET(Client& client)
     file.close();
     HTTPResponse response(200, "OK");
     response.body = content.str();
-    std::string ext = getFileExtension(path);
+    std::string ext = getFileExtension(fullPath);
     response.headers["Content-Type"] = getMimeType(ext);
     response.headers["Content-Length"] = std::to_string(response.body.size());
     wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
     return response;
 }
 
-HTTPResponse RequestHandler::handleDELETE(Client& client)
+// HTTPResponse RequestHandler::handleDELETE(Client& client, std::string fullPath)
+HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
 {
     // std::cout << "Req path: " << req.path << std::endl;
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + client.serverInfo.routes[key].abspath + client.request.file;
     // std::cout << "Full path: " << fullPath << std::endl;
     if (fullPath.find("..") != std::string::npos || fullPath.find("/uploads/") == std::string::npos)
         return HTTPResponse(403, "Forbidden");
@@ -352,10 +386,11 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
     // printRequest(req);
+    if (!validateHeader(client.request))
+        return HTTPResponse(403, "Bad request");
     // std::cout << "Req path: " << client.request.path << std::endl;
-    std::string key = client.request.path.substr(0, client.request.path.find_last_of("/") + 1);
     // std::cout << "Key: " << key << std::endl;
-    std::string fullPath = "." + client.serverInfo.routes[key].abspath + client.request.file;
+    std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
     // std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
@@ -367,24 +402,24 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(400, "Invalid file name");
     }
-    if (!isAllowedMethod(client.request.method, client.serverInfo.routes[key]))
+    if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(400, "Method not allowed");
     switch (client.request.eMethod)
     {
         case GET:
         {
             if (validFile)
-                return handleGET(client);
+                return handleGET(client, fullPath);
             else
                 return HTTPResponse(400, "Invalid file");
         }
         case POST:
         {
-            return handlePOST(client);
+            return handlePOST(client, fullPath);
         }
         case DELETE:
         {
-            return handleDELETE(client);
+            return handleDELETE(fullPath);
         }
         default:
             return HTTPResponse(501, "Not Implemented");

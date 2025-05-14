@@ -17,6 +17,7 @@ class HTTPRequest
         std::string path;
         std::string file;
         std::string version;
+        std::string location;
         std::map<std::string, std::string> headers;
         std::string body;
         HTTPRequest();

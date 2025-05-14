@@ -12,9 +12,9 @@ class RequestHandler
         // static HTTPResponse nonMultipart(const HTTPRequest& req);
         static HTTPResponse handleMultipart(Client& client);
     private:
-        static HTTPResponse handleGET(Client& client);
-        static HTTPResponse handlePOST(Client& client);
-        static HTTPResponse handleDELETE(Client& client);
-        static HTTPResponse executeCGI(Client& client);
+        static HTTPResponse handleGET(Client& client, std::string fullPath);
+        static HTTPResponse handlePOST(Client& client, std::string fullPath);
+        static HTTPResponse handleDELETE(std::string fullPath);
+        static HTTPResponse executeCGI(Client& client, std::string fullPath);
         static bool isAllowedMethod(std::string method, Route route);
 };
