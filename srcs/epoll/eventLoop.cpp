@@ -59,12 +59,12 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    // std::cout << "EPOLLIN" << std::endl;
+                    std::cout << "EPOLLIN" << std::endl;
                     handleClientRequest(client, loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    // std::cout << "EPOLLOUT" << std::endl;
+                    std::cout << "EPOLLOUT" << std::endl;
                     handleClientRequestSend(client, loop);
                 }
                 if (client.erase)
@@ -236,6 +236,7 @@ static void handleClientRequest(Client &client, int loop)
             client.bytesRead = 0;
             char buffer[READBUFFERSIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
+            std::cout << buffer << std::endl;
 
             if (client.bytesRead < 0)
             {
@@ -258,15 +259,16 @@ static void handleClientRequest(Client &client, int loop)
             }
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
-            client.readBuffer += temp;
-            client.readRaw += client.readBuffer;
+            client.readRaw += temp;
+            std::cout << "readRaw " << client.readRaw << std::endl;
             if (client.bytesRead >= 4)
             {
                 size_t headerEnd = client.readRaw.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
-                        client.headerString[client.headerString.size()] = '\0'; 
+                        client.headerString[client.headerString.size()] = '\0';
+                        std::cout << client.headerString << std::endl;
                         // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
@@ -320,8 +322,7 @@ static void handleClientRequest(Client &client, int loop)
             }
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
-            client.readBuffer += temp;
-            client.readRaw += client.readBuffer;
+            client.readRaw += temp;
         }
 		case READY_TO_SEND:
 			return;
