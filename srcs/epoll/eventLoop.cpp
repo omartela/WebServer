@@ -85,15 +85,17 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
+                    std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(client, loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
+                    std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientSend(client, loop);
                 }
-                if (client.erase)
+                if (client.erase == true)
                 {
                     std::cout << "client erased" << std::endl;
                     clients.erase(client.fd);
@@ -161,9 +163,18 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
 
         std::cout << "checking client FD" << client.fd << std::endl;
         std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(10);
-        if (now > timeout)
+        if (now > timeout) //408 request timeout error page?
         {
             std::cout << "client FD" << client.fd << " timed out!" << std::endl;
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("timeout epoll_ctl DEL failed");
+            close(client.fd);
+            it = clients.erase(it);
+        }
+        if (client.state == READ_HEADER 
+            && (client.rawReadData.size() < 16 || client.rawReadData.size() > 8192)) //413 entity too large error page?
+        {
+            std::cout << "client FD" << client.fd << " timed out, received header size invalid!" << std::endl;
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
@@ -177,17 +188,16 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
 static int findOldestClient(std::map<int, Client>& clients)
 {
     int oldestClient = 0;
-    std::chrono::steady_clock::time_point longestTime = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
 
     for (auto it : clients)
     {
-        if (it.second.timestamp < longestTime)
+        if (it.second.timestamp < oldestTimestamp)
         {
             oldestClient = it.second.fd;
-            longestTime = it.second.timestamp;
+            oldestTimestamp = it.second.timestamp;
         }
     }
-
     return oldestClient;
 }
 
@@ -226,24 +236,24 @@ static void handleClientRecv(Client& client, int loop)
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.readBuffer += temp;
-            client.rawRequest += client.readBuffer;
+            client.rawReadData += client.readBuffer;
             if (client.bytesRead >= 4)
             {
-                size_t headerEnd = client.rawRequest.find("\r\n\r\n");
+                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
-                        client.headerString = client.rawRequest.substr(0, headerEnd + 4);
+                        client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         client.headerString[client.headerString.size()] = '\0'; 
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
-                        client.rawRequest = client.rawRequest.substr(headerEnd + 4);
+                        client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                         /// POST request has only body, GET and DELETE do not have body
                         if (client.request.method == "POST")
                             client.state = READ_BODY;
                         else
                         {
                             client.state = TO_SEND;
-                            client.request.body = client.rawRequest;
+                            client.request.body = client.rawReadData;
                             HTTPResponse response = RequestHandler::handleRequest(client);
                             client.writeBuffer = response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -258,9 +268,9 @@ static void handleClientRecv(Client& client, int loop)
         }
         case READ_BODY:
         {
-            if (client.rawRequest.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
+            if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
-                client.request.body = client.rawRequest;
+                client.request.body = client.rawReadData;
                 client.response = RequestHandler::handleRequest(client);
                 if (client.response.getStatusCode() >= 400)
                     client.response = client.response.generateErrorResponse(client.response);
@@ -283,7 +293,7 @@ static void handleClientRecv(Client& client, int loop)
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
             client.readBuffer += temp;
-            client.rawRequest += client.readBuffer;
+            client.rawReadData += client.readBuffer;
         }
 		case TO_SEND:
 			return;
@@ -292,8 +302,7 @@ static void handleClientRecv(Client& client, int loop)
 
 static void handleClientSend(Client &client, int loop)
 {
-    // std::cout << "Request received from client FD " << client.fd << std::endl;
-    if (client.state != TO_SEND) //|| client.writeBuffer.empty())
+    if (client.state != TO_SEND)
         return ;
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)

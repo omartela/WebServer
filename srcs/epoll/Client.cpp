@@ -7,7 +7,6 @@ Client::Client()
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->erase = false;
-    // this->request.contentLen = 0;
 }
 
 Client::~Client() {
@@ -26,7 +25,7 @@ Client& Client::operator=(const Client& copy)
         this->state = copy.state;
         this->timestamp = copy.timestamp;
         this->readBuffer = copy.readBuffer;
-        this->rawRequest = copy.rawRequest;
+        this->rawReadData = copy.rawReadData;
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
@@ -40,7 +39,7 @@ void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
-    this->rawRequest.clear();
+    this->rawReadData.clear();
     this->writeBuffer.clear();
     this->headerString.clear();
     this->bytesRead = 0;
