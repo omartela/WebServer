@@ -153,11 +153,14 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
 
     if (clients.empty())
     {
-        std::cout << "No more clients connected" << std::endl;
+        close(client.fd);
+        client.erase = true;
+        epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
     }
     if (client.bytesWritten < 0) {
         close(client.fd);
+        client.erase = true;
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return;
     }
@@ -217,9 +220,8 @@ static void handleClientRequest(Client &client, int loop)
             if (client.bytesRead < 0)
             {
                 close(client.fd);
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
-                allClients.erase(client.fd);
+                client.erase = true;
+                epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
 			if (client.bytesRead == 0) // Client disconnected
@@ -301,9 +303,8 @@ static void handleClientRequest(Client &client, int loop)
             if (client.bytesRead < 0)
             {
                 close(client.fd);
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
-                allClients.erase(client.fd);
+                client.erase = true;
+                epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
