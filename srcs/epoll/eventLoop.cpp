@@ -146,11 +146,13 @@ static void handleClientRequestSend(Client &client, int loop)
     if (client.bytesWritten == 0)
     {
         close(client.fd);
+        client.erase = true;
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
     }
     if (client.bytesWritten < 0) {
         close(client.fd);
+        client.erase = true;
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return;
     }
@@ -213,6 +215,7 @@ static void handleClientRequest(Client &client, int loop)
                     //return ;
                 //else
                 close(client.fd);
+                client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
@@ -281,6 +284,7 @@ static void handleClientRequest(Client &client, int loop)
                     //break ;
                 //else
                 close(client.fd);
+                client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
                 return ;
             }
