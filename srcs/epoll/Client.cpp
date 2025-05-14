@@ -43,8 +43,10 @@ void Client::reset()
     this->rawRequest.clear();
     this->readRaw.clear();
     this->writeBuffer.clear();
+    this->headerString.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->erase = false;
     this->request = HTTPRequest();
 }
 
