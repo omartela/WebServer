@@ -86,15 +86,17 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
+                    std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(client, loop, clients);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    // std::cout << "EPOLLOUT" << std::endl;
-                    handleClientRequestSend(client, loop);
+                    std::cout << "EPOLLIN" << std::endl;
+                    client.timestamp = std::chrono::steady_clock::now();
+                    handleClientSend(client, loop);
                 }
-                if (client.erase)
+                if (client.erase == true)
                 {
                     std::cout << "client erased" << std::endl;
                     clients.erase(client.fd);
@@ -158,17 +160,15 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
         epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
     }
-    if (client.bytesWritten < 0) {
-        close(client.fd);
-        client.erase = true;
-        epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
-        return;
-    }
-    client.writeBuffer.erase(0, client.bytesWritten);
-    if (client.writeBuffer.empty())
+
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    for (auto it = clients.begin(); it != clients.end();)
     {
-        std::string cl = client.request.headers["Connection"];
-        if (!cl.empty())
+        auto& client = it->second;
+
+        std::cout << "checking client FD" << client.fd << std::endl;
+        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(10);
+        if (now > timeout) //408 request timeout error page?
         {
             if (cl == "close" || cl == "Close")
             {
@@ -191,21 +191,47 @@ static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients)
                 throw std::runtime_error("oldFd epoll_ctl DEL failed");
             client.erase = true;
         }
-        else
+        if (client.state == READ_HEADER
+            && (client.rawReadData.size() < 16 || client.rawReadData.size() > 8192)) //413 entity too large error page?
         {
-            std::cout << "We don't close, only toggled." << std::endl;
-            client.reset();
-            toggleEpollEvents(client.fd, loop, EPOLLIN);
+            std::cout << "client FD" << client.fd << " timed out, received header size invalid!" << std::endl;
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("timeout epoll_ctl DEL failed");
+            close(client.fd);
+            it = clients.erase(it);
+        }
+        if (client.state == READ_HEADER
+            && (client.rawReadData.size() < 16 || client.rawReadData.size() > 8192)) //413 entity too large error page?
+        {
+            std::cout << "client FD" << client.fd << " timed out, received header size invalid!" << std::endl;
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("timeout epoll_ctl DEL failed");
+            close(client.fd);
+            it = clients.erase(it);
+        }
+        else
+            ++it;
+    }
+}
+
+static int findOldestClient(std::map<int, Client>& clients)
+{
+    int oldestClient = 0;
+    std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
+
+    for (auto it : clients)
+    {
+        if (it.second.timestamp < oldestTimestamp)
+        {
+            oldestClient = it.second.fd;
+            oldestTimestamp = it.second.timestamp;
         }
     }
-};
+    return oldestClient;
+}
 
-static void handleClientRequest(Client &client, int loop)
+static void handleClientRecv(Client& client, int loop)
 {
-    //std::cout << "Request received from client FD " << client.fd << std::endl;
-    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
-    // exit(0);
-
     switch (client.state)
     {
         case IDLE:
@@ -235,20 +261,18 @@ static void handleClientRequest(Client &client, int loop)
             }
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
-            client.rawRequest += temp;
+            client.readBuffer += temp;
+            client.rawReadData += client.readBuffer;
             if (client.bytesRead >= 4)
             {
-                size_t headerEnd = client.rawRequest.find("\r\n\r\n");
+                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.rawRequest.substr(0, headerEnd + 4);
-                        client.requestParser();
-                        client.headerString = client.readRaw.substr(0, headerEnd + 4);
                         client.headerString[client.headerString.size()] = '\0';
-                        // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
-                        client.rawRequest = client.rawRequest.substr(headerEnd + 4);
+                        client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                         /// POST request has only body, GET and DELETE do not have body
                         if (client.request.method == "POST")
                             client.state = READ_BODY;
@@ -257,6 +281,7 @@ static void handleClientRequest(Client &client, int loop)
                             client.state = READY_TO_SEND;
                             client.request.body = client.readRaw;
                             client.state = TO_SEND;
+                            client.request.body = client.rawReadData;
                             client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
                             RequestHandler requestHandler;
                             HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
@@ -278,7 +303,7 @@ static void handleClientRequest(Client &client, int loop)
         }
         case READ_BODY:
         {
-            if (client.rawRequest.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
+            if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
                 client.request.body = client.readRaw;
                 client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
@@ -310,8 +335,7 @@ static void handleClientRequest(Client &client, int loop)
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
             client.readBuffer += temp;
-            client.rawRequest += client.readBuffer;
-            client.readRaw += temp;
+            client.rawReadData += client.readBuffer;
         }
 		case TO_SEND:
 			return;
@@ -320,8 +344,7 @@ static void handleClientRequest(Client &client, int loop)
 
 static void handleClientSend(Client& client, int loop, std::map<int, Client>& allClients)
 {
-    // std::cout << "Send request received from client FD " << client.fd << std::endl;
-    if (client.state != TO_SEND) //|| client.writeBuffer.empty())
+    if (client.state != TO_SEND)
         return ;
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)

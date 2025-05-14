@@ -38,7 +38,7 @@ class Client {
         enum connectionStates state;
 
         std::string headerString;
-        std::string rawRequest;
+        std::string rawReadData;
         std::string readBuffer;
         std::string writeBuffer;
         int bytesRead;
@@ -58,5 +58,13 @@ class Client {
         ~Client();
 
         void reset();
+<<<<<<< HEAD
         // void requestParser();
+=======
+        //void resetRequest();
+        //void requestParser();
+        //void removeWhitespaces(std::string& key, std::string& value);
+        //void validateHeader();
+        reqTypes getMethodEnum();
+>>>>>>> d9af41e (added early time out event in case client sends too much or not enough data between timeouts)
 };
