@@ -7,8 +7,8 @@
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-static void handleClientRecv(Client &client, int loop, std::map<int, Client>& allClients);
-static void handleClientSend(Client &client, int loop, std::map<int, Client>& allClients);
+static void handleClientRecv(Client &client, int loop);
+static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
@@ -26,7 +26,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     {
         ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
-        newServer = serverConfigs[i];
         newServer = serverConfigs[i];
         newServer.fd = serverSocket;
         setup.data.fd = newServer.fd;
@@ -87,13 +86,13 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    std::cout << "EPOLLIN" << std::endl;
+                    // std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
-                    handleClientRecv(client, loop, clients);
+                    handleClientRecv(client, loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    std::cout << "EPOLLIN" << std::endl;
+                    // std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientSend(client, loop);
                 }
@@ -102,8 +101,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     std::cout << "client erased" << std::endl;
                     clients.erase(client.fd);
                 }
-                if (client.erase)
-                    clients.erase(client.fd);
             }
         }
     }
@@ -163,6 +160,21 @@ static int findOldestClient(std::map<int, Client>& clients)
     return oldestClient;
 }
 
+static void checkBody(Client& client, int loop)
+{
+    if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
+    {
+        client.request.body = client.rawReadData;
+        client.response = RequestHandler::handleRequest(client);
+        if (client.response.getStatusCode() >= 400)
+            client.response = client.response.generateErrorResponse(client.response);
+        client.writeBuffer = client.response.toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    }
+}
+
 static void handleClientRecv(Client& client, int loop)
 {
     switch (client.state)
@@ -172,7 +184,7 @@ static void handleClientRecv(Client& client, int loop)
 
         case READ_HEADER:
         {
-            std::cout << "IN READ_HEADER" << std::endl;
+            // std::cout << "IN READ_HEADER" << std::endl;
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
@@ -203,26 +215,24 @@ static void handleClientRecv(Client& client, int loop)
                 size_t headerEnd = client.rawReadData.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
-                        client.headerString = client.rawRequest.substr(0, headerEnd + 4);
+                        client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         client.headerString[client.headerString.size()] = '\0';
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
                         client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                         if (client.request.method == "POST")
-                            client.state = READ_BODY;
+                        {
+                            checkBody(client, loop);
+                            return;
+                        }
                         else
                         {
                             client.state = SEND;
                             client.request.body = client.rawReadData;
-                            client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
-                            RequestHandler requestHandler;
-                            HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
-                            client.state = READY_TO_SEND;
-                            client.request.body = client.readRaw;
-                            HTTPResponse response = RequestHandler::handleRequest(client);
+                            client.response = RequestHandler::handleRequest(client);
                             if (client.response.getStatusCode() >= 400)
                                 client.response = client.response.generateErrorResponse(client.response);
-                            client.writeBuffer = response.toString();
+                            client.writeBuffer = client.response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
@@ -236,26 +246,8 @@ static void handleClientRecv(Client& client, int loop)
 
         case READ_BODY:
         {
-            std::cout << "IN READ_BODY" << std::endl;
-            if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
-            {
-                client.request.body = client.readRaw;
-                client.request.body = std::string(client.readBuffer.begin(), client.readBuffer.end());
-                RequestHandler requestHandler;
-                HTTPResponse response = requestHandler.handleRequest(client.request, client.serverInfo);
-                if (response.getStatusCode() >= 400)
-                    response = response.generateErrorResponse(response.getStatusCode(), response.getStatusMessage());
-                client.writeBuffer = response.toString();
-                client.state = TO_SEND;
-                client.request.body = client.readRaw;
-                client.response = RequestHandler::handleRequest(client);
-                if (client.response.getStatusCode() >= 400)
-                    client.response = client.response.generateErrorResponse(client.response);
-                client.writeBuffer = client.response.toString();
-                client.state = SEND;
-                toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                return ;
-            }
+            // std::cout << "IN READ_BODY" << std::endl;
+            checkBody(client, loop);
             client.bytesRead = 0;
             char buffer2[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
@@ -271,17 +263,18 @@ static void handleClientRecv(Client& client, int loop)
             std::string temp(buffer2, client.bytesRead);
             client.rawReadData += temp;
         }
-
 		case SEND:
 			return;
     }
 }
 
-static void handleClientSend(Client& client, int loop, std::map<int, Client>& allClients)
+static void handleClientSend(Client &client, int loop)
 {
-    std::cout << "IN SEND" << std::endl;
+    // std::cout << "IN SEND" << std::endl;
     if (client.state != SEND)
+    {
         return ;
+    }
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)
     {
@@ -300,9 +293,9 @@ static void handleClientSend(Client& client, int loop, std::map<int, Client>& al
     if (client.writeBuffer.empty())
     {
         std::string checkConnection = client.request.headers["Connection"];
-        if (!checkConnection.empty() || client.request.version == "HTTP/1.0")
+        if (!checkConnection.empty())
         {
-            if (checkConnection == "close" || checkConnection == "Close" || client.request.version == "HTTP/1.0")
+            if (checkConnection == "close" || checkConnection == "Close")
             {
                 close(client.fd);
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)

@@ -196,7 +196,6 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
 
 HTTPResponse RequestHandler::executeCGI(Client& client, std::string fullPath)
 {
-    // std::cout << "CGI exe path: " << fullPath << std::endl;
     if (access(fullPath.c_str(), X_OK) != 0)
         return  HTTPResponse(403, "Forbidden");
     int inPipe[2], outPipe[2];
@@ -351,10 +350,10 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
     // std::cout << "Key: " << key << std::endl;
-    // std::cout << "Path: " << path << std::endl;
+    std::cout << "Path: " << fullPath << std::endl;
     if (fullPath.find("..") != std::string::npos)
     {
-        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
+        wslog.writeToLogFile(ERROR, "403 Forbidden", true);
         return HTTPResponse(403, "Forbidden");
     }
     if (fullPath.find("/www/cgi/") != std::string::npos)
@@ -365,9 +364,13 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         wslog.writeToLogFile(ERROR, "404 Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
-    if (!S_ISDIR(s.st_mode))
-        return HTTPResponse(403, "Forbidden");
-    if (!client.serverInfo.routes[client.request.location].index_file.empty())
+    // if (!S_ISDIR(s.st_mode))
+    // {
+    //     wslog.writeToLogFile(ERROR, "403 Forbidden", true);
+    //     return HTTPResponse(403, "Forbidden");
+    // }
+    bool isDir = S_ISDIR(s.st_mode);
+    if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
         fullPath += client.serverInfo.routes[client.request.location].index_file;
         std::cout << "path " << std::endl;
@@ -388,7 +391,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
         return response;
     }
-    if (client.serverInfo.routes[client.request.location].index_file.empty())
+    if (isDir && client.serverInfo.routes[client.request.location].index_file.empty())
         return generateIndexListing(fullPath, client.request.location);
     std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
@@ -408,12 +411,8 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     return response;
 }
 
-// HTTPResponse RequestHandler::handleDELETE(Client& client, std::string fullPath)
 HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
 {
-    // std::cout << "Req path: " << req.path << std::endl;
-    // std::cout << "Key: " << key << std::endl;
-    // std::cout << "Full path: " << fullPath << std::endl;
     if (fullPath.find("..") != std::string::npos || fullPath.find("/uploads/") == std::string::npos)
         return HTTPResponse(403, "Forbidden");
     if (access(fullPath.c_str(), F_OK) != 0)
@@ -443,21 +442,14 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
-    printRequest(client.request);
+    // printRequest(client.request);
     if (!validateHeader(client.request))
         return HTTPResponse(403, "Bad request");
-    // std::cout << "Abs path: {" << client.serverInfo.routes[client.request.location].abspath << "}" << std::endl;
-    std::cout << "Key: " << client.request.location << std::endl;
-    auto it = client.serverInfo.routes.find(client.request.location);
-    if (it == client.serverInfo.routes.end())
-    {
-        std::cout << "HERE" << std::endl;
+    // std::cout << "Key: " << client.request.location << std::endl;
+    if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(400, "Invalid file name");
-    }
-    else
-        std::cout << "found key: " << it->first << " value: " << it->second.index_file << std::endl;
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
-    std::cout << "Full path: " << fullPath << std::endl;
+    // std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {

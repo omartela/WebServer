@@ -8,7 +8,6 @@
 #include "Parser.hpp"
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
-//#include "HTTPRequest.hpp"
 #include "HTTPRequest.hpp"
 
 #define READ_BUFFER_SIZE 1000 //nginx has 8192?
@@ -37,8 +36,6 @@ class Client {
 
         ServerConfig serverInfo;
 
-        httpRequest request;
-        //HTTPRequest request;
         HTTPRequest request;
         HTTPResponse response;
 
@@ -48,6 +45,5 @@ class Client {
         ~Client();
 
         void reset();
-        reqTypes getMethodEnum();
->>>>>>> d9af41e (added early time out event in case client sends too much or not enough data between timeouts)
+        // reqTypes getMethodEnum();
 };
