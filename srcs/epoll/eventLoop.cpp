@@ -240,6 +240,8 @@ static void handleClientRequest(Client &client, int loop)
                             client.state = READY_TO_SEND;
                             client.request.body = client.readRaw;
                             HTTPResponse response = RequestHandler::handleRequest(client);
+                            if (client.response.getStatusCode() >= 400)
+                                client.response = client.response.generateErrorResponse(client.response);
                             client.writeBuffer = response.toString();
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;

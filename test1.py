@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     print("\tTEST 1")
     print("\tGET")
-    send_get("/", HOST, PORT2)
+    send_get("/images/", HOST, PORT2)
     # send_get("/cgi/echo.py", HOST, PORT)
     send_get("/cgi/GETpy.py", HOST2, PORT2)
     print("\tGET DONE\n")

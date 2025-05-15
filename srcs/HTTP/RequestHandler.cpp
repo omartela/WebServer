@@ -359,7 +359,6 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     }
     if (fullPath.find("/www/cgi/") != std::string::npos)
         return executeCGI(client, fullPath);
-
     struct stat s;
     if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     {
@@ -371,6 +370,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     if (!client.serverInfo.routes[client.request.location].index_file.empty())
     {
         fullPath += client.serverInfo.routes[client.request.location].index_file;
+        std::cout << "path " << std::endl;
         std::ifstream file(fullPath.c_str(), std::ios::binary);
         if (!file.is_open())
         {
@@ -443,13 +443,21 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
-    // printRequest(req);
+    printRequest(client.request);
     if (!validateHeader(client.request))
         return HTTPResponse(403, "Bad request");
-    // std::cout << "Req path: " << client.request.path << std::endl;
-    // std::cout << "Key: " << key << std::endl;
+    // std::cout << "Abs path: {" << client.serverInfo.routes[client.request.location].abspath << "}" << std::endl;
+    std::cout << "Key: " << client.request.location << std::endl;
+    auto it = client.serverInfo.routes.find(client.request.location);
+    if (it == client.serverInfo.routes.end())
+    {
+        std::cout << "HERE" << std::endl;
+        return HTTPResponse(400, "Invalid file name");
+    }
+    else
+        std::cout << "found key: " << it->first << " value: " << it->second.index_file << std::endl;
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
-    // std::cout << "Full path: " << fullPath << std::endl;
+    std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {
