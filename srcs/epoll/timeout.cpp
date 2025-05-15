@@ -37,8 +37,11 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
         {
             int dataReceived = client.rawReadData.size() - client.previousDataAmount;
             int dataRate = dataReceived / elapsedTime;
-            if ((client.rawReadData.size() > 32 && dataRate < 1024)
-                || (client.rawReadData.size() < 32 && dataReceived < 16))
+            // std::cout << "data received: " << dataReceived << std::endl;
+            // std::cout << "data rate: " << dataRate << std::endl;
+            // std::cout << "read data size: " << client.rawReadData.size() << std::endl;
+            if ((client.rawReadData.size() > 64 && dataRate < 1024)
+                || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
                 std::cout << "client FD" << client.fd << " disconnected, client sent data too slowly!" << std::endl;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
