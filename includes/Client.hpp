@@ -11,13 +11,13 @@
 //#include "HTTPRequest.hpp"
 #include "HTTPRequest.hpp"
 
-#define READBUFFERSIZE 1000
+#define READ_BUFFER_SIZE 1000 //nginx has 8192?
 
 enum connectionStates {
     IDLE,
     READ_HEADER,
     READ_BODY,
-    TO_SEND
+    SEND
 };
 
 class Client {
@@ -28,6 +28,7 @@ class Client {
 
         std::string headerString;
         std::string rawReadData;
+        size_t previousDataAmount;
         std::string readBuffer;
         std::string writeBuffer;
         int bytesRead;
