@@ -166,7 +166,7 @@ static void handleClientRequestSend(Client &client, int loop)
             }
             else
             {
-                std::cout << "We don't close, only toggled." << std::endl;
+                // std::cout << "We don't close, only toggled." << std::endl;
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
@@ -180,7 +180,7 @@ static void handleClientRequestSend(Client &client, int loop)
         }
         else
         {
-            std::cout << "We don't close, only toggled." << std::endl;
+            // std::cout << "We don't close, only toggled." << std::endl;
             client.reset();
             toggleEpollEvents(client.fd, loop, EPOLLIN);
         }

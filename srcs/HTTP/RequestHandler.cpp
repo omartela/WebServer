@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <iostream>
 #include <filesystem>
+#include <dirent.h>
 
 
 void printRequest(const HTTPRequest &req)
@@ -159,6 +160,38 @@ static bool validateHeader(HTTPRequest req)
             return false;
     }
     return true;
+}
+
+static HTTPResponse generateIndexListing(std::string fullPath, std::string location)
+{
+    DIR* dir = opendir(fullPath.c_str());
+    if (!dir)
+        return HTTPResponse(500, "Failed to open directory");
+    std::stringstream html;
+    html << "<html><head><title>Index of " << location << "</title></head><body>\n";
+    html << "<h1>Index of " << location << "</h1><ul>\n";
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name =="." || name == "..")
+            continue ;
+        std::string ref = location;
+        if (!ref.empty() && ref.back() != '/')
+            ref += '/';
+        ref += name;
+        if (entry->d_type == DT_DIR)
+            ref += "/";
+        html << "<li><aref=\"" << ref << "\">" << name << "</a></li>\n";
+    }
+    html << "</ul></body></html>\n";
+    closedir(dir);
+    HTTPResponse response(200, "OK");
+    response.body = html.str();
+    response.headers["Content-Type"] = "text/html";
+    response.headers["Content-Length"] = std::to_string(response.body.size());
+    wslog.writeToLogFile(INFO, "GET Index listing successful", false);
+    return response;
 }
 
 HTTPResponse RequestHandler::executeCGI(Client& client, std::string fullPath)
@@ -326,12 +359,37 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     }
     if (fullPath.find("/www/cgi/") != std::string::npos)
         return executeCGI(client, fullPath);
+
     struct stat s;
     if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "404 Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
+    if (!S_ISDIR(s.st_mode))
+        return HTTPResponse(403, "Forbidden");
+    if (!client.serverInfo.routes[client.request.location].index_file.empty())
+    {
+        fullPath += client.serverInfo.routes[client.request.location].index_file;
+        std::ifstream file(fullPath.c_str(), std::ios::binary);
+        if (!file.is_open())
+        {
+            wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
+            return HTTPResponse(500, "Internal Server Error");
+        }
+        std::ostringstream content;
+        content << file.rdbuf();
+        file.close();
+        HTTPResponse response(200, "OK");
+        response.body = content.str();
+        std::string ext = getFileExtension(fullPath);
+        response.headers["Content-Type"] = getMimeType(ext);
+        response.headers["Content-Length"] = std::to_string(response.body.size());
+        wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
+        return response;
+    }
+    if (client.serverInfo.routes[client.request.location].index_file.empty())
+        return generateIndexListing(fullPath, client.request.location);
     std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
     {
