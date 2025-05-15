@@ -30,6 +30,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
             it = clients.erase(it);
+            continue ;
         }
 
         if ((client.state == READ_HEADER || client.state == READ_BODY) && elapsedTime > 0)
@@ -44,6 +45,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 close(client.fd);
                 it = clients.erase(it);
+                continue ;
             }
         }
 
@@ -54,6 +56,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
             it = clients.erase(it);
+            continue ;
         }
 
         if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size) //413 entity too large?
@@ -63,6 +66,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
             it = clients.erase(it);
+            continue ;
         }
 
         if (client.state == SEND && elapsedTime > 0) //make more comprehensive later
@@ -76,6 +80,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 close(client.fd);
                 it = clients.erase(it);
+                continue ;
             }
         }
 
