@@ -48,10 +48,8 @@ class Client {
         HTTPRequest request;
         HTTPResponse response;
 
-        size_t currentChunkSize;     // Tämän hetkinen chunkin koko
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
-        std::string bodyBuffer;      // Kokonainen body yhdistettynä chunkista
-
+        
         Client();
         Client(const Client& copy);
         Client& operator=(const Client& copy);

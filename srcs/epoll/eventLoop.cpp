@@ -183,49 +183,101 @@ static void handleClientRequestSend(Client &client, int loop)
     }
 };
 
-static void readChunkedBody(Client &client)
+static bool isUnsignedLongLong(std::string str) 
 {
-    // Lisää luettu data chunkBufferiin
-    client.chunkBuffer.append(client.readBuffer.begin(), client.readBuffer.begin() + client.bytesRead);
-    client.readBuffer.clear();
+    std::stringstream ss(str);
+    long long unsigned value; 
+    ss >> value; 
+    return !ss.fail();
+}
 
-    // Tarkistetaan, onko chunkin koko jo saatavilla
-    size_t pos = client.chunkBuffer.find("\r\n");
-    if (pos == std::string::npos)
-        return;  // Ei voida vielä lukea chunkin kokoa
+static long long unsigned StrToUnsignedLongLong(std::string str) 
+{
+    std::stringstream ss(str);
+    long long unsigned value; 
+    ss >> value;
+    return value;
+}
 
-    // Lue chunkin koko
-    std::string sizeStr = client.chunkBuffer.substr(0, pos);
-    client.currentChunkSize = std::stoul(sizeStr, nullptr, 16);
-    client.chunkBuffer.erase(0, pos + 2);  // Poista chunkin koko ja \r\n
 
-    if (client.currentChunkSize == 0)
+static bool validateChunkedBody(Client &client)
+{
+    long long unsigned bytes;
+    std::string str = client.chunkBuffer;
+    while (true)
     {
-        // Loppu chunk
+        if (!isUnsignedLongLong(str))
+        {
+            return false;
+        }
+        bytes = StrToUnsignedLongLong(str);
+        int i = 0;
+        while (str[i] != '\r')
+        {
+            if (!::isdigit(str[i]))
+                return false;
+            i++;
+        }
+        if (bytes == 0)
+        {
+            if (str.substr(1, 4) == "\r\n\r\n")
+                return true;
+            else
+                return false;
+        }
+        if (str[i + 1] != '\n')
+            return false;
+        str = str.substr(i + 2);
+        str = str.substr(bytes);
+        if (str.substr(0, 2) != "\r\n")
+            return false;
+        else
+            str = str.substr(2);
+    }
+    return true;
+}
+
+static void readChunkedBody(Client &client, int loop)
+{
+    client.chunkBuffer += client.readRaw;
+    client.readRaw.clear();
+
+    if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
+    {
+        validateChunkedBody(client);
         client.state = READY_TO_SEND;  // Kaikki chunkit luettu
-        client.request.body = client.bodyBuffer;  // Tallenna body
-        client.currentChunkSize = 0;
+        client.request.body = client.chunkBuffer;  // Tallenna body
         client.chunkBuffer = "";
-        client.bodyBuffer = "";
+        client.response = RequestHandler::handleRequest(client);
+        if (client.response.getStatusCode() >= 400)
+            client.response = client.response.generateErrorResponse(client.response);
+        client.writeBuffer = client.response.toString();
+        client.state = READY_TO_SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
     }
+}
 
-    // Varmistetaan, että chunk on kokonaan luettu
-    if (client.chunkBuffer.size() < client.currentChunkSize + 2)
-        return;  // Ei vielä koko chunkia, palauta hallinta takaisin epollille
-
-    // Lisää chunk bodyyn
-    client.bodyBuffer += client.chunkBuffer.substr(0, client.currentChunkSize);
-    client.chunkBuffer.erase(0, client.currentChunkSize + 2);  // Poista chunk ja \r\n
+static void checkBody(Client &client, int loop)
+{
+    if (client.request.headers["Transfer-Encoding"] == "chunked")
+        readChunkedBody(client, loop);
+    else if (client.readRaw.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
+    {
+        client.request.body = client.readRaw;
+        client.response = RequestHandler::handleRequest(client);
+        if (client.response.getStatusCode() >= 400)
+            client.response = client.response.generateErrorResponse(client.response);
+        client.writeBuffer = client.response.toString();
+        client.state = READY_TO_SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    }
 }
 
 
 static void handleClientRequest(Client &client, int loop)
 {
-    //std::cout << "Request received from client FD " << client.fd << std::endl;
-    // std::cout << "NOTE: Exiting as request parsing not ready" << std::endl;
-    // exit(0);
-
     switch (client.state)
     {
         case IDLE:
@@ -236,7 +288,6 @@ static void handleClientRequest(Client &client, int loop)
             client.bytesRead = 0;
             char buffer[READBUFFERSIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-            std::cout << buffer << std::endl;
 
             if (client.bytesRead < 0)
             {
@@ -260,22 +311,23 @@ static void handleClientRequest(Client &client, int loop)
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.readRaw += temp;
-            std::cout << "readRaw " << client.readRaw << std::endl;
             if (client.bytesRead >= 4)
             {
                 size_t headerEnd = client.readRaw.find("\r\n\r\n");
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.readRaw.substr(0, headerEnd + 4);
-                        client.headerString[client.headerString.size()] = '\0';
-                        std::cout << client.headerString << std::endl;
                         // client.requestParser();
                         client.request = HTTPRequest(client.headerString);
                         client.bytesRead = 0;
                         client.readRaw = client.readRaw.substr(headerEnd + 4);
                         /// POST request has only body, GET and DELETE do not have body
                         if (client.request.method == "POST")
+                        {
                             client.state = READ_BODY;
+                            checkBody(client, loop);
+                            return;
+                        }
                         else
                         {
                             client.state = READY_TO_SEND;
@@ -294,22 +346,18 @@ static void handleClientRequest(Client &client, int loop)
         }
         case READ_BODY:
         {
-            if (client.readRaw.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
-            {
-                client.request.body = client.readRaw;
-                client.response = RequestHandler::handleRequest(client);
-                if (client.response.getStatusCode() >= 400)
-                    client.response = client.response.generateErrorResponse(client.response);
-                client.writeBuffer = client.response.toString();
-                client.state = READY_TO_SEND;
-                toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                return ;
-            }
-            else if (client.request.headers["Transfer-Encoding"] == "chunked")
-                readChunkedBody(client);
             client.bytesRead = 0;
             char buffer2[READBUFFERSIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
+            if (client.bytesRead == 0)
+            {
+				// Client disconnected
+                std::cout << "ClientFD disconnected " << client.fd << std::endl;
+                close(client.fd);
+                client.erase = true;
+                epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+                return ;
+            }
             if (client.bytesRead < 0)
             {
                 //if (errno == EAGAIN || errno == EWOULDBLOCK) //are we allowed to do this?
@@ -323,6 +371,7 @@ static void handleClientRequest(Client &client, int loop)
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
             client.readRaw += temp;
+            checkBody(client, loop);
         }
 		case READY_TO_SEND:
 			return;
