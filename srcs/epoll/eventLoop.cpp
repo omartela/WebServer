@@ -1,4 +1,5 @@
 #include "eventLoop.hpp"
+#include "timeout.hpp"
 #include "Client.hpp"
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
@@ -9,10 +10,8 @@ static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& c
 static void handleClientRecv(Client &client, int loop);
 static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
-static void checkTimeouts(int timerFd, int loop, std::map<int, Client>& clients);
 static int  findOldestClient(std::map<int, Client>& clients);
 
-//TODO: add check if client sends enough data within timeout
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
     std::map<int, ServerConfig> servers;
@@ -40,6 +39,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     int timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFd < 0)
         std::runtime_error("failed to create timerfd");
+    std::cout << "Timerfd created, it got FD" << timerFd << std::endl;
     setup.data.fd = timerFd;
     epoll_ctl(loop, EPOLL_CTL_ADD, timerFd, &setup);
     struct itimerspec timerValues { };
@@ -78,7 +78,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             else if (fd == timerFd)
             {
                 std::cout << "Time to check timeouts!" << std::endl;
-                checkTimeouts(timerFd, loop, clients);
+                checkTimeouts(timerFd, clients);
             }
 
             else
@@ -177,8 +177,8 @@ static void handleClientRecv(Client& client, int loop)
             {
                 close(client.fd);
                 client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
+                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                //     throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
 
@@ -187,8 +187,8 @@ static void handleClientRecv(Client& client, int loop)
                 std::cout << "Client disconnected FD" << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
+                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                //     throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
 
@@ -245,8 +245,8 @@ static void handleClientRecv(Client& client, int loop)
             {
                 close(client.fd);
                 client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
+                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                //     throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
@@ -269,13 +269,13 @@ static void handleClientSend(Client &client, int loop)
     {
         close(client.fd);
         client.erase = true;
-        epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+        // epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
     }
     if (client.bytesWritten < 0) {
         close(client.fd);
         client.erase = true;
-        epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+        // epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return;
     }
     client.writeBuffer.erase(0, client.bytesWritten);
@@ -287,8 +287,8 @@ static void handleClientSend(Client &client, int loop)
             if (checkConnection == "close" || checkConnection == "Close")
             {
                 close(client.fd);
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("check connection epoll_ctl DEL failed");
+                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                //     throw std::runtime_error("check connection epoll_ctl DEL failed");
                 client.erase = true;
             }
             else
@@ -301,8 +301,8 @@ static void handleClientSend(Client &client, int loop)
         else if (client.request.version == "HTTP/1.0")
         {
             close(client.fd);
-            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("check connection epoll_ctl DEL failed");
+            // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+            //     throw std::runtime_error("check connection epoll_ctl DEL failed");
             client.erase = true;
         }
         else
