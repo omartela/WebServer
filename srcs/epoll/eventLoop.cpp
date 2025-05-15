@@ -196,8 +196,7 @@ static void handleClientRecv(Client& client, int loop)
             }
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
-            client.readBuffer += temp;
-            client.rawReadData += client.readBuffer;
+            client.rawReadData += temp;
             if (client.bytesRead >= 4)
             {
                 size_t headerEnd = client.rawReadData.find("\r\n\r\n");
@@ -268,8 +267,7 @@ static void handleClientRecv(Client& client, int loop)
             }
             buffer2[client.bytesRead] = '\0';
             std::string temp(buffer2, client.bytesRead);
-            client.readBuffer += temp;
-            client.rawReadData += client.readBuffer;
+            client.rawReadData += temp;
         }
 
 		case SEND:
