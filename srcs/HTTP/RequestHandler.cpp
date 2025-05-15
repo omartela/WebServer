@@ -170,6 +170,9 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
     std::stringstream html;
     html << "<html><head><title>Index of " << location << "</title></head><body>\n";
     html << "<h1>Index of " << location << "</h1><ul>\n";
+    // html << "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\">\n";
+    html << "<table cellpadding=\"5\" cellspacing=\"0\" style=\"text-align: left\">\n";
+    html << "<tr><th>Name</th><th>Last Modified</th><th>Size</th></tr>\n";
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL)
     {
@@ -180,11 +183,25 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
         if (!ref.empty() && ref.back() != '/')
             ref += '/';
         ref += name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == -1)
+            continue;
+        std::string displayedName = name;
+        if (displayedName.length() > 15)
+            displayedName = displayedName.substr(0, 12) + "...";
         if (entry->d_type == DT_DIR)
+        {
             ref += "/";
-        html << "<li><aref=\"" << ref << "\">" << name << "</a></li>\n";
+            displayedName += "/";
+        }
+        char time[64];
+        std::strftime(time, sizeof(time), "%Y-%m-%d %H:%M", std::localtime(&st.st_mtime));
+        std::string size = (S_ISDIR(st.st_mode)) ? "-" : std::to_string(st.st_size) + " B";
+        html << "<tr><td><a href=\"" << ref << "\">" << displayedName << "</a></td>"
+             << "<td>" << time << "</td>"
+             << "<td>" << size << "</td></tr>\n";
     }
-    html << "</ul></body></html>\n";
+    html << "</table></body></html>\n";
     closedir(dir);
     HTTPResponse response(200, "OK");
     response.body = html.str();
