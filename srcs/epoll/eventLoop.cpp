@@ -169,6 +169,7 @@ static void handleClientRecv(Client& client, int loop)
 
         case READ_HEADER:
         {
+            std::cout << "IN READ_HEADER" << std::endl;
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
@@ -198,7 +199,7 @@ static void handleClientRecv(Client& client, int loop)
             if (client.bytesRead >= 4)
             {
                 size_t headerEnd = client.rawReadData.find("\r\n\r\n");
-                if (headerEnd != std::string::npos)
+                if (headerEnd != std::string::npos) 
                 {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         client.headerString[client.headerString.size()] = '\0'; 
@@ -226,6 +227,7 @@ static void handleClientRecv(Client& client, int loop)
 
         case READ_BODY:
         {
+            std::cout << "IN READ_BODY" << std::endl;
             if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
             {
                 client.request.body = client.rawReadData;
@@ -260,6 +262,7 @@ static void handleClientRecv(Client& client, int loop)
 
 static void handleClientSend(Client &client, int loop)
 {
+    std::cout << "IN SEND" << std::endl;
     if (client.state != SEND)
         return ;
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
@@ -291,7 +294,7 @@ static void handleClientSend(Client &client, int loop)
             }
             else
             {
-                std::cout << "Client reset." << std::endl;
+                std::cout << "Client reset" << std::endl;
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
@@ -305,7 +308,7 @@ static void handleClientSend(Client &client, int loop)
         }
         else
         {
-            std::cout << "Client reset." << std::endl;
+            std::cout << "Client reset" << std::endl;
             client.reset();
             toggleEpollEvents(client.fd, loop, EPOLLIN);
         }
