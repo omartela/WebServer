@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <map>
+#include <queue>
 #include <algorithm>
 #include <iostream>
 #include <cstring>
@@ -14,6 +15,6 @@
 #include "Parser.hpp"
 
 #define MAX_CONNECTIONS 1000
-#define TIMEOUT 100
+#define TIMEOUT 10 //testing only, increase later to 60
 
 void eventLoop(std::vector<ServerConfig> serverConfigs);
