@@ -81,7 +81,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             {
                 if (clients.empty())
                 {
-                    wslog.writeToLogFile(INFO, "No more clients connected, not checking anymore until new connection", true);
+                    wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
                     timerValues.it_value.tv_sec = 0;
                     timerValues.it_interval.tv_sec = 0;
                     timerfd_settime(timerFd, 0, &timerValues, 0); //stop timer
@@ -277,10 +277,12 @@ static void handleClientRecv(Client& client, int loop)
 
 static void handleClientSend(Client &client, int loop)
 {
-    wslog.writeToLogFile(INFO, "IN SEND", true);
     if (client.state != SEND)
         return ;
+    wslog.writeToLogFile(INFO, "IN SEND", true);
+    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer, true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+    wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten == 0)
     {
         close(client.fd);
@@ -300,7 +302,7 @@ static void handleClientSend(Client &client, int loop)
     {
         std::string checkConnection = client.request.headers["Connection"];
         if (!checkConnection.empty())
-        {
+        { 
             if (checkConnection == "close" || checkConnection == "Close")
             {
                 close(client.fd);
