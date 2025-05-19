@@ -37,7 +37,7 @@ class Client {
         ServerConfig serverInfo;
 
         HTTPRequest request;
-        HTTPResponse response;
+        std::vector<HTTPResponse> response;
 
         Client();
         Client(const Client& copy);
