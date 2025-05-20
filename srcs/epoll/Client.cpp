@@ -41,6 +41,7 @@ void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
+    this->chunkBuffer.clear();
     this->rawReadData.clear();
     this->previousDataAmount = 0;
     this->writeBuffer.clear();

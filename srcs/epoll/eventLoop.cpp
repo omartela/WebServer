@@ -132,11 +132,15 @@ static int acceptNewClient(int loop, int serverSocket, std::map<int, Client>& cl
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
-            if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
-                throw std::runtime_error("oldFd epoll_ctl DEL failed");
-            close(oldFd);
-            clients.at(oldFd).reset();
-            newFd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+            if (oldFd != 0)
+            {
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
+                    throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                close(oldFd);
+                if (clients.find(oldFd) != clients.end())
+                    clients.at(oldFd).reset();
+                newFd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+            }
         }
         else
             throw std::runtime_error("accept failed");
@@ -191,7 +195,7 @@ static bool validateChunkedBody(Client &client)
         int i = 0;
         while (str[i] != '\r')
         {
-            if (!::isdigit(str[i]))
+            if (!std::isxdigit(str[i]))
                 return false;
             i++;
         }
@@ -205,6 +209,7 @@ static bool validateChunkedBody(Client &client)
         if (str[i + 1] != '\n')
             return false;
         str = str.substr(i + 2);
+        client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
             return false;
@@ -221,10 +226,17 @@ static void readChunkedBody(Client &client, int loop)
 
     if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
     {
-        validateChunkedBody(client);
+        if (!validateChunkedBody(client))
+        {
+            client.response = HTTPResponse(400, "Bad request");
+            if (client.response.getStatusCode() >= 400)
+                client.response = client.response.generateErrorResponse(client.response);
+            client.writeBuffer = client.response.toString();
+            client.state = SEND;
+            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+            return ;
+        }
         client.state = SEND;  // Kaikki chunkit luettu
-        client.request.body = client.chunkBuffer;  // Tallenna body
-        client.chunkBuffer = "";
         client.response = RequestHandler::handleRequest(client);
         if (client.response.getStatusCode() >= 400)
             client.response = client.response.generateErrorResponse(client.response);
@@ -237,9 +249,11 @@ static void readChunkedBody(Client &client, int loop)
 
 static void checkBody(Client &client, int loop)
 {
-    if (client.request.headers["Transfer-Encoding"] == "chunked")
+    auto TE = client.request.headers.find("Transfer-Encoding");
+    if (TE != client.request.headers.end() && TE->second == "chunked")
         readChunkedBody(client, loop);
-    else if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
+    auto CL = client.request.headers.find("Content-Length");
+    if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
         client.request.body = client.rawReadData;
         client.response = RequestHandler::handleRequest(client);
@@ -356,7 +370,6 @@ static void handleClientRecv(Client& client, int loop)
 
 static void handleClientSend(Client &client, int loop)
 {
-    std::cout << "IN SEND" << std::endl;
     if (client.state != SEND)
         return ;
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
@@ -376,7 +389,9 @@ static void handleClientSend(Client &client, int loop)
     client.writeBuffer.erase(0, client.bytesWritten);
     if (client.writeBuffer.empty())
     {
-        std::string checkConnection = client.request.headers["Connection"];
+        std::string checkConnection;
+        if (client.request.headers.find("Connection") != client.request.headers.end())
+            checkConnection = client.request.headers.at("Connection");
         if (!checkConnection.empty())
         {
             if (checkConnection == "close" || checkConnection == "Close")
