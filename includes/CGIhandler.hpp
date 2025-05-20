@@ -2,9 +2,10 @@
 #include <vector>
 #include <string>
 #include "Client.hpp"
-#include "RequestHandler.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
+
+class Client;
 
 class CGIHandler
 {

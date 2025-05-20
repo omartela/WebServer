@@ -3,14 +3,13 @@
 
 #include "Enums.hpp"
 #include "Parser.hpp"
-#include "Client.hpp"
 #include <string>
 #include <map>
 
 class HTTPRequest
 {
     private:
-        void parser(Client& client);
+        void parser(std::string headers, ServerConfig server);
 
     public:
         std::string method;
@@ -23,6 +22,7 @@ class HTTPRequest
         std::string pathInfo;
         std::map<std::string, std::string> headers;
         std::string body;
+        bool isCGI;
         HTTPRequest();
-        HTTPRequest(Client& client);
+        HTTPRequest(std::string headers, ServerConfig server);
 };

@@ -8,7 +8,7 @@
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(Client& client) { parser(client); }
+HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) { parser(headers, server); }
 
 reqTypes getMethodEnum(const std::string& method)
 {
@@ -18,9 +18,10 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
-void HTTPRequest::parser(Client& client)
+void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
-    std::istringstream stream(client.headerString);
+    isCGI = false;
+    std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
         return ;
@@ -50,10 +51,9 @@ void HTTPRequest::parser(Client& client)
         }
     }
     location = path.substr(0, path.find_last_of("/") + 1);
-    // if (client.serverInfo.routes.find(client.request.location) != client.serverInfo.routes.end())
-    // {
-    //     if (!client.serverInfo.routes.at(client.request.location).cgiexecutable.empty())
-    //         client.isCGI = true;
-    // }
+    if (server.routes.find(location) != server.routes.end())
+    {
+        if (!server.routes.at(location).cgiexecutable.empty())
+            isCGI = true;
+    }
 }
-

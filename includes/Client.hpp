@@ -10,7 +10,7 @@
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPRequest.hpp"
-#include "CGIhandler.hpp"
+// #include "CGIhandler.hpp"
 
 #define READ_BUFFER_SIZE 1000 //nginx has 8192?
 #define READ_BUFFER_SIZE 1000 //nginx has 8192?
@@ -21,6 +21,7 @@ enum connectionStates {
     READ_BODY,
     SEND
 };
+
 
 class Client {
     public:  //change all these to private? fix later
@@ -36,12 +37,11 @@ class Client {
         int bytesRead;
         int bytesWritten;
         bool erase;
-        bool isCGI;
         ServerConfig serverInfo;
 
         HTTPRequest request;
         HTTPResponse response;
-        CGIHandler cgi;
+        // CGIHandler cgi;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
 
         Client();

@@ -10,17 +10,14 @@ void CGIHandler::setEnvValues(Client client)
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + client.serverInfo.port, NULL};
+                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + std::to_string(client.serverInfo.port), NULL};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Type");
     for (int i = 0; i < 14; i++)
         envArray[i] = (char *) envVariables.at(i).c_str();
-    if (client.request.file.size() >= 3 && client.request.file.compare(client.request.file .size() - 3, 3, "php") == 0)
-        exceveArgs[0] = (char *) client.serverInfo.routes.at(client.request.location).cgipathphp.c_str();
-    else
-        exceveArgs[0] = (char *) client.serverInfo.routes.at(client.request.location).cgipathpython.c_str();
+    exceveArgs[0] = (char *) client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
     exceveArgs[1] = (char *) fullPath.c_str();
     exceveArgs[2] = NULL;
 }
@@ -39,7 +36,7 @@ HTTPResponse CGIHandler::executeCGI(Client& client)
         dup2(readCGIPipe[1], STDOUT_FILENO);
         close(writeCGIPipe[1]);
         close(readCGIPipe[0]);
-        execve(client.serverInfo.routes[client.request.location].cgipathpython.c_str(), exceveArgs, envArray);
+        execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
         _exit(1);
     }
     close(writeCGIPipe[0]);
@@ -76,4 +73,5 @@ HTTPResponse CGIHandler::executeCGI(Client& client)
         res.headers["Content-Length"] = std::to_string(res.body.size());
         return res;
     }
+    
 }
