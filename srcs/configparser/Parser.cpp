@@ -351,7 +351,7 @@ bool Parser::validateAbsPathDirective(const std::string& line)
 
 bool Parser::validateIndexDirective(const std::string& line)
 {
-    std::regex index_regex(R"(^\s*index\s+[\w.-]+\.[a-z]{2,6};$)");
+    std::regex index_regex(R"(^\s*index\s+[\w.-]+\.[a-zA-Z0-9._-]+;$)");
     if (std::regex_match(line, index_regex))
         return true;
     else
