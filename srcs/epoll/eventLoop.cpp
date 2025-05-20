@@ -187,18 +187,10 @@ static void handleClientRecv(Client& client, int loop)
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
 
-            if (client.bytesRead < 0)
+            if (client.bytesRead <= 0)
             {
-                close(client.fd);
-                client.erase = true;
-                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                //     throw std::runtime_error("epoll_ctl DEL failed");
-                return ;
-            }
-
-			if (client.bytesRead == 0)
-            {
-                wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
+                if (client.bytesRead == 0)
+                    wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
                 close(client.fd);
                 client.erase = true;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -279,22 +271,18 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
+    //int buffer = 3;
+    //setsockopt(client.fd, SOL_SOCKET, SO_SNDBUF, &buffer, sizeof(buffer));
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer, true);
+    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-    if (client.bytesWritten == 0)
+    if (client.bytesWritten <= 0)
     {
         close(client.fd);
         client.erase = true;
         // epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
         return ;
-    }
-    if (client.bytesWritten < 0) {
-        close(client.fd);
-        client.erase = true;
-        // epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
-        return;
     }
     client.writeBuffer.erase(0, client.bytesWritten);
     wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);

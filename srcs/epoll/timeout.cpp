@@ -20,7 +20,12 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
         if (now > timeout) //408 request timeout error page?
         {
             HTTPResponse temp(408, "Request Timeout");
+            if (temp.getStatusCode() >= 400)
+                temp = temp.generateErrorResponse(temp);
             client.response.push_back(temp);
+
+            client.writeBuffer = client.response.back().body;
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
@@ -39,6 +44,12 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
+                HTTPResponse temp(408, "Request Timeout");
+                if (temp.getStatusCode() >= 400)
+                    temp = temp.generateErrorResponse(temp);
+                client.response.push_back(temp);
+                client.writeBuffer = client.response.back().body;
+                client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
@@ -50,6 +61,12 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
         if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //413 entity too large error page? also replace magic number
         {
+            HTTPResponse temp(413, "Entity too large");
+            if (temp.getStatusCode() >= 400)
+                temp = temp.generateErrorResponse(temp);
+            client.response.push_back(temp);
+            client.writeBuffer = client.response.back().body;
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
@@ -60,6 +77,12 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
         if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size) //413 entity too large?
         {
+            HTTPResponse temp(413, "Entity too large");
+            if (temp.getStatusCode() >= 400)
+                temp = temp.generateErrorResponse(temp);
+            client.response.push_back(temp);
+            client.writeBuffer = client.response.back().body;
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
@@ -81,7 +104,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 it = clients.erase(it);
                 continue ;
             }
-        }
+        } 
 
         else
         {
