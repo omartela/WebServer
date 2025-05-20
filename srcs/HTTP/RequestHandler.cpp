@@ -142,7 +142,7 @@ HTTPResponse RequestHandler::executeCGI(Client& client)
             setenv("CONTENT_TYPE", client.request.headers.at("Content-Type").c_str(), 1);
         std::string pyth = "python3";
         char *argv[] = { const_cast<char*>(pyth.c_str()), const_cast<char*>(path.c_str()), NULL };
-        execve(client.serverInfo.routes[key].cgipathpython.c_str(), argv, environ);
+        execve(client.serverInfo.routes[key].cgiexecutable.c_str(), argv, environ);
         _exit(1);
     }
     close(inPipe[0]);
