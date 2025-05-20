@@ -3,13 +3,14 @@
 
 #include "Enums.hpp"
 #include "Parser.hpp"
+#include "Client.hpp"
 #include <string>
 #include <map>
 
 class HTTPRequest
 {
     private:
-        void parser(const std::string raw);
+        void parser(Client& client);
 
     public:
         std::string method;
@@ -23,5 +24,5 @@ class HTTPRequest
         std::map<std::string, std::string> headers;
         std::string body;
         HTTPRequest();
-        HTTPRequest(const std::string raw);
+        HTTPRequest(Client& client);
 };

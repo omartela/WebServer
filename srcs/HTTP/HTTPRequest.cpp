@@ -8,18 +8,7 @@
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(const std::string raw) { parser(raw); }
-
-/*
-    How it works:
-    Status line: Includes the HTTP version, status code, and status message (e.g., 200 OK).
-
-    Headers: Loops through all headers and appends them to the response.
-
-    Content-Length: If there's a body, it adds the Content-Length header.
-
-    Body: Appends the body content after the headers.
-*/
+HTTPRequest::HTTPRequest(Client& client) { parser(client); }
 
 reqTypes getMethodEnum(const std::string& method)
 {
@@ -29,9 +18,9 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
-void HTTPRequest::parser(const std::string raw)
+void HTTPRequest::parser(Client& client)
 {
-    std::istringstream stream(raw);
+    std::istringstream stream(client.headerString);
     std::string line;
     if (!std::getline(stream, line))
         return ;
@@ -61,5 +50,10 @@ void HTTPRequest::parser(const std::string raw)
         }
     }
     location = path.substr(0, path.find_last_of("/") + 1);
+    // if (client.serverInfo.routes.find(client.request.location) != client.serverInfo.routes.end())
+    // {
+    //     if (!client.serverInfo.routes.at(client.request.location).cgiexecutable.empty())
+    //         client.isCGI = true;
+    // }
 }
 

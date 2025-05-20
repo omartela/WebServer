@@ -241,8 +241,17 @@ static void checkBody(Client &client, int loop)
         readChunkedBody(client, loop);
     else if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
     {
-        client.request.body = client.rawReadData;
-        client.response = RequestHandler::handleRequest(client);
+        if (client.serverInfo.routes.find(client.request.location) != client.serverInfo.routes.end())
+        {
+            client.cgi.setEnvValues(client);
+            client.response = client.cgi.executeCGI(client);
+        }
+        else
+        {
+            client.request.body = client.rawReadData;
+            client.response = RequestHandler::handleRequest(client);
+
+        }
         if (client.response.getStatusCode() >= 400)
             client.response = client.response.generateErrorResponse(client.response);
         client.writeBuffer = client.response.toString();
@@ -295,7 +304,7 @@ static void handleClientRecv(Client& client, int loop)
                 if (headerEnd != std::string::npos)
                 {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                        client.request = HTTPRequest(client.headerString);
+                        client.request = HTTPRequest(client);
                         client.bytesRead = 0;
                         client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                         if (client.request.method == "POST")
