@@ -79,6 +79,28 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, ServerConf
     }
 }
 
+void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& route)
+{
+    // Extract client_max_body_size from the line
+    size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
+    size_t end_pos = line.find(";", pos);
+    std::string size_str = line.substr(pos, end_pos - pos);
+    if (size_str.find("K") != std::string::npos)
+    {
+        size_str.erase(size_str.find("K"));
+        route.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
+    }
+    else if (size_str.find("M") != std::string::npos)
+    {
+        size_str.erase(size_str.find("M"));
+        route.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+    }
+    else
+    {
+        route.client_max_body_size = std::stoul(size_str); // Assume bytes
+    }
+}
+
 void Parser::parseErrorPageDirective(const std::string& line, ServerConfig& server_config)
 {
     // Extract error pages from the line
@@ -163,20 +185,12 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
     route.accepted_methods.push_back(cgi_extensions); // Add the last cgi_extension
 }
 
-void Parser::parseCgiPathPython(const std::string&line, Route& route)
+void Parser::parseCgiExecutable(const std::string&line, Route& route)
 {
-    size_t pos = line.find("cgipathpython ") + 14; // Skip "cgipathpython "
+    size_t pos = line.find("cgiexecutable ") + 14; // Skip "cgiexecutable "
     size_t end_pos = line.find(";");
-    route.cgipathpython = line.substr(pos, end_pos - pos);
+    route.cgiexecutable = line.substr(pos, end_pos - pos);
 }
-
-void Parser::parseCgiPathPhp(const std::string& line, Route &route)
-{
-    size_t pos = line.find("cgipathphp ") + 11; // Skip "cgipathphp "
-    size_t end_pos = line.find(";");
-    route.cgipathphp = line.substr(pos, end_pos - pos);
-}
-
 
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
 {
@@ -217,13 +231,13 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         {
             parseCgiExtensionDirective(line, route);
         }
-        else if (line.find("cgipathpython ") != std::string::npos)
+        else if (line.find("cgiexecutable ") != std::string::npos)
         {
-            parseCgiPathPython(line, route);
+            parseCgiExecutable(line, route);
         }
-        else if (line.find("cgipathphp ") != std::string::npos)
+        else if (line.find("client_max_body_size "))
         {
-            parseCgiPathPhp(line, route);
+            parseClientMaxBodySizeDirective(line, route);
         }
     }
     server_config.routes[route.path] = route;
@@ -382,7 +396,7 @@ bool Parser::validateUploadPathDirective(const std::string& line)
 
 bool Parser::validateCgiExtensionDirective(const std::string& line)
 {
-    std::regex cgi_extension_regex(R"(^\s*cgi_extension\s+\.(php|py);$)");
+    std::regex cgi_extension_regex(R"(^\s*cgi_extension\s+\.[a-zA-Z0-9_.-]+;$)");
     if (std::regex_match(line, cgi_extension_regex))
         return true;
     else
@@ -431,9 +445,7 @@ bool Parser::validateBrackets(const std::string& config_file)
 
 bool Parser::validateDirectives(const std::string& line)
 {
-    if (line.find("cgipathpython ") != std::string::npos)
-        return true;
-    if (line.find("cgipathphp ") != std::string::npos)
+    if (line.find("cgiexecutable ") != std::string::npos)
         return true;
     // Check if the line contains any of the directives
     if (validateServerDirective(line) || validateListenDirective(line) || validateServerNameDirective(line) ||
@@ -590,8 +602,7 @@ void Parser::printRoute(const Route& route) const
         std::cout << cgi_extension << " ";
     }
     std::cout << "Upload Path: " << route.upload_path << std::endl;
-    std::cout << "cgipathpython : " << route.cgipathpython << std::endl;
-    std::cout << "cgipathphp : " << route.cgipathphp << std::endl;
+    std::cout << "cgiexecutable : " << route.cgiexecutable << std::endl;
 
 }
 
