@@ -77,7 +77,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
             else if (fd == timerFd)
             {
-                std::cout << "Time to check timeouts!" << std::endl;
+                // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
             }
 
@@ -304,7 +304,7 @@ static void handleClientSend(Client &client, int loop)
             }
             else
             {
-                std::cout << "Client reset" << std::endl;
+                // std::cout << "Client reset" << std::endl;
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
@@ -318,7 +318,7 @@ static void handleClientSend(Client &client, int loop)
         }
         else
         {
-            std::cout << "Client reset" << std::endl;
+            // std::cout << "Client reset" << std::endl;
             client.reset();
             toggleEpollEvents(client.fd, loop, EPOLLIN);
         }

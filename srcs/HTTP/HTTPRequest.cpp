@@ -57,20 +57,9 @@ void HTTPRequest::parser(const std::string raw)
 
             value.erase(std::remove_if(value.begin(), value.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
                     c == '\t' || c == '\v' || c == '\f');}), value.end());
-            // while (!value.empty() && value[0] == ' ')
-            //     value.erase(0, 1);
             headers[key] = value;
         }
     }
     location = path.substr(0, path.find_last_of("/") + 1);
-    // std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
-    // if (it != headers.end())
-    // {
-    //     size_t contentLength = std::strtoul(it->second.c_str(), NULL, 10);
-    //     std::vector<char> buffer(contentLength);
-    //     stream.read(buffer.data(), contentLength);
-    //     body.assign(buffer.begin(), buffer.end());
-    // }
-
 }
 

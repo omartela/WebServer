@@ -54,7 +54,6 @@ static std::string getMimeType(const std::string& ext)
 
 static std::string extractFilename(const std::string& path, int method)
 {
-    // std::cout << "Extract path: " << path << std::endl;
     size_t start;
     if (method)
     {
@@ -121,10 +120,6 @@ static std::vector<std::string> split(const std::string& s, const std::string& s
 
 static bool validateHeader(HTTPRequest req)
 {
-    //TODO: Check how nginx reacts if there is more than single space between request line fields. RFC 7230 determines there should be only 1
-    //TODO: Check what if multiple headers have same key. std::map will overwrite them, so 1 remains, but what nginx does?
-    //TODO: Check that method and version are valid and no typos
-
     //check if request line is valid
     if (req.method.empty() || req.path.empty() || req.version.empty())
         return false;
@@ -136,7 +131,6 @@ static bool validateHeader(HTTPRequest req)
         if (it == req.headers.end())
             return false;
     }
-
     //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
     if (req.method == "POST")
     {
@@ -162,16 +156,24 @@ static bool validateHeader(HTTPRequest req)
     return true;
 }
 
+static HTTPResponse generateSuccessResponse(std::string body, std::string type)
+{
+    HTTPResponse response(200, "OK");
+    response.body = body;
+    response.headers["Content-Type"] = type;//"text/html";
+    response.headers["Content-Length"] = response.body.size();
+    return response;
+}
+
 static HTTPResponse generateIndexListing(std::string fullPath, std::string location)
 {
     DIR* dir = opendir(fullPath.c_str());
     if (!dir)
         return HTTPResponse(500, "Failed to open directory");
     std::stringstream html;
-    html << "<html><head><title>Index of " << location << "</title></head><body>\n";
-    html << "<h1>Index of " << location << "</h1><ul>\n";
-    // html << "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\">\n";
-    html << "<table cellpadding=\"5\" cellspacing=\"0\" style=\"text-align: left\">\n";
+    html << "<html><head><title>" << location << "</title></head><body>\n";
+    html << "<h1 style=\"font-family:sans-serif\">" << location << "</h1><ul>\n";
+    html << "<table cellpadding=\"5\" cellspacing=\"0\" style=\"text-align: left; font-family: sans-serif\">\n";
     html << "<tr><th>Name</th><th>Last Modified</th><th>Size</th></tr>\n";
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL)
@@ -184,7 +186,8 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
             ref += '/';
         ref += name;
         struct stat st;
-        if (stat(fullPath.c_str(), &st) == -1)
+        std::string fullEntry = fullPath + "/" + name;
+        if (stat(fullEntry.c_str(), &st) == -1)
             continue;
         std::string displayedName = name;
         if (displayedName.length() > 15)
@@ -203,12 +206,13 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
     }
     html << "</table></body></html>\n";
     closedir(dir);
-    HTTPResponse response(200, "OK");
-    response.body = html.str();
-    response.headers["Content-Type"] = "text/html";
-    response.headers["Content-Length"] = std::to_string(response.body.size());
+    // HTTPResponse response(200, "OK");
+    // response.body = html.str();
+    // response.headers["Content-Type"] = "text/html";
+    // response.headers["Content-Length"] = std::to_string(response.body.size());
     wslog.writeToLogFile(INFO, "GET Index listing successful", false);
-    return response;
+    return generateSuccessResponse(html.str(), "text/html");
+    // return response;
 }
 
 HTTPResponse RequestHandler::executeCGI(Client& client, std::string fullPath)
@@ -292,25 +296,23 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     for (std::vector<std::string>::iterator it = parts.begin(); it != parts.end(); ++it)
     {
         std::string& part = *it;
-        // std::cout <<
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
         std::string file = extractFilename(part, 1);
-        // std::cout << "File: " << file << std::endl;
+        // wslog.writeToLogFile(INFO, "File: " + file, false);
         if (file.empty())
             continue;
         std::string content = extractContent(part);
         std::string folder = client.serverInfo.routes[client.request.location].abspath;
-        // std::cout << "Folder: " << folder << std::endl;
+        // wslog.writeToLogFile(INFO, "Folder: " + folder, false);
         if (folder[0] == '/')
             folder.erase(0, 1);
         std::string path = folder + "/" + file;
         lastPath = path;
-        // std::cout << "Last path: " << lastPath << std::endl;
+        //wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
         std::ofstream out(path.c_str(), std::ios::binary);
         if (!out.is_open())
         {
-            // std::cout << "HERE" << std::endl;
             wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
             return HTTPResponse(500, "Failed to open file for writing");
         }
@@ -319,13 +321,14 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     }
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
         return HTTPResponse(400, "File not uploaded");
-    HTTPResponse res(200, "OK");
-    res.body = "File(s) uploaded successfully\n";
+    // HTTPResponse res(200, "OK");
+    // res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(client.request.path);
-    res.headers["Content-Type"] = getMimeType(ext);
-    res.headers["Content-Length"] = std::to_string(res.body.size());
+    // res.headers["Content-Type"] = getMimeType(ext);
+    // res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
-    return res;
+    return generateSuccessResponse("File(s) uploaded successfully\n", getMimeType(ext));
+    // return res;
 }
 
 HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
@@ -355,22 +358,22 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
         wslog.writeToLogFile(ERROR, "400 Bad request", false);
         return HTTPResponse(400, "Bad request");
     }
-    HTTPResponse res(200, "OK");
-    res.body = "File(s) uploaded successfully\n";
+    // HTTPResponse res(200, "OK");
+    // res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(client.request.path);
-    res.headers["Content-Type"] = getMimeType(ext);
-    res.headers["Content-Length"] = std::to_string(res.body.size());
+    // res.headers["Content-Type"] = getMimeType(ext);
+    // res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
-    return res;
+    return generateSuccessResponse("File(s) uploaded successfully\n", getMimeType(ext));
+    // return res;
 }
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    // std::cout << "Key: " << key << std::endl;
-    std::cout << "Path: " << fullPath << std::endl;
+    wslog.writeToLogFile(INFO, "Path :" + fullPath, true);
     if (fullPath.find("..") != std::string::npos)
     {
-        wslog.writeToLogFile(ERROR, "403 Forbidden", true);
+        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
         return HTTPResponse(403, "Forbidden");
     }
     if (fullPath.find("/www/cgi/") != std::string::npos)
@@ -381,16 +384,11 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         wslog.writeToLogFile(ERROR, "404 Not Found", false);
         return HTTPResponse(404, "Not Found");
     }
-    // if (!S_ISDIR(s.st_mode))
-    // {
-    //     wslog.writeToLogFile(ERROR, "403 Forbidden", true);
-    //     return HTTPResponse(403, "Forbidden");
-    // }
     bool isDir = S_ISDIR(s.st_mode);
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
-        fullPath += client.serverInfo.routes[client.request.location].index_file;
-        std::cout << "path " << std::endl;
+        // wslog.writeToLogFile(DEBUG, "We are here", true);
+        fullPath = "./www/" + client.serverInfo.routes[client.request.location].index_file;
         std::ifstream file(fullPath.c_str(), std::ios::binary);
         if (!file.is_open())
         {
@@ -400,15 +398,17 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         std::ostringstream content;
         content << file.rdbuf();
         file.close();
-        HTTPResponse response(200, "OK");
-        response.body = content.str();
+        // wslog.writeToLogFile(DEBUG, "Content: " + content.str(), true);
         std::string ext = getFileExtension(fullPath);
-        response.headers["Content-Type"] = getMimeType(ext);
-        response.headers["Content-Length"] = std::to_string(response.body.size());
         wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
-        return response;
+        return generateSuccessResponse(content.str(), getMimeType(ext));
+        // HTTPResponse response(200, "OK");
+        // response.body = content.str();
+        // response.headers["Content-Type"] = getMimeType(ext);
+        // response.headers["Content-Length"] = std::to_string(response.body.size());
+        // return response;
     }
-    if (isDir && client.serverInfo.routes[client.request.location].index_file.empty())
+    if (isDir && !client.serverInfo.routes[client.request.location].autoindex && client.serverInfo.routes[client.request.location].index_file.empty())
         return generateIndexListing(fullPath, client.request.location);
     std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
@@ -419,13 +419,15 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
-    HTTPResponse response(200, "OK");
-    response.body = content.str();
+    wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
     std::string ext = getFileExtension(fullPath);
-    response.headers["Content-Type"] = getMimeType(ext);
-    response.headers["Content-Length"] = std::to_string(response.body.size());
     wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
-    return response;
+    return generateSuccessResponse(content.str(), getMimeType(ext));
+    // HTTPResponse response(200, "OK");
+    // response.body = content.str();
+    // response.headers["Content-Type"] = getMimeType(ext);
+    // response.headers["Content-Length"] = std::to_string(response.body.size());
+    // return response;
 }
 
 HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
@@ -436,21 +438,20 @@ HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
         return HTTPResponse(404, "Not Found");
     if (remove(fullPath.c_str()) != 0)
         return HTTPResponse(500, "Delete Failed");
-    HTTPResponse res(200, "OK");
-    res.body = "File deleted successfully\n";
-    res.headers["Content-Type"] = "text/plain";
-    res.headers["Content-Length"] = std::to_string(res.body.size());
+    // HTTPResponse res(200, "OK");
+    // res.body = "File deleted successfully\n";
+    // res.headers["Content-Type"] = "text/plain";
+    // res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "DELETE File deleted successfully", false);
-    return res;
+    return generateSuccessResponse("File deleted successfully\n", "text/plain");
+    // return res;
 }
 
 
 bool RequestHandler::isAllowedMethod(std::string method, Route route)
 {
-    // std::cout << route.accepted_methods.size() << std::endl;
     for (size_t i = 0; i < route.accepted_methods.size(); i++)
     {
-        // std::cout << route.accepted_methods[i] << std::endl;
         if (method == route.accepted_methods[i])
             return true;
     }
@@ -462,11 +463,9 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     // printRequest(client.request);
     if (!validateHeader(client.request))
         return HTTPResponse(403, "Bad request");
-    // std::cout << "Key: " << client.request.location << std::endl;
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(400, "Invalid file name");
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
-    // std::cout << "Full path: " << fullPath << std::endl;
     bool validFile = false;
     try
     {
