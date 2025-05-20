@@ -3,7 +3,7 @@ import time
 def send_chunked_request():
     # Connect to the server
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('127.0.0.1', 8004))  # Replace with your server's address and port
+    client_socket.connect(('127.0.0.1', 8080))  # Replace with your server's address and port
     
     # Send the HTTP request with chunked transfer encoding
     headers = "POST /images/test.txt HTTP/1.1\r\n"

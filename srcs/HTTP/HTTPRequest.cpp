@@ -55,6 +55,7 @@ void HTTPRequest::parser(const std::string raw)
                 value.erase(0, 1);
             headers[key] = value;
         }
+        // this needs else
     }
     std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
     if (it != headers.end())

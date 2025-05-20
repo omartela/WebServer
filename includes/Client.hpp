@@ -47,5 +47,4 @@ class Client {
         ~Client();
 
         void reset();
-        reqTypes getMethodEnum();
 };

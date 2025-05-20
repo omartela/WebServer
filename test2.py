@@ -1,36 +1,31 @@
 import socket
 import time
+import requests
 
-s = socket.socket()
-s.connect(('127.0.0.1', 8080))
-
-req = "GET / HTTP/1.1\r\n"
-
-#Send one character at a time
-try:
-    for c in req:
-        s.send(c.encode())
-        time.sleep(1.5)  # 1.5 seconds between each byte (too slow)
-    s.send(b"\r\n\r\n")
-except BrokenPipeError:
-    print("Server closed connection")
-    response = s.recv(1024)
-    print(f"Response: {response}")
-
-try:
-    response = s.recv(1024)
-    print(response)
-except Exception as e:
-    print("No response:", e)
-finally:
-    s.close()
-
+response = requests.get("http://127.0.0.1:8080/nonexistent.html")
+print(response)
 
 
 # s = socket.socket()
 # s.connect(('127.0.0.1', 8080))
 
-# req1 = "GET /index HTTP/1.1\r\nHost: localhost\r\n\r\n"
+# req = "GET / HTTP/1.1\r\n"
+
+# #Send one character at a time
+# try:
+#     for c in req:
+#         s.send(c.encode())
+#         time.sleep(1.5)  # 1.5 seconds between each byte (too slow)
+#     s.send(b"\r\n\r\n")
+# except BrokenPipeError:
+#     print("Server closed connection")
+#     response = s.recv(1024)
+#     print(f"Response: {response}")
+
+# s = socket.socket()
+# s.connect(('127.0.0.1', 8080))
+
+# req1 = "GET /index HTTP/1.1\r\nHostlocalhost\r\n\r\n"
 # req2 = "WRITE /second HTTP/1.1\r\nHost: localhost\r\n\r\n"
 # s.sendall(req1.encode())
 
@@ -93,3 +88,13 @@ finally:
 #     t.join()
 
 # print("✅ All clients received correct responses with slow recv()")
+
+
+# import requests
+
+# with open('test_inf.py', 'rb') as f:
+#     files = {'file': ('test_inf.py', f)}
+#     response = requests.get('http://localhost:8080/upload/', files=files)
+
+# print(response.status_code)
+# print(response.text)

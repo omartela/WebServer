@@ -238,10 +238,10 @@ static void readChunkedBody(Client &client, int loop)
         client.state = SEND;  // Kaikki chunkit luettu
         client.request.body = client.chunkBuffer;  // Tallenna body
         client.chunkBuffer = "";
-        client.response = RequestHandler::handleRequest(client);
-        if (client.response.getStatusCode() >= 400)
-            client.response = client.response.generateErrorResponse(client.response);
-        client.writeBuffer = client.response.toString();
+        client.response.push_back(RequestHandler::handleRequest(client));
+        if (client.response.back().getStatusCode() >= 400)
+            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
@@ -255,10 +255,10 @@ static void checkBody(Client &client, int loop)
     else if (client.rawReadData.size() >= stoul(client.request.headers["Content-Length"])) //or end of chunks?
     {
         client.request.body = client.rawReadData;
-        client.response = RequestHandler::handleRequest(client);
-        if (client.response.getStatusCode() >= 400)
-            client.response = client.response.generateErrorResponse(client.response);
-        client.writeBuffer = client.response.toString();
+        client.response.push_back(RequestHandler::handleRequest(client));
+        if (client.response.back().getStatusCode() >= 400)
+            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
@@ -364,8 +364,6 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
-    //int buffer = 3;
-    //setsockopt(client.fd, SOL_SOCKET, SO_SNDBUF, &buffer, sizeof(buffer));
     wslog.writeToLogFile(INFO, "IN SEND", true);
     wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
@@ -374,7 +372,8 @@ static void handleClientSend(Client &client, int loop)
     {
         close(client.fd);
         client.erase = true;
-        // epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+        // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+        //     throw std::runtime_error("check connection epoll_ctl DEL failed");
         return ;
     }
     client.writeBuffer.erase(0, client.bytesWritten);

@@ -50,14 +50,3 @@ void Client::reset()
     this->erase = false;
     this->request = HTTPRequest();
 }
-
-reqTypes Client::getMethodEnum()
-{
-    if (request.method == "GET")
-        return GET;
-    if (request.method == "POST")
-        return POST;
-    if (request.method == "DELETE")
-        return DELETE;
-    return INVALID;
-}
