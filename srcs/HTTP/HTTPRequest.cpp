@@ -5,7 +5,9 @@
 #include <iostream>
 #include <vector>
 
-HTTPRequest::HTTPRequest(const std::string& raw){ parser(raw); }
+HTTPRequest::HTTPRequest() {}
+
+HTTPRequest::HTTPRequest(const std::string raw) { parser(raw); }
 
 /*
     How it works:
@@ -26,7 +28,7 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
-void HTTPRequest::parser(const std::string& raw)
+void HTTPRequest::parser(const std::string raw)
 {
     std::istringstream stream(raw);
     std::string line;
@@ -35,8 +37,9 @@ void HTTPRequest::parser(const std::string& raw)
     if (line.back() == '\r')
         line.pop_back();
     std::istringstream request_line(line);
-    request_line >> method >> path;
+    request_line >> method >> path >> version;
     eMethod = getMethodEnum(method);
+    file = path.substr(path.find_last_of("/"));
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')
@@ -52,6 +55,7 @@ void HTTPRequest::parser(const std::string& raw)
                 value.erase(0, 1);
             headers[key] = value;
         }
+        // this needs else
     }
     std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
     if (it != headers.end())

@@ -3,7 +3,6 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
-#include "Socketshandler.hpp"
 #include "eventLoop.hpp"
 #include <sys/socket.h>
 #include <cstring>
@@ -11,12 +10,6 @@
 #include <unistd.h>
 
 Logger wslog;
-
-
-/* bool checkmethods(std::string allowedmethods, std::string methods)
-{
-
-} */
 
 int main(int argc, char *argv[])
 {

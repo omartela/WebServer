@@ -3,3 +3,5 @@ logfiles/
 logfile.log
 objs/
 webserver
+Test_File_Matrix.csv
+mime_type.py
