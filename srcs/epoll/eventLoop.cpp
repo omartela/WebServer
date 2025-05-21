@@ -329,36 +329,34 @@ static void handleClientRecv(Client& client, int loop)
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.rawReadData += temp;
-            if (client.bytesRead >= 4)
+
+            size_t headerEnd = client.rawReadData.find("\r\n\r\n");
+            if (headerEnd != std::string::npos) 
             {
-                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
-                if (headerEnd != std::string::npos) 
+                client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                client.request = HTTPRequest(client.headerString);
+                wslog.writeToLogFile(DEBUG, client.headerString, true);
+                client.bytesRead = 0;
+                client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                if (client.request.method == "POST")
                 {
-                        client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                        client.request = HTTPRequest(client.headerString);
-                        client.bytesRead = 0;
-                        client.rawReadData = client.rawReadData.substr(headerEnd + 4);
-                        if (client.request.method == "POST")
-                        {
-                            client.state = READ_BODY;
-                            checkBody(client, loop);
-                            return;
-                        }
-                        else
-                        {
-                            client.state = SEND;
-                            client.request.body = client.rawReadData;
-                            HTTPResponse response = RequestHandler::handleRequest(client);
-                            client.writeBuffer = response.toString();
-                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                            return ;
-                        }
+                    client.state = READ_BODY;
+                    checkBody(client, loop);
+                    return;
                 }
                 else
+                {
+                    client.state = SEND;
+                    client.request.body = client.rawReadData;
+                    HTTPResponse response = RequestHandler::handleRequest(client);
+                    client.writeBuffer = response.toString();
+                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
+                }
             }
             else
                 return ;
+            return ;
         }
 
         case READ_BODY:
@@ -398,6 +396,7 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
+    wslog.writeToLogFile(DEBUG, client.writeBuffer.data(), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)
     {
