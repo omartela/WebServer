@@ -2,6 +2,7 @@
 #include "timeout.hpp"
 #include "Client.hpp"
 #include "HTTPResponse.hpp"
+#include "Logger.hpp"
 #include "RequestHandler.hpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -115,8 +116,12 @@ static int initServerSocket(ServerConfig server)
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(server.port);
-    bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
-    listen(serverSocket, SOMAXCONN);
+    int rvalue = bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
+    if (rvalue == -1)
+        wslog.writeToLogFile(ERROR, "Bind failed for socket", true);
+    rvalue = listen(serverSocket, SOMAXCONN);
+    if (rvalue == -1)
+        wslog.writeToLogFile(ERROR, "Listen failed for socket", true);
 
     return (serverSocket);
 }
@@ -273,7 +278,7 @@ static void handleClientRecv(Client& client, int loop)
     {
         case IDLE:
             client.state = READ_HEADER;
-
+            return;
         case READ_HEADER:
         {
             std::cout << "IN READ_HEADER" << std::endl;
