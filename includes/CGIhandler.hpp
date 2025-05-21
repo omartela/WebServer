@@ -13,12 +13,14 @@ class CGIHandler
         std::vector<std::string> envVariables;
         char* envArray[16] = {};
         char* exceveArgs[3] = {};
-        int writeCGIPipe[2];
-        int readCGIPipe[2];
-        pid_t childProcPid;
+        int writeCGIPipe[2]; //inPipe
+        int readCGIPipe[2]; //outPipe
         std::string fullPath;
+        std::string output;
     public:
+        pid_t childPid;
         CGIHandler();
         void setEnvValues(Client client);
-        HTTPResponse executeCGI(Client& client);
+        int executeCGI(Client& client);
+        HTTPResponse CGIHandler::generateCGIResponse(Client& client);
 };

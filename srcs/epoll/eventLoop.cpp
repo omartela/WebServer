@@ -49,7 +49,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     timerValues.it_value.tv_sec = TIMEOUT;
     timerValues.it_interval.tv_sec = TIMEOUT / 2;
     bool timerOn = false;
-
+    
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -68,7 +68,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 newClient.fd = clientFd;
                 newClient.timestamp = std::chrono::steady_clock::now();
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
-                    throw std::runtime_error("newClient epoll_ctl ADD failed");
+                throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
                 std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
                 if (timerOn == false)
@@ -77,18 +77,23 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     timerOn = true;
                 }
             }
-
+            
             else if (fd == timerFd)
             {
                 // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
             }
-
+            
             else
             {
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
+                    if (client.request.isCGI && client.cgiFD)
+                    {
+
+                        handleCGI(client);
+                    }
                     // std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(client, loop);
@@ -253,9 +258,12 @@ static void readChunkedBody(Client &client, int loop)
 static void handleCGI(Client& client)
 {
     cgi.setEnvValues(client);
-    if (cgi.executeCGI)
-        client.response = cgi.executeCGI(client);
-
+    cgi.executeCGI(client);
+    pid_t pid = waitpid(pid, NULL, WNOHANG); 
+    if (pid == cgi.childPid)
+    {
+        client.response = cgi.generateCGIResponse(client);
+    }
 }
 
 
@@ -268,14 +276,12 @@ static void checkBody(Client &client, int loop)
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
-        if (client.request.isCGI && client.request.method == "GET")
-            handleCGI(client);
-        else
+        if (client.request.isCGI && client.request.method == "POST")
         {
-            client.request.body = client.rawReadData;
-            client.response = RequestHandler::handleRequest(client);
-
+            
         }
+        client.request.body = client.rawReadData;
+        client.response = RequestHandler::handleRequest(client);
         if (client.response.getStatusCode() >= 400)
             client.response = client.response.generateErrorResponse(client.response);
         client.writeBuffer = client.response.toString();

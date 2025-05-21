@@ -43,6 +43,7 @@ class Client {
         HTTPResponse response;
         // CGIHandler cgi;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
+        int cgiFD;
 
         Client();
         Client(const Client& copy);
