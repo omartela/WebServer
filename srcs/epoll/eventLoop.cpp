@@ -110,18 +110,39 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
+    if (serverSocket == -1) 
+    {
+        wslog.writeToLogFile(ERROR, "Socket creation failed", true);
+        return -1;
+    }    
     int opt = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); //REMOVE LATER
 
-    sockaddr_in serverAddress;
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(server.port);
-    int rvalue = bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;          // IPv4, käytä AF_UNSPEC jos haluat myös IPv6
+    hints.ai_socktype = SOCK_STREAM;
+
+    int status = getaddrinfo(server.host.c_str(), server.port.c_str(), &hints, &res);
+    if (status != 0) 
+    {
+        wslog.writeToLogFile(ERROR, std::string("getaddrinfo failed"), true);
+        return -1;
+    }
+
+    int rvalue = bind(serverSocket, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo(res);
     if (rvalue == -1)
+    {
         wslog.writeToLogFile(ERROR, "Bind failed for socket", true);
+        return -1;
+    }
     rvalue = listen(serverSocket, SOMAXCONN);
     if (rvalue == -1)
+    {
         wslog.writeToLogFile(ERROR, "Listen failed for socket", true);
+        return -1;
+    }
 
     return (serverSocket);
 }

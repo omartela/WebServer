@@ -31,7 +31,7 @@ void Parser::parseListenDirective(const std::string& line, ServerConfig& server_
     if (colon_pos != std::string::npos)
     {
         server_config.host = host_port.substr(0, colon_pos);
-        server_config.port = std::stoi(host_port.substr(colon_pos + 1));
+        server_config.port = host_port.substr(colon_pos + 1);
     }
     else
     {
