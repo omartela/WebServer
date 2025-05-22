@@ -84,6 +84,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             }
         }
 
+        //else if (client.state == HANDLE_CGI)
+
         else
         {
             if (client.state == READ_HEADER || client.state == READ_BODY)

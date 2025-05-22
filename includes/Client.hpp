@@ -17,6 +17,7 @@
 
 enum connectionStates {
     IDLE,
+    HANDLE_CGI,
     READ_HEADER,
     READ_BODY,
     SEND
@@ -39,11 +40,11 @@ class Client {
         bool erase;
         ServerConfig serverInfo;
 
-        HTTPRequest request;
-        HTTPResponse response;
-        // CGIHandler cgi;
+        HTTPRequest     request;
+        HTTPResponse    response;
+        CGIHandler      CGIResponse;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
-        int cgiFD;
+        int CGIFd;
 
         Client();
         Client(const Client& copy);

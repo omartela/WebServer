@@ -3,6 +3,7 @@ COMPILER = c++
 TARGET = webserver
 INC_DIR = includes
 SRC = srcs/main.cpp\
+	srcs/utils.cpp\
 	srcs/logger/Logger.cpp\
 	srcs/configparser/Parser.cpp\
 	srcs/HTTP/HTTPRequest.cpp\
