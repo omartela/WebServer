@@ -160,5 +160,4 @@ int CGIHandler::executeCGI(Client& client)
 //         res.headers["Content-Length"] = std::to_string(res.body.size());
 //         return res;
 //     }
-
 // }

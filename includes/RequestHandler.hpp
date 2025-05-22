@@ -15,4 +15,5 @@ class RequestHandler
         static HTTPResponse handlePOST(Client& client, std::string fullPath);
         static HTTPResponse handleDELETE(std::string fullPath);
         static bool isAllowedMethod(std::string method, Route route);
+        static HTTPResponse redirectResponse(std::string fullPath);
 };

@@ -123,7 +123,7 @@ HTTPResponse generateSuccessResponse(std::string body, std::string type)
     HTTPResponse response(200, "OK");
     response.body = body;
     response.headers["Content-Type"] = type;//"text/html";
-    response.headers["Content-Length"] = response.body.size();
+    response.headers["Content-Length"] = std::to_string(response.body.size());
     return response;
 }
 
@@ -289,7 +289,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
         // wslog.writeToLogFile(DEBUG, "We are here", true);
-        fullPath = "./www/" + client.serverInfo.routes[client.request.location].index_file;
+        fullPath += client.serverInfo.routes[client.request.location].index_file;
         std::ifstream file(fullPath.c_str(), std::ios::binary);
         if (!file.is_open())
         {
@@ -359,12 +359,31 @@ bool RequestHandler::isAllowedMethod(std::string method, Route route)
     return false;
 }
 
+HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
+{
+    fullPath += "/";
+    HTTPResponse res(301, "Moved Permanently");
+    res.headers["Location"] = fullPath;
+    return res;
+}
+
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
     // printRequest(client.request);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(400, "Invalid file name");
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
+    wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
+    wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
+    struct stat s;
+    // if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
+    // {
+    //     wslog.writeToLogFile(ERROR, "404 Not Found", false);
+    //     return HTTPResponse(404, "Not Found");
+    // }
+    bool isDir = S_ISDIR(s.st_mode);
+    if (isDir  && fullPath.back() != '/')
+        return redirectResponse(fullPath);
     bool validFile = false;
     try
     {

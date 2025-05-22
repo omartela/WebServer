@@ -19,7 +19,7 @@ bool validateHeader(HTTPRequest req)
         bool transferEncoding = false;
         bool contentLength = false;
 
-        auto it = req.headers.find("Transfer-encoding");
+        auto it = req.headers.find("Transfer-Encoding");
         if (it != req.headers.end())
         {
             transferEncoding = true;

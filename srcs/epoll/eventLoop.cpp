@@ -2,6 +2,7 @@
 #include "timeout.hpp"
 #include "Client.hpp"
 #include "HTTPResponse.hpp"
+#include "Logger.hpp"
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 
@@ -105,6 +106,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     handleClientSend(clients.at(fd), loop);
                 }
                 if (clients.at(fd).erase == true)
+                if (clients.at(fd).erase == true)
                 {
                     // std::cout << "client erased" << std::endl;
                     clients.erase(fd);
@@ -117,14 +119,39 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
+    if (serverSocket == -1) 
+    {
+        wslog.writeToLogFile(ERROR, "Socket creation failed", true);
+        return -1;
+    }    
     int opt = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); //REMOVE LATER
 
-    sockaddr_in serverAddress;
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(server.port);
-    bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress));
-    listen(serverSocket, SOMAXCONN);
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;          // IPv4, käytä AF_UNSPEC jos haluat myös IPv6
+    hints.ai_socktype = SOCK_STREAM;
+
+    int status = getaddrinfo(server.host.c_str(), server.port.c_str(), &hints, &res);
+    if (status != 0) 
+    {
+        wslog.writeToLogFile(ERROR, std::string("getaddrinfo failed"), true);
+        return -1;
+    }
+
+    int rvalue = bind(serverSocket, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo(res);
+    if (rvalue == -1)
+    {
+        wslog.writeToLogFile(ERROR, "Bind failed for socket", true);
+        return -1;
+    }
+    rvalue = listen(serverSocket, SOMAXCONN);
+    if (rvalue == -1)
+    {
+        wslog.writeToLogFile(ERROR, "Listen failed for socket", true);
+        return -1;
+    }
 
     return (serverSocket);
 }
@@ -256,11 +283,13 @@ static void readChunkedBody(Client &client, int loop)
 }
 
 static bool handleCGI(Client& client)
+static bool handleCGI(Client& client)
 {
     pid_t pid = 0;
     pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
+        cgi.collectCGIOutput(client.CGIFd);
         client.response = cgi.generateCGIResponse();
         return true;
     }
@@ -292,15 +321,15 @@ static void handleClientRecv(Client& client, int loop)
     switch (client.state)
     {
         case IDLE:
-            client.state = READ_HEADER;
-
+            client.state = READ_HEADER;        
+        
         case READ_HEADER:
         {
             // std::cout << "IN READ_HEADER" << std::endl;
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-
+            
             if (client.bytesRead < 0)
             {
                 close(client.fd);
@@ -319,7 +348,7 @@ static void handleClientRecv(Client& client, int loop)
                 //     throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
-
+            
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.rawReadData += temp;
@@ -327,10 +356,13 @@ static void handleClientRecv(Client& client, int loop)
             if (headerEnd != std::string::npos)
             {
                 client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                wslog.writeToLogFile(DEBUG, client.headerString, true);
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
                     client.response = HTTPResponse(403, "Bad request");
+                    if (client.response.getStatusCode() >= 400)
+                        client.response = client.response.generateErrorResponse(client.response);
                     client.state = SEND;
                     client.writeBuffer = client.response.toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -338,16 +370,17 @@ static void handleClientRecv(Client& client, int loop)
                 }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
-
+                
                 /*
                 split into three paths here based on request:
                 1. static response with POST -> go to READ_BODY
                 2. static response without POST -> go to SEND
                 3. dynamic response with CGI -> (registerCGI ->) go to handleCGI //maybe we want client enum state like HANDLE_CGI?
                 */
-
+               
                if (client.request.isCGI == true)
                {
+                   std::cout << "OMG I'M HERE" << std::endl;
                    client.state = HANDLE_CGI;
                    cgi.setEnvValues(client);
                    client.CGIFd = cgi.executeCGI(client);
@@ -360,19 +393,19 @@ static void handleClientRecv(Client& client, int loop)
                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
                        return ;
                     }
-
-
+                    
+                    
                     // client.cgiPid = cgi.childPid;
                     // client.cgiStdoutFd = cgiOutFd;
                     // client.isCGI = true;
-
+                    
                     // struct epoll_event ev;
                     // ev.events = EPOLLIN;
                     // ev.data.fd = cgiOutFd;
                     // if (epoll_ctl(loop, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
                     //     throw std::runtime_error("Failed to add CGI pipe to epoll");
                 }
-
+                
                 if (client.request.method == "POST")
                 {
                     client.state = READ_BODY;
@@ -384,6 +417,8 @@ static void handleClientRecv(Client& client, int loop)
                     client.state = SEND;
                     client.request.body = client.rawReadData;
                     HTTPResponse response = RequestHandler::handleRequest(client);
+                    if (client.response.getStatusCode() >= 400)
+                        client.response = client.response.generateErrorResponse(client.response);
                     client.writeBuffer = response.toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
@@ -392,7 +427,7 @@ static void handleClientRecv(Client& client, int loop)
             else
             return ;
         }
-
+        
         case READ_BODY:
         {
             client.bytesRead = 0;
@@ -442,6 +477,7 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
+    wslog.writeToLogFile(DEBUG, client.writeBuffer.data(), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)
     {

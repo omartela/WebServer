@@ -9,6 +9,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <sys/timerfd.h>
 #include <cstdlib>
 #include <stdexcept>
