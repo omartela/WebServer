@@ -1,6 +1,7 @@
 
 #include "HTTPRequest.hpp"
 #include "Enums.hpp"
+#include "Logger.hpp"
 #include <sstream>
 #include <iostream>
 #include <vector>
@@ -33,7 +34,15 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
     std::istringstream request_line(line);
     request_line >> method >> path >> version;
     eMethod = getMethodEnum(method);
-    file = path.substr(path.find_last_of("/"));
+    if (path.back() != '/')
+    {
+        std::string test_location = path + "/";
+        if (server.routes.find(test_location) != server.routes.end())
+            path += '/';
+        else
+            file = path.substr(path.find_last_of("/") + 1);
+    }
+    wslog.writeToLogFile(DEBUG, "File: " + file, true);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')

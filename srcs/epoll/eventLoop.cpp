@@ -355,10 +355,13 @@ static void handleClientRecv(Client& client, int loop)
             if (headerEnd != std::string::npos)
             {
                 client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                wslog.writeToLogFile(DEBUG, client.headerString, true);
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
                     client.response = HTTPResponse(403, "Bad request");
+                    if (client.response.getStatusCode() >= 400)
+                        client.response = client.response.generateErrorResponse(client.response);
                     client.state = SEND;
                     client.writeBuffer = client.response.toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -413,6 +416,8 @@ static void handleClientRecv(Client& client, int loop)
                     client.state = SEND;
                     client.request.body = client.rawReadData;
                     HTTPResponse response = RequestHandler::handleRequest(client);
+                    if (client.response.getStatusCode() >= 400)
+                        client.response = client.response.generateErrorResponse(client.response);
                     client.writeBuffer = response.toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
