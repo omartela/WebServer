@@ -92,7 +92,22 @@ int CGIHandler::executeCGI(Client& client)
 	return readCGIPipe[0];
 }
 
-void registerCGI(Client& client)
+// void registerCGI(Client& client, int epollFd, CGIHandler& cgi, int cgiOutFd)
+// {
+//     client.cgiPid = cgi.childPid;
+//     client.cgiStdoutFd = cgiOutFd; //or register eventfd instead?
+//     client.isCGI = true;
+
+//     struct epoll_event ev;
+//     ev.events = EPOLLIN;
+//     ev.data.fd = cgiOutFd;
+//     if (epoll_ctl(epollFd, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
+//         throw std::runtime_error("Failed to add CGI pipe to epoll");
+// }
+
+
+// void registerCGI(Client& client)
+// {
 
 // HTTPResponse CGIHandler::executeCGI(Client& client)
 // {

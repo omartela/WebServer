@@ -4,8 +4,8 @@
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
-#include "utils.cpp"
 
+bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
@@ -90,18 +90,18 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    if (client.request.isCGI && client.cgiFD) //this maybe not needed?
-                    {
+                    // if (client.request.isCGI && client.cgiFD) //this maybe not needed?
+                    // {
 
-                        handleCGI(client);
-                    }
-                    // std::cout << "EPOLLIN" << std::endl;
+                    //     handleCGI(client);
+                    // }
+                    std::cout << "EPOLLIN" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(client, loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    // std::cout << "EPOLLIN" << std::endl;
+                    std::cout << "EPOLLOUT" << std::endl;
                     client.timestamp = std::chrono::steady_clock::now();
                     handleClientSend(client, loop);
                 }
@@ -261,7 +261,7 @@ static bool handleCGI(Client& client)
     pid_t pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
-        client.response = cgi.generateCGIResponse(client);
+        client.response = cgi.generateCGIResponse();
         return true;
     }
     return false;
@@ -436,13 +436,6 @@ static void handleClientRecv(Client& client, int loop)
             client.rawReadData += temp;
             checkBody(client, loop);
         }
-
-        /*
-        CASE HANDLE_CGI:?
-        {
-            handleCgi();
-        }
-        */
 
 		case SEND:
 			return;
