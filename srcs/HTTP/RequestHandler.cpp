@@ -376,7 +376,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         return HTTPResponse(400, "Invalid file name");
     }
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
-        return HTTPResponse(400, "Method not allowed");
+        return HTTPResponse(405, "Method not allowed");
     switch (client.request.eMethod)
     {
         case GET:

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CGI Form Test</title>
+</head>
+<body>
+    <h1>Submit a GET or POST request</h1>
+
+    <form action="/cgi/formhandler.py" method="get">
+        <label>Name: <input type="text" name="name" /></label><br>
+        <label>Language: <input type="text" name="lang" /></label><br>
+        <input type="submit" value="Submit via GET" />
+    </form>
+
+    <br><hr><br>
+
+    <form action="/cgi/formhandler.py" method="post">
+        <label>Name: <input type="text" name="name" /></label><br>
+        <label>Language: <input type="text" name="lang" /></label><br>
+        <input type="submit" value="Submit via POST" />
+    </form>
+</body>
+</html>
