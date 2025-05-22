@@ -2,11 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to Webserv</title>
+    <h1 style="text-align:center; font-family:courier; font-size:300%; background-color:powderblue;">Welcome to Webserv</h1>
+  <style>
+    .round-image {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #333;
+      margin: 10px;
+    }
+    .image-row{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    body {
+        text-align: center;
+    }
+  </style>
 </head>
 <body>
-    <h1>Hello, Webserv!</h1>
-    <p>If this is printed, your GET works</p>
-    <p>Hello you are awesome</p>
+    <h1 style="text-align:center;"">Creators</h1>
+    <div>
+        <img src="./images/joel.jpeg" alt="joel" class="round-image">
+        <img src="./images/oskari.jpeg" alt="oskari" class="round-image">
+        <img src="./images/nikolai.jpeg" alt="nikolai" class="round-image">
+    </div>
 </body>
 </html>

@@ -4,21 +4,14 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(const std::string raw) { parser(raw); }
-
-/*
-    How it works:
-    Status line: Includes the HTTP version, status code, and status message (e.g., 200 OK).
-
-    Headers: Loops through all headers and appends them to the response.
-
-    Content-Length: If there's a body, it adds the Content-Length header.
-
-    Body: Appends the body content after the headers.
-*/
+HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) 
+{ 
+    parser(headers, server); 
+}
 
 reqTypes getMethodEnum(const std::string& method)
 {
@@ -28,8 +21,9 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
-void HTTPRequest::parser(const std::string raw)
+void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
+    isCGI = false;
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -51,17 +45,18 @@ void HTTPRequest::parser(const std::string raw)
         {
             std::string key = line.substr(0, colon);
             std::string value = line.substr(colon + 1);
-            while (!value.empty() && value[0] == ' ')
-                value.erase(0, 1);
+            key.erase(std::remove_if(key.begin(), key.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
+                c == '\t' || c == '\v' || c == '\f');}), key.end());
+
+            value.erase(std::remove_if(value.begin(), value.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
+                    c == '\t' || c == '\v' || c == '\f');}), value.end());
             headers[key] = value;
         }
     }
-    std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
-    if (it != headers.end())
+    location = path.substr(0, path.find_last_of("/") + 1);
+    if (server.routes.find(location) != server.routes.end())
     {
-        size_t contentLength = std::strtoul(it->second.c_str(), NULL, 10);
-        std::vector<char> buffer(contentLength);
-        stream.read(buffer.data(), contentLength);
-        body.assign(buffer.begin(), buffer.end());
+        if (!server.routes.at(location).cgiexecutable.empty())
+            isCGI = true;
     }
 }

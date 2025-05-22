@@ -95,20 +95,20 @@ if __name__ == "__main__":
     HOST2 = "127.0.0.1"
     PORT2 = 8004
 
-    # print("\tTEST 1")
-    # print("\tGET")
-    # send_get("/index.html", HOST, PORT2)
+    print("\tTEST 1")
+    print("\tGET")
+    send_get("/images/", HOST, PORT2)
     # send_get("/cgi/echo.py", HOST, PORT)
-    # send_get("/cgi/GETpy.py", HOST2, PORT2)
-    # print("\tGET DONE\n")
+    send_get("/cgi/GETpy.py", HOST2, PORT2)
+    print("\tGET DONE\n")
     # print("\tPOST")
     # send_post("/images/uploads/test.txt", "This is a test upload.", "text/plain", HOST, PORT2)
-    file_name = "test_upload.txt"
-    file_content = "This is content of the test file."
-    send_multipart("/images/uploads/", file_name, file_content, HOST, PORT2)
+    # file_name = "test_upload.txt"
+    # file_content = "This is content of the test file."
+    # send_multipart("/images/uploads/", file_name, file_content, HOST, PORT2)
     # form_data = "name=NikolaiTest&lang=Python"
     # send_cgi_post("/cgi/echo_post.py", form_data, "application/x-www-form-urlencoded", HOST2, PORT2)
-    print("\tPOST DONE\n")
+    # print("\tPOST DONE\n")
     # print("\tStatic file")
     # static_file("/index.html", "text/html", HOST, PORT2)
     # print("\tStatic file DONE\n")

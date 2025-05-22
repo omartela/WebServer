@@ -10,7 +10,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
     if (clients.empty())
     {
-        std::cout << "No more clients connected" << std::endl;
+        // std::cout << "No more clients connected" << std::endl;
         return ;
     }
 
@@ -83,6 +83,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 continue ;
             }
         }
+
+        //else if (client.state == HANDLE_CGI)
 
         else
         {
