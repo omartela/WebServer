@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
+#include <csignal>
 #include <cstdlib>
 #include <stdexcept>
 #include "Parser.hpp"
