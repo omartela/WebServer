@@ -22,6 +22,7 @@ enum connectionStates {
 class Client {
     public:  //change all these to private? fix later
         int fd;
+        int childFd;
         std::chrono::steady_clock::time_point timestamp;
         enum connectionStates state;
 
