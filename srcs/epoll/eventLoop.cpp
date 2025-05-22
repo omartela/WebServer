@@ -4,7 +4,6 @@
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
-#include "utils.cpp"
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -439,13 +438,6 @@ static void handleClientRecv(Client& client, int loop)
             client.rawReadData += temp;
             checkBody(client, loop);
         }
-
-        /*
-        CASE HANDLE_CGI:?
-        {
-            handleCgi();
-        }
-        */
 
 		case SEND:
 			return;
