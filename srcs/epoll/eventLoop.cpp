@@ -49,7 +49,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     timerValues.it_value.tv_sec = TIMEOUT;
     timerValues.it_interval.tv_sec = TIMEOUT / 2;
     bool timerOn = false;
-    
+
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -77,13 +77,13 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     timerOn = true;
                 }
             }
-            
+
             else if (fd == timerFd)
             {
                 // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
             }
-            
+
             else
             {
                 Client& client = clients[fd];
@@ -259,10 +259,11 @@ static void handleCGI(Client& client)
 {
     cgi.setEnvValues(client);
     cgi.executeCGI(client);
-    pid_t pid = waitpid(pid, NULL, WNOHANG); 
+    pid_t pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
-        client.response = cgi.generateCGIResponse(client);
+        cgi.collectCGIOutput(pid);
+        client.response = cgi.generateCGIResponse();
     }
 }
 
@@ -278,7 +279,7 @@ static void checkBody(Client &client, int loop)
     {
         if (client.request.isCGI && client.request.method == "POST")
         {
-            
+
         }
         client.request.body = client.rawReadData;
         client.response = RequestHandler::handleRequest(client);

@@ -6,28 +6,25 @@ CGIHandler::CGIHandler() {
 
 void CGIHandler::setEnvValues(Client client)
 {
-    fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
+    fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + "/" + client.request.file;
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + std::to_string(client.serverInfo.port), NULL};
+                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + client.serverInfo.port};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Type");
-    for (int i = 0; i < 14; i++)
+    for (size_t i = 0; i < envVariables.size(); i++)
         envArray[i] = (char *) envVariables.at(i).c_str();
+    envArray[envVariables.size()] = NULL;
     exceveArgs[0] = (char *) client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
     exceveArgs[1] = (char *) fullPath.c_str();
     exceveArgs[2] = NULL;
 }
 
-HTTPResponse CGIHandler::generateCGIResponse(Client& client)
+HTTPResponse CGIHandler::generateCGIResponse()
 {
-    char buffer[4096];
-    ssize_t n;
-    while ((n = read(readCGIPipe[0], buffer, sizeof(buffer))) > 0)
-        output.append(buffer, n);   
     std::string::size_type end = output.find("\r\n\r\n");
     if (end == std::string::npos)
         return HTTPResponse(500, "Invalid CGI output");
@@ -47,6 +44,18 @@ HTTPResponse CGIHandler::generateCGIResponse(Client& client)
     }
     res.headers["Content-Length"] = std::to_string(res.body.size());
     return res;
+}
+
+void CGIHandler::collectCGIOutput(int readFd)
+{
+    char buffer[4096];
+    ssize_t n;
+    output.clear();
+
+    while ((n = read(readFd, buffer, sizeof(buffer))) > 0)
+        output.append(buffer, n);
+
+    close(readFd);
 }
 
 int CGIHandler::executeCGI(Client& client)
@@ -70,13 +79,10 @@ int CGIHandler::executeCGI(Client& client)
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
 	if (!client.request.body.empty())
-		 write(writeCGIPipe[1], client.request.body.c_str(),\
-		  client.request.body.size());
-	close(writeCGIPipe[1]);
+		 write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
+    close(writeCGIPipe[1]);
 	return readCGIPipe[0];
 }
-
-void registerCGI(Client& client)
 
 // HTTPResponse CGIHandler::executeCGI(Client& client)
 // {
@@ -129,5 +135,5 @@ void registerCGI(Client& client)
 //         res.headers["Content-Length"] = std::to_string(res.body.size());
 //         return res;
 //     }
-    
+
 // }
