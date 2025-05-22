@@ -4,6 +4,7 @@
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
+#include "utils.cpp"
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -79,7 +80,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 }
             }
 
-            else if (fd == timerFd && !clients.empty())
+            else if (fd == timerFd)
             {
                 // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
@@ -258,6 +259,8 @@ static void readChunkedBody(Client &client, int loop)
 
 static bool handleCGI(Client& client)
 {
+    cgi.setEnvValues(client);
+    cgi.executeCGI(client);
     pid_t pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
@@ -436,6 +439,13 @@ static void handleClientRecv(Client& client, int loop)
             client.rawReadData += temp;
             checkBody(client, loop);
         }
+
+        /*
+        CASE HANDLE_CGI:?
+        {
+            handleCgi();
+        }
+        */
 
 		case SEND:
 			return;

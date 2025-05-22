@@ -18,6 +18,7 @@
 enum connectionStates {
     IDLE,
     HANDLE_CGI,
+    HANDLE_CGI,
     READ_HEADER,
     READ_BODY,
     SEND
