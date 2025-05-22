@@ -8,7 +8,10 @@
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) { parser(headers, server); }
+HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) 
+{ 
+    parser(headers, server); 
+}
 
 reqTypes getMethodEnum(const std::string& method)
 {

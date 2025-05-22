@@ -4,6 +4,7 @@
 #include "HTTPResponse.hpp"
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
+#include "utils.cpp"
 
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
@@ -78,7 +79,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 }
             }
 
-            else if (fd == timerFd)
+            else if (fd == timerFd && !clients.empty())
             {
                 // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
@@ -89,7 +90,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    if (client.request.isCGI && client.cgiFD)
+                    if (client.request.isCGI && client.cgiFD) //this maybe not needed?
                     {
 
                         handleCGI(client);
@@ -255,19 +256,16 @@ static void readChunkedBody(Client &client, int loop)
     }
 }
 
-static void handleCGI(Client& client)
+static bool handleCGI(Client& client)
 {
-    cgi.setEnvValues(client);
-    cgi.executeCGI(client);
     pid_t pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
-        cgi.collectCGIOutput(pid);
-        client.response = cgi.generateCGIResponse();
+        client.response = cgi.generateCGIResponse(client);
+        return true;
     }
+    return false;
 }
-
-
 
 static void checkBody(Client &client, int loop)
 {
@@ -292,13 +290,25 @@ static void checkBody(Client &client, int loop)
     }
 }
 
-
 static void handleClientRecv(Client& client, int loop)
 {
     switch (client.state)
     {
         case IDLE:
             client.state = READ_HEADER;
+
+        case HANDLE_CGI:
+        {
+            if (handleCGI(client) == false)
+                return ;
+            else
+            {
+                client.state = SEND;
+                client.writeBuffer = client.response.toString();
+                toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                return ;
+            }
+        }
 
         case READ_HEADER:
         {
@@ -329,33 +339,71 @@ static void handleClientRecv(Client& client, int loop)
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.rawReadData += temp;
-            if (client.bytesRead >= 4)
+            size_t headerEnd = client.rawReadData.find("\r\n\r\n");
+            if (headerEnd != std::string::npos)
             {
-                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
-                if (headerEnd != std::string::npos)
+                client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                client.request = HTTPRequest(client.headerString, client.serverInfo);
+                if (validateHeader(client.request) == false)
                 {
-                        client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                        client.request = HTTPRequest(client.headerString, client.serverInfo);
-                        client.bytesRead = 0;
-                        client.rawReadData = client.rawReadData.substr(headerEnd + 4);
-                        if (client.request.method == "POST")
-                        {
-                            client.state = READ_BODY;
-                            checkBody(client, loop);
-                            return;
-                        }
-                        else
-                        {
-                            client.state = SEND;
-                            client.request.body = client.rawReadData;
-                            HTTPResponse response = RequestHandler::handleRequest(client);
-                            client.writeBuffer = response.toString();
-                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                            return ;
-                        }
+                    client.response = HTTPResponse(403, "Bad request");
+                    client.state = SEND;
+                    client.writeBuffer = client.response.toString();
+                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                    return ;
+                }
+                client.bytesRead = 0;
+                client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+
+                /*
+                split into three paths here based on request:
+                1. static response with POST -> go to READ_BODY
+                2. static response without POST -> go to SEND
+                3. dynamic response with CGI -> (registerCGI ->) go to handleCGI //maybe we want client enum state like HANDLE_CGI?
+                */
+
+                if (client.request.isCGI == true)
+                {
+                    client.state = HANDLE_CGI;
+                    cgi.setEnvValues(client);
+                    client.CGIFd = cgi.executeCGI(client);
+                    if (handleCGI(client) == false)
+                        return ;
+                    else
+                    {
+                        client.state = SEND;
+                        client.writeBuffer = client.response.toString();
+                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                        return ;
+                    }
+
+
+                    // client.cgiPid = cgi.childPid;
+                    // client.cgiStdoutFd = cgiOutFd;
+                    // client.isCGI = true;
+
+                    // struct epoll_event ev;
+                    // ev.events = EPOLLIN;
+                    // ev.data.fd = cgiOutFd;
+                    // if (epoll_ctl(loop, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
+                    //     throw std::runtime_error("Failed to add CGI pipe to epoll");
+                }
+
+                if (client.request.method == "POST")
+                {
+                    client.state = READ_BODY;
+                    checkBody(client, loop);
+                    return;
                 }
                 else
+                {
+                    client.state = SEND;
+                    client.request.body = client.rawReadData;
+                    HTTPResponse response = RequestHandler::handleRequest(client);
+                    client.writeBuffer = response.toString();
+                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
+                }
             }
             else
                 return ;
@@ -388,6 +436,13 @@ static void handleClientRecv(Client& client, int loop)
             client.rawReadData += temp;
             checkBody(client, loop);
         }
+
+        /*
+        CASE HANDLE_CGI:?
+        {
+            handleCgi();
+        }
+        */
 
 		case SEND:
 			return;

@@ -43,6 +43,14 @@ HTTPResponse CGIHandler::generateCGIResponse()
             res.headers[line.substr(0, colon)] = line.substr(colon + 2);
     }
     res.headers["Content-Length"] = std::to_string(res.body.size());
+
+    /*
+    2 options, as i understand it
+    1. register one end of the pipe with epoll_ctl. we will get epollins everytime there is something to read and must read it to a buffer or somewhere
+    2. we register eventfd that we trigger once child is ready, just before returning, but we must reserve an fd for this
+    */
+
+    //here alarm epoll that cgi response is ready and child is exiting
     return res;
 }
 
@@ -83,6 +91,8 @@ int CGIHandler::executeCGI(Client& client)
     close(writeCGIPipe[1]);
 	return readCGIPipe[0];
 }
+
+void registerCGI(Client& client)
 
 // HTTPResponse CGIHandler::executeCGI(Client& client)
 // {
