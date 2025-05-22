@@ -85,9 +85,8 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 checkTimeouts(timerFd, clients);
             }
 
-            else
+            else if (clients.find(fd) != clients.end())
             {
-                Client& client = clients[fd];
                 if (eventLog[i].events & EPOLLIN)
                 {
                     // if (client.request.isCGI && client.cgiFD) //this maybe not needed?
@@ -95,20 +94,20 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
                     //     handleCGI(client);
                     // }
-                    std::cout << "EPOLLIN" << std::endl;
-                    client.timestamp = std::chrono::steady_clock::now();
-                    handleClientRecv(client, loop);
+                    std::cout << "EPOLLIN fd " << fd << std::endl;
+                    clients.at(fd).timestamp = std::chrono::steady_clock::now();
+                    handleClientRecv(clients.at(fd), loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     std::cout << "EPOLLOUT" << std::endl;
-                    client.timestamp = std::chrono::steady_clock::now();
-                    handleClientSend(client, loop);
+                    clients.at(fd).timestamp = std::chrono::steady_clock::now();
+                    handleClientSend(clients.at(fd), loop);
                 }
-                if (client.erase == true)
+                if (clients.at(fd).erase == true)
                 {
                     std::cout << "client erased" << std::endl;
-                    clients.erase(client.fd);
+                    clients.erase(fd);
                 }
             }
         }
@@ -266,6 +265,7 @@ static bool handleCGI(Client& client)
         client.response = cgi.generateCGIResponse();
         return true;
     }
+    std::cout << "STUCK HERE" << std::endl;
     return false;
 }
 
@@ -299,19 +299,6 @@ static void handleClientRecv(Client& client, int loop)
         case IDLE:
             client.state = READ_HEADER;
 
-        case HANDLE_CGI:
-        {
-            if (handleCGI(client) == false)
-                return ;
-            else
-            {
-                client.state = SEND;
-                client.writeBuffer = client.response.toString();
-                toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                return ;
-            }
-        }
-
         case READ_HEADER:
         {
             // std::cout << "IN READ_HEADER" << std::endl;
@@ -329,7 +316,7 @@ static void handleClientRecv(Client& client, int loop)
             }
 			if (client.bytesRead == 0) // Client disconnected
             {
-				// Client disconnected
+                // Client disconnected
                 std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
@@ -364,19 +351,20 @@ static void handleClientRecv(Client& client, int loop)
                 3. dynamic response with CGI -> (registerCGI ->) go to handleCGI //maybe we want client enum state like HANDLE_CGI?
                 */
 
-                if (client.request.isCGI == true)
-                {
-                    client.state = HANDLE_CGI;
-                    cgi.setEnvValues(client);
-                    client.CGIFd = cgi.executeCGI(client);
-                    if (handleCGI(client) == false)
-                        return ;
-                    else
-                    {
-                        client.state = SEND;
-                        client.writeBuffer = client.response.toString();
-                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                        return ;
+               if (client.request.isCGI == true)
+               {
+                   std::cout << "OMG I'M HERE" << std::endl;
+                   client.state = HANDLE_CGI;
+                   cgi.setEnvValues(client);
+                   client.CGIFd = cgi.executeCGI(client);
+                   if (handleCGI(client) == false)
+                   return ;
+                   else
+                   {
+                       client.state = SEND;
+                       client.writeBuffer = client.response.toString();
+                       toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                       return ;
                     }
 
 
@@ -408,7 +396,7 @@ static void handleClientRecv(Client& client, int loop)
                 }
             }
             else
-                return ;
+            return ;
         }
 
         case READ_BODY:
@@ -418,7 +406,7 @@ static void handleClientRecv(Client& client, int loop)
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
             if (client.bytesRead == 0)
             {
-				// Client disconnected
+                // Client disconnected
                 std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
@@ -438,9 +426,22 @@ static void handleClientRecv(Client& client, int loop)
             client.rawReadData += temp;
             checkBody(client, loop);
         }
+        case HANDLE_CGI:
+        {
+            std::cout << "NNANANANAA I'M HERE" << std::endl;
+            if (handleCGI(client) == false)
+                return ;
+            else
+            {
+                client.state = SEND;
+                client.writeBuffer = client.response.toString();
+                toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                return ;
+            }
+        }
 
 		case SEND:
-			return;
+        return;
     }
 }
 
