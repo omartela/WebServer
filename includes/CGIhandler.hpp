@@ -23,4 +23,5 @@ class CGIHandler
         void setEnvValues(Client client);
         int executeCGI(Client& client);
         HTTPResponse generateCGIResponse();
+        void collectCGIOutput(int readFd);
 };
