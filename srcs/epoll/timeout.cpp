@@ -25,7 +25,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
         if (now > timeout) //408 request timeout error page?
         {
-            std::cout << "client FD" << client.fd << " timed out due to inactivity!" << std::endl;
+            // std::cout << "client FD" << client.fd << " timed out due to inactivity!" << std::endl;
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
@@ -40,7 +40,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             if ((client.rawReadData.size() > 32 && dataRate < 1024)
                 || (client.rawReadData.size() < 32 && dataReceived < 16))
             {
-                std::cout << "client FD" << client.fd << " disconnected, client sent data too slowly!" << std::endl;
+                // std::cout << "client FD" << client.fd << " disconnected, client sent data too slowly!" << std::endl;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 close(client.fd);
@@ -51,7 +51,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
         if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //413 entity too large error page? also replace magic number
         {
-            std::cout << "client FD" << client.fd << " disconnected, header size too big!" << std::endl;
+            // std::cout << "client FD" << client.fd << " disconnected, header size too big!" << std::endl;
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
@@ -61,7 +61,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 
         if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size) //413 entity too large?
         {
-            std::cout << "client FD" << client.fd << " disconnected, body size too big!" << std::endl;
+            // std::cout << "client FD" << client.fd << " disconnected, body size too big!" << std::endl;
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             close(client.fd);
@@ -75,7 +75,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             int dataRate = dataSent / elapsedTime;
             if (client.writeBuffer.size() > 1024 && dataRate < 1024) //what is proper amount?
             {
-                std::cout << "client FD" << client.fd << " disconnected, client received data too slowly!" << std::endl;
+                // std::cout << "client FD" << client.fd << " disconnected, client received data too slowly!" << std::endl;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 close(client.fd);

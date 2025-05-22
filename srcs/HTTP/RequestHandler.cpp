@@ -273,7 +273,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    wslog.writeToLogFile(INFO, "Path :" + fullPath, true);
+    // wslog.writeToLogFile(INFO, "Path :" + fullPath, true);
     if (fullPath.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
@@ -320,7 +320,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
-    wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
+    // wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
     std::string ext = getFileExtension(fullPath);
     wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
     return generateSuccessResponse(content.str(), getMimeType(ext));

@@ -37,13 +37,13 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
             throw std::runtime_error("serverSocket epoll_ctl ADD failed");
         servers[serverSocket] = newServer;
-        std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
+        // std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
     }
 
     int timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFd < 0)
         std::runtime_error("failed to create timerfd");
-    std::cout << "Timerfd created, it got FD" << timerFd << std::endl;
+    // std::cout << "Timerfd created, it got FD" << timerFd << std::endl;
     setup.data.fd = timerFd;
     epoll_ctl(loop, EPOLL_CTL_ADD, timerFd, &setup);
     struct itimerspec timerValues { };
@@ -71,7 +71,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                 throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
-                std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
+                // std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
                 if (timerOn == false)
                 {
                     timerfd_settime(timerFd, 0, &timerValues, 0); //start timeout timer
@@ -79,7 +79,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 }
             }
 
-            else if (fd == timerFd)
+            else if (fd == timerFd && !clients.empty())
             {
                 // std::cout << "Time to check timeouts!" << std::endl;
                 checkTimeouts(timerFd, clients);
@@ -94,19 +94,19 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
                     //     handleCGI(client);
                     // }
-                    std::cout << "EPOLLIN fd " << fd << std::endl;
+                    // std::cout << "EPOLLIN fd " << fd << std::endl;
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd), loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    std::cout << "EPOLLOUT" << std::endl;
+                    // std::cout << "EPOLLOUT" << std::endl;
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd), loop);
                 }
                 if (clients.at(fd).erase == true)
                 {
-                    std::cout << "client erased" << std::endl;
+                    // std::cout << "client erased" << std::endl;
                     clients.erase(fd);
                 }
             }
@@ -257,15 +257,13 @@ static void readChunkedBody(Client &client, int loop)
 
 static bool handleCGI(Client& client)
 {
-    cgi.setEnvValues(client);
-    cgi.executeCGI(client);
-    pid_t pid = waitpid(pid, NULL, WNOHANG);
+    pid_t pid = 0;
+    pid = waitpid(pid, NULL, WNOHANG);
     if (pid == cgi.childPid)
     {
         client.response = cgi.generateCGIResponse();
         return true;
     }
-    std::cout << "STUCK HERE" << std::endl;
     return false;
 }
 
@@ -277,10 +275,7 @@ static void checkBody(Client &client, int loop)
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
-        if (client.request.isCGI && client.request.method == "POST")
-        {
 
-        }
         client.request.body = client.rawReadData;
         client.response = RequestHandler::handleRequest(client);
         if (client.response.getStatusCode() >= 400)
@@ -317,7 +312,7 @@ static void handleClientRecv(Client& client, int loop)
 			if (client.bytesRead == 0) // Client disconnected
             {
                 // Client disconnected
-                std::cout << "ClientFD disconnected " << client.fd << std::endl;
+                // std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -353,7 +348,6 @@ static void handleClientRecv(Client& client, int loop)
 
                if (client.request.isCGI == true)
                {
-                   std::cout << "OMG I'M HERE" << std::endl;
                    client.state = HANDLE_CGI;
                    cgi.setEnvValues(client);
                    client.CGIFd = cgi.executeCGI(client);
@@ -407,7 +401,7 @@ static void handleClientRecv(Client& client, int loop)
             if (client.bytesRead == 0)
             {
                 // Client disconnected
-                std::cout << "ClientFD disconnected " << client.fd << std::endl;
+                // std::cout << "ClientFD disconnected " << client.fd << std::endl;
                 close(client.fd);
                 client.erase = true;
                 epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
@@ -428,7 +422,6 @@ static void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
         {
-            std::cout << "NNANANANAA I'M HERE" << std::endl;
             if (handleCGI(client) == false)
                 return ;
             else
