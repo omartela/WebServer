@@ -50,7 +50,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     timerValues.it_value.tv_sec = TIMEOUT;
     timerValues.it_interval.tv_sec = TIMEOUT / 2;
     bool timerOn = false;
-    
+
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -262,6 +262,7 @@ static bool handleCGI(Client& client)
     pid = waitpid(pid, NULL, WNOHANG); 
     if (pid == cgi.childPid)
     {
+        cgi.collectCGIOutput(client.CGIFd);
         client.response = cgi.generateCGIResponse();
         return true;
     }
