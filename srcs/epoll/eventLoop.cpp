@@ -127,7 +127,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 else
                 {
                     wslog.writeToLogFile(INFO, "Time to check timeouts! The amount of children is " + std::to_string(children), true);
-                    checkTimeouts(timerFD, clients, loop);
+                    checkTimeouts(timerFD, clients, loop, children);
                     if (previousChildren != children && children == 0)
                     {
                         timerValues.it_value.tv_sec = TIMEOUT / 2;
@@ -378,7 +378,7 @@ void handleClientRecv(Client& client, int loop)
         
         case READ_HEADER:
         {
-            //wslog.writeToLogFile(INFO, "IN READ HEADER", true);
+            wslog.writeToLogFile(INFO, "IN READ HEADER", true);
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);

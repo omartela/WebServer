@@ -2,7 +2,7 @@
 #include "Logger.hpp"
 #include "Client.hpp"
 
-void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop)
+void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop, int children)
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
@@ -14,9 +14,9 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop)
     {
         auto& client = it->second;
 
-        //wslog.writeToLogFile(INFO, "Timeout checking client FD" + std::to_string(client.fd), true);
+        wslog.writeToLogFile(INFO, "Timeout checking client FD" + std::to_string(client.fd), true);
 
-        if (client.request.isCGI == true)
+        if (client.request.isCGI == true && children > 0)
         {
             handleClientRecv(client, loop);
             continue ;
