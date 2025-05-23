@@ -52,12 +52,15 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
                     c == '\t' || c == '\v' || c == '\f');}), value.end());
             headers[key] = value;
         }
-        // this needs else
+        // this needs else?
     }
     location = path.substr(0, path.find_last_of("/") + 1);
     if (server.routes.find(location) != server.routes.end())
     {
         if (!server.routes.at(location).cgiexecutable.empty())
+        {
+            std::cout << "IT IS CGI!\n";
             isCGI = true;
+        }
     }
 }
