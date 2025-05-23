@@ -4,6 +4,7 @@
 #include "Client.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/timerfd.h>
 
 class Client;
 

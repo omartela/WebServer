@@ -1,7 +1,8 @@
 #include "timeout.hpp"
 #include "Logger.hpp"
+#include "Client.hpp"
 
-void checkTimeouts(int timerFd, std::map<int, Client>& clients)
+void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop)
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
@@ -13,8 +14,15 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
     {
         auto& client = it->second;
 
-        wslog.writeToLogFile(INFO, "Checking client FD" + std::to_string(client.fd), true);
-        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(10);
+        //wslog.writeToLogFile(INFO, "Timeout checking client FD" + std::to_string(client.fd), true);
+
+        if (client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
+         }
+
+        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
 
         if (now > timeout) //408 request timeout error page?
@@ -106,15 +114,10 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             }
         } 
 
-        //else if (client.state == HANDLE_CGI)
-
-        else
-        {
-            if (client.state == READ_HEADER || client.state == READ_BODY)
-                client.previousDataAmount = client.rawReadData.size();
-            else if (client.state == SEND)
-                client.previousDataAmount = client.writeBuffer.size();
-            ++it;
-        }
+        if (client.state == READ_HEADER || client.state == READ_BODY)
+            client.previousDataAmount = client.rawReadData.size();
+        else if (client.state == SEND)
+            client.previousDataAmount = client.writeBuffer.size();
+        ++it;
     }
 }

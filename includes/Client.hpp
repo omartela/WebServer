@@ -26,7 +26,6 @@ enum connectionStates {
 class Client {
     public:  //change all these to private? fix later
         int fd;
-        int childFd;
         std::chrono::steady_clock::time_point timestamp;
         enum connectionStates state;
 
@@ -46,6 +45,7 @@ class Client {
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         int pipeFd;
         int childPid;
+        int childTimerFd;
 
         Client();
         Client(const Client& copy);

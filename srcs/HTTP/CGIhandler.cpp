@@ -25,7 +25,7 @@ void CGIHandler::setEnvValues(Client client)
 
 HTTPResponse CGIHandler::generateCGIResponse()
 {
-    std::cout << "GENERATING CGI RESPONSE\n";
+    //std::cout << "GENERATING CGI RESPONSE\n";
     std::string::size_type end = output.find("\r\n\r\n");
     if (end == std::string::npos)
     {
@@ -85,6 +85,7 @@ int CGIHandler::executeCGI(Client& client)
         close(writeCGIPipe[1]);
         close(readCGIPipe[0]);
         execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
+        std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
     client.childPid = childPid;
