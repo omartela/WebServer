@@ -1,7 +1,34 @@
 #include "timeout.hpp"
 #include "Logger.hpp"
+#include "Client.hpp"
 
-void checkTimeouts(int timerFd, std::map<int, Client>& clients)
+void closeClient(Client& client, std::map<int, Client>& clients, int& children)
+{
+    if (client.request.isCGI == true)
+        children--;
+    close(client.fd);
+    clients.erase(client.fd);
+}
+
+void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
+{
+    uint64_t tempBuffer;
+    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+    if (bytesRead != sizeof(tempBuffer))
+        throw std::runtime_error("childTimerFd recv failed");
+    
+    for (auto it = clients.begin(); it != clients.end(); it++)
+    {
+        auto& client = it->second;
+        if (children > 0 && client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
+        }
+    }
+}
+
+void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
@@ -13,8 +40,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
     {
         auto& client = it->second;
 
-        wslog.writeToLogFile(INFO, "Checking client FD" + std::to_string(client.fd), true);
-        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(10);
+        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
 
         if (now > timeout) //408 request timeout error page?
@@ -29,8 +55,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
-            close(client.fd);
-            it = clients.erase(it);
+            ++it;
+            closeClient(client, clients, children);
             continue ;
         }
 
@@ -53,8 +79,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
-                close(client.fd);
-                it = clients.erase(it);
+                ++it;
+                closeClient(client, clients, children);
                 continue ;
             }
         }
@@ -70,8 +96,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
-            close(client.fd);
-            it = clients.erase(it);
+            ++it;
+            closeClient(client, clients, children);
             continue ;
         }
 
@@ -86,8 +112,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
-            close(client.fd);
-            it = clients.erase(it);
+            ++it;
+            closeClient(client, clients, children);
             continue ;
         }
 
@@ -100,21 +126,18 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
                 // std::cout << "client FD" << client.fd << " disconnected, client received data too slowly!" << std::endl;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
-                close(client.fd);
-                it = clients.erase(it);
+                ++it;
+                closeClient(client, clients, children);
                 continue ;
             }
         } 
 
-        //else if (client.state == HANDLE_CGI)
+        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
 
-        else
-        {
-            if (client.state == READ_HEADER || client.state == READ_BODY)
-                client.previousDataAmount = client.rawReadData.size();
-            else if (client.state == SEND)
-                client.previousDataAmount = client.writeBuffer.size();
-            ++it;
-        }
+        if (client.state == READ_HEADER || client.state == READ_BODY)
+            client.previousDataAmount = client.rawReadData.size();
+        else if (client.state == SEND)
+            client.previousDataAmount = client.writeBuffer.size();
+        ++it;
     }
 }

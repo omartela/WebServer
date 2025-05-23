@@ -5,6 +5,9 @@
 #include "Logger.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/timerfd.h>
+
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
 class Client;
 

@@ -63,10 +63,41 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         }
         // this needs else?
     }
-    location = path.substr(0, path.find_last_of("/") + 1);
+    // In the path there should be the key of the location and it should be the longest key
+    // For example you could have key "/" and "/directory/"
+    // the matched one should be the longest so "/directory/"
+    std::vector<std::string> matches;
+    for (auto it = server.routes.begin(); it != server.routes.end(); ++it)
+    {
+        if (path.find(it->first) != std::string::npos)
+            matches.push_back(it->first);
+    }
+    auto it = std::max_element(matches.begin(), matches.end(), [](const std::string& a, const std::string& b) {
+        return a.length() < b.length();
+    });
+    if (it == matches.end())
+        location = "";
+    else
+    {
+        location = *it;
+        /// file path should be the left over after location. For example "/directory/olalala/file.txt"
+        /// then file is /olalala/file.txt
+        file = path.substr(0 + location.size());
+    }
+    wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
     if (server.routes.find(location) != server.routes.end())
     {
-        if (!server.routes.at(location).cgiexecutable.empty() && path.back() != '/')
-            isCGI = true;
+        if (!server.routes.at(location).cgiexecutable.empty())
+        {
+            std::filesystem::path filePath = file;
+            std::string ext = filePath.extension().string();
+            wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
+            wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
+            if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
+            {
+                wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
+                isCGI = true;
+            }
         }
+    }
 }

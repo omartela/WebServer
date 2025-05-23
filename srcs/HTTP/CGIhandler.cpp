@@ -1,4 +1,7 @@
 #include "CGIhandler.hpp"
+#include "Logger.hpp"
+
+
 
 CGIHandler::CGIHandler() {
 
@@ -6,12 +9,14 @@ CGIHandler::CGIHandler() {
 
 void CGIHandler::setEnvValues(Client client)
 {
-    fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
-    fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
+    std::string server_name;
+    if (!client.serverInfo.server_names.empty())
+        server_name =  client.serverInfo.server_names.at(0);
+    fullPath = "." + join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + client.serverInfo.port};
+                    "SERVER_NAME=" + server_name, "SERVER_PORT=" + client.serverInfo.port};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())
@@ -26,7 +31,7 @@ void CGIHandler::setEnvValues(Client client)
 
 HTTPResponse CGIHandler::generateCGIResponse()
 {
-    std::cout << "GENERATING CGI RESPONSE\n";
+    //std::cout << "GENERATING CGI RESPONSE\n";
     std::string::size_type end = output.find("\r\n\r\n");
     if (end == std::string::npos)
     return HTTPResponse(500, "Invalid CGI output");
@@ -62,22 +67,16 @@ void CGIHandler::collectCGIOutput(int readFd)
 
 int CGIHandler::executeCGI(Client& client)
 {
-    std::cout << "HERE" << std::endl;
-    bool validFile = false;
-    try
-    {
-        validFile = std::filesystem::exists(fullPath);
-    }
-    catch(const std::exception& e)
-    {
-        wslog.writeToLogFile(ERROR, "Invalid file name", true);
-        return -1;
-    }
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
     if (access(fullPath.c_str(), X_OK) != 0)
         return -1; //ERROR PAGE access forbidden
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
         return -1;
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
+    if (childPid != 0)
+        wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
     if (childPid == -1)
         return -1;
     if (childPid == 0 && validFile)
@@ -87,6 +86,7 @@ int CGIHandler::executeCGI(Client& client)
         close(writeCGIPipe[1]);
         close(readCGIPipe[0]);
         execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
+        std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
     client.childPid = childPid;

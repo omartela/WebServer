@@ -1,6 +1,12 @@
 #include "HTTPRequest.hpp"
-#include "signal.h"
-#include "unistd.h"
+#include <filesystem>
+
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
+{
+    std::filesystem::path full = path1 / path2;
+    return full.string();
+}
+
 
 bool validateHeader(HTTPRequest req)
 {
@@ -39,9 +45,3 @@ bool validateHeader(HTTPRequest req)
     }
     return true;
 }
-
-// void handleSIGCHLD(int)
-// {
-//     uint8_t buffer = 1; 
-//     write(client.pipeFd, &buffer, sizeof(buffer));
-// }
