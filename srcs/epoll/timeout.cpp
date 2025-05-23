@@ -2,7 +2,25 @@
 #include "Logger.hpp"
 #include "Client.hpp"
 
-void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop, int children)
+void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int children)
+{
+    uint64_t tempBuffer;
+    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+    if (bytesRead != sizeof(tempBuffer))
+        throw std::runtime_error("childTimerFd recv failed");
+    
+    for (auto it = clients.begin(); it != clients.end(); it++)
+    {
+        auto& client = it->second;
+        if (children > 0 && client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
+        }
+    }
+}
+
+void checkTimeouts(int timerFd, std::map<int, Client>& clients)
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
@@ -14,13 +32,11 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop, int ch
     {
         auto& client = it->second;
 
-        wslog.writeToLogFile(INFO, "Timeout checking client FD" + std::to_string(client.fd), true);
-
-        if (client.request.isCGI == true && children > 0)
-        {
-            handleClientRecv(client, loop);
-            continue ;
-         }
+        // if (client.request.isCGI == true && children > 0)
+        // {
+        //     handleClientRecv(client, loop);
+        //     continue ;
+        //  }
 
         std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
@@ -114,6 +130,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int loop, int ch
             }
         } 
 
+        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
         if (client.state == READ_HEADER || client.state == READ_BODY)
             client.previousDataAmount = client.rawReadData.size();
         else if (client.state == SEND)

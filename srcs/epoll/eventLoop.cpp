@@ -17,7 +17,8 @@ static int  findOldestClient(std::map<int, Client>& clients);
 CGIHandler cgi;
 // int eventFD; //remove when making eventLoop into a class?
 int timerFD; //remove when making eventLoop into a class?
-int children; //remove when making eventLoop into a class?
+int nChildren;
+int childTimerFD; //remove when making eventLoop into a class?
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
@@ -26,8 +27,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     int serverSocket;
     struct epoll_event setup;
     std::vector<epoll_event> eventLog(MAX_CONNECTIONS);
-    children = 0;
-    int previousChildren;
+    nChildren = 0;
 
     int loop = epoll_create1(0);
 
@@ -56,15 +56,14 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     struct itimerspec timerValues { };
     bool timerOn = false;
 
-    // //create and setup timerFd2 to check child processes
-    // int timerFd2 = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-    // if (timerFd2 < 0)
-    //     std::runtime_error("failed to create timerfd2");
-    // wslog.writeToLogFile(INFO, "Timerfd2 created, it got FD" + std::to_string(timerFd2), true);
-    // setup.data.fd = timerFd2;
-    // if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFd2, &setup) < 0)
-    //     throw std::runtime_error("Failed to add timerFd2 to epoll");
-    // timerFD2 = timerFd2;
+    //create and setup childTimerFD to check child processes
+    childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    if (childTimerFD < 0)
+        std::runtime_error("failed to create childTimerFD");
+    wslog.writeToLogFile(INFO, "childTimerFD created, it got FD" + std::to_string(childTimerFD), true);
+    setup.data.fd = childTimerFD;
+    if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
+        throw std::runtime_error("Failed to add childTimerFD to epoll");
 
     // //create and setup eventFd to check child processes
     // int eventFd = eventfd(0, EFD_NONBLOCK);
@@ -126,16 +125,21 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 }
                 else
                 {
-                    wslog.writeToLogFile(INFO, "Time to check timeouts! The amount of children is " + std::to_string(children), true);
-                    checkTimeouts(timerFD, clients, loop, children);
-                    if (previousChildren != children && children == 0)
-                    {
-                        timerValues.it_value.tv_sec = TIMEOUT / 2;
-                        timerValues.it_interval.tv_sec = TIMEOUT / 2;
-                        wslog.writeToLogFile(INFO, "no children left, return to normal timeout routine", true);
-                        timerfd_settime(timerFD, 0, &timerValues, 0); //no children left, return to normal timeout routine
-                        previousChildren = children;
-                    }
+                    wslog.writeToLogFile(INFO, "Time to check timeouts!", true);
+                    checkTimeouts(timerFD, clients);
+                }
+            }
+
+            else if (fd == childTimerFD)
+            {
+                wslog.writeToLogFile(INFO, "Time to check children! The amount of children is " + std::to_string(nChildren), true);
+                checkChildrenStatus(childTimerFD, clients, loop, nChildren);
+                if (nChildren == 0)
+                {
+                    timerValues.it_value.tv_sec = 0;
+                    timerValues.it_interval.tv_sec = 0;
+                    wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
+                    timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
 
@@ -422,13 +426,14 @@ void handleClientRecv(Client& client, int loop)
                     client.pipeFd = cgi.executeCGI(client);
 
                     struct itimerspec timerValues { };
-                    if (children == 0) //before first child
+                    if (nChildren == 0) //before first child
                     {
                         timerValues.it_value.tv_sec = CHILD_CHECK;
                         timerValues.it_interval.tv_sec = CHILD_CHECK;
-                        timerfd_settime(timerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+                        timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
                     }
-                    children++;
+                    wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
+                    nChildren++;
 
                     // int eventFd = eventfd(0, EFD_NONBLOCK);
                     // if (eventFd < 0)
@@ -449,7 +454,7 @@ void handleClientRecv(Client& client, int loop)
                         client.state = SEND;
                         client.request.isCGI = false;
                         client.writeBuffer = client.response.back().toString();
-                        children--;
+                        nChildren--;
                         toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         return ;
                     }
@@ -513,7 +518,7 @@ void handleClientRecv(Client& client, int loop)
                 client.state = SEND;
                 client.request.isCGI = false;
                 client.writeBuffer = client.response.back().toString();
-                children--;
+                nChildren--;
                 toggleEpollEvents(client.fd, loop, EPOLLOUT);
                 return ;
             }
