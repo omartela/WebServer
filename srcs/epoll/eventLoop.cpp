@@ -126,7 +126,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 else
                 {
                     wslog.writeToLogFile(INFO, "Time to check timeouts!", true);
-                    checkTimeouts(timerFD, clients);
+                    checkTimeouts(timerFD, clients, nChildren);
                 }
             }
 
@@ -142,22 +142,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
-
-            // else if (fd == eventFd)
-            // {
-            //     for (auto it = clients.begin(); it != clients.end(); it++)
-            //     {
-            //         auto& client = it->second;
-            //         if (client.request.isCGI == false) //change later to separate map with only those clients with children?
-            //             continue ;
-            //         else
-            //         {
-            //             client.state = HANDLE_CGI;
-            //             handleCGI(client);
-            //             continue ;
-            //         }
-            //     }
-            // }
 
             else if (clients.find(fd) != clients.end())
             {
@@ -421,7 +405,6 @@ void handleClientRecv(Client& client, int loop)
                {
                     wslog.writeToLogFile(INFO, "CGI request received for the first time", true);
                     client.state = HANDLE_CGI;
-                    // signal(SIGCHLD, handleSIGCHLD);
                     cgi.setEnvValues(client);
                     client.pipeFd = cgi.executeCGI(client);
 
@@ -466,6 +449,7 @@ void handleClientRecv(Client& client, int loop)
                     checkBody(client, loop);
                     return;
                 }
+
                 else
                 {
                     client.state = SEND;
