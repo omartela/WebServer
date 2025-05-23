@@ -41,7 +41,7 @@ class Client {
         ServerConfig serverInfo;
 
         HTTPRequest     request;
-        HTTPResponse    response;
+        std::vector<HTTPResponse>  response;
         //CGIHandler      CGIResponse;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         int CGIFd;

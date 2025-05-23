@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include "Client.hpp"
+#include "Logger.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 

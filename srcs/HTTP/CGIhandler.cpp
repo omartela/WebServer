@@ -10,7 +10,7 @@ void CGIHandler::setEnvValues(Client client)
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + std::to_string(client.serverInfo.port)};
+                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + client.serverInfo.port};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())
@@ -27,7 +27,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 {
     std::string::size_type end = output.find("\r\n\r\n");
     if (end == std::string::npos)
-        return HTTPResponse(500, "Invalid CGI output");
+    return HTTPResponse(500, "Invalid CGI output");
     std::string headers = output.substr(0, end);
     std::string body = output.substr(end + 4);
     HTTPResponse res(200, "OK");
@@ -37,20 +37,12 @@ HTTPResponse CGIHandler::generateCGIResponse()
     while (std::getline(header, line))
     {
         if (line.back() == '\r')
-            line.pop_back();
+        line.pop_back();
         size_t colon = line.find(':');
         if (colon != std::string::npos)
-            res.headers[line.substr(0, colon)] = line.substr(colon + 2);
+        res.headers[line.substr(0, colon)] = line.substr(colon + 2);
     }
     res.headers["Content-Length"] = std::to_string(res.body.size());
-
-    /*
-    2 options, as i understand it
-    1. register one end of the pipe with epoll_ctl. we will get epollins everytime there is something to read and must read it to a buffer or somewhere
-    2. we register eventfd that we trigger once child is ready, just before returning, but we must reserve an fd for this
-    */
-
-    //here alarm epoll that cgi response is ready and child is exiting
     return res;
 }
 
@@ -59,15 +51,26 @@ void CGIHandler::collectCGIOutput(int readFd)
     char buffer[4096];
     ssize_t n;
     output.clear();
-
+    
     while ((n = read(readFd, buffer, sizeof(buffer))) > 0)
-        output.append(buffer, n);
-
+    output.append(buffer, n);
+    
     close(readFd);
 }
 
 int CGIHandler::executeCGI(Client& client)
 {
+    std::cout << "HERE" << std::endl;
+    bool validFile = false;
+    try
+    {
+        validFile = std::filesystem::exists(fullPath);
+    }
+    catch(const std::exception& e)
+    {
+        wslog.writeToLogFile(ERROR, "Invalid file name", true);
+        return -1;
+    }
     if (access(fullPath.c_str(), X_OK) != 0)
         return -1;
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
@@ -75,7 +78,7 @@ int CGIHandler::executeCGI(Client& client)
     childPid = fork();
     if (childPid == -1)
         return -1;
-    if (childPid == 0)
+    if (childPid == 0 && validFile)
     {
         dup2(writeCGIPipe[0], STDIN_FILENO);
         dup2(readCGIPipe[1], STDOUT_FILENO);
@@ -104,10 +107,6 @@ int CGIHandler::executeCGI(Client& client)
 //     if (epoll_ctl(epollFd, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
 //         throw std::runtime_error("Failed to add CGI pipe to epoll");
 // }
-
-
-// void registerCGI(Client& client)
-// {
 
 // HTTPResponse CGIHandler::executeCGI(Client& client)
 // {

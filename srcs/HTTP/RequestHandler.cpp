@@ -273,7 +273,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    // wslog.writeToLogFile(INFO, "Path :" + fullPath, true);
+    wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
     if (fullPath.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
@@ -373,17 +373,8 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(400, "Invalid file name");
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
-    wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
-    wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
-    struct stat s;
-    // if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
-    // {
-    //     wslog.writeToLogFile(ERROR, "404 Not Found", false);
-    //     return HTTPResponse(404, "Not Found");
-    // }
-    bool isDir = S_ISDIR(s.st_mode);
-    if (isDir  && fullPath.back() != '/')
-        return redirectResponse(fullPath);
+    // wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
+    // wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
     bool validFile = false;
     try
     {
@@ -394,6 +385,9 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(400, "Invalid file name");
     }
+    bool isDir = std::filesystem::is_directory(fullPath);
+    if (isDir  && fullPath.back() != '/')
+        return redirectResponse(fullPath);
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(405, "Method not allowed");
     switch (client.request.eMethod)

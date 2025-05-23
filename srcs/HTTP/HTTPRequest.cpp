@@ -42,7 +42,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         else
             file = path.substr(path.find_last_of("/") + 1);
     }
-    wslog.writeToLogFile(DEBUG, "File: " + file, true);
+    // wslog.writeToLogFile(DEBUG, "File: " + file, true);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')
@@ -65,7 +65,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
     location = path.substr(0, path.find_last_of("/") + 1);
     if (server.routes.find(location) != server.routes.end())
     {
-        if (!server.routes.at(location).cgiexecutable.empty())
+        if (!server.routes.at(location).cgiexecutable.empty() && path.back() != '/')
             isCGI = true;
     }
 }

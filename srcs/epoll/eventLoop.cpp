@@ -283,7 +283,6 @@ static void readChunkedBody(Client &client, int loop)
 }
 
 static bool handleCGI(Client& client)
-static bool handleCGI(Client& client)
 {
     pid_t pid = 0;
     pid = waitpid(pid, NULL, WNOHANG);
@@ -321,7 +320,10 @@ static void handleClientRecv(Client& client, int loop)
     switch (client.state)
     {
         case IDLE:
+        {
             client.state = READ_HEADER;        
+            return;
+        }
         
         case READ_HEADER:
         {
@@ -356,7 +358,7 @@ static void handleClientRecv(Client& client, int loop)
             if (headerEnd != std::string::npos)
             {
                 client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                wslog.writeToLogFile(DEBUG, client.headerString, true);
+                // wslog.writeToLogFile(DEBUG, client.headerString, true);
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
@@ -380,30 +382,34 @@ static void handleClientRecv(Client& client, int loop)
                
                if (client.request.isCGI == true)
                {
-                   std::cout << "OMG I'M HERE" << std::endl;
-                   client.state = HANDLE_CGI;
-                   cgi.setEnvValues(client);
-                   client.CGIFd = cgi.executeCGI(client);
-                   if (handleCGI(client) == false)
-                   return ;
-                   else
-                   {
-                       client.state = SEND;
-                       client.writeBuffer = client.response.toString();
-                       toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                       return ;
-                    }
-                    
-                    
-                    // client.cgiPid = cgi.childPid;
-                    // client.cgiStdoutFd = cgiOutFd;
-                    // client.isCGI = true;
-                    
+                    wslog.writeToLogFile(INFO, "CGI request received for the first time", true);
+                    client.state = HANDLE_CGI;
+                    //signal(SIGCHLD, handleZombieChild);
+                    cgi.setEnvValues(client);
+                    client.CGIFd = cgi.executeCGI(client);
+                    std::cout << "cgifd is " << client.CGIFd << std::endl;
+
+                    // // int eventFd = eventfd(0, EFD_NONBLOCK);
+                    // // if (eventFd < 0)
+                    // //     throw std::runtime_error("Failed to create eventFd");
+                    // // std::cout << "eventfd is " << eventFd << std::endl;
+                    // // client.pipeFd = eventFd; //overwriting pipefd
+
                     // struct epoll_event ev;
                     // ev.events = EPOLLIN;
-                    // ev.data.fd = cgiOutFd;
-                    // if (epoll_ctl(loop, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
+                    // ev.data.fd = client.pipeFd;
+                    // if (epoll_ctl(loop, EPOLL_CTL_ADD, client.pipeFd, &ev) < 0)
                     //     throw std::runtime_error("Failed to add CGI pipe to epoll");
+                        
+                    if (handleCGI(client) == false)
+                        return ;
+                    else
+                    {
+                        client.state = SEND;
+                        client.writeBuffer = client.response.back().toString();
+                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                        return ;
+                    }
                 }
                 
                 if (client.request.method == "POST")
@@ -425,7 +431,7 @@ static void handleClientRecv(Client& client, int loop)
                 }
             }
             else
-            return ;
+                return ;
         }
         
         case READ_BODY:
@@ -454,22 +460,23 @@ static void handleClientRecv(Client& client, int loop)
             std::string temp(buffer2, client.bytesRead);
             client.rawReadData += temp;
             checkBody(client, loop);
+            break;
         }
-        case HANDLE_CGI:
+		case HANDLE_CGI:
         {
+            wslog.writeToLogFile(INFO, "IN HANDLE_CGI case", true);
             if (handleCGI(client) == false)
                 return ;
             else
             {
                 client.state = SEND;
-                client.writeBuffer = client.response.toString();
+                client.writeBuffer = client.response.back().toString();
                 toggleEpollEvents(client.fd, loop, EPOLLOUT);
                 return ;
             }
         }
-
 		case SEND:
-        return;
+        	return;
     }
 }
 
@@ -477,7 +484,7 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
-    wslog.writeToLogFile(DEBUG, client.writeBuffer.data(), true);
+    // wslog.writeToLogFile(DEBUG, client.writeBuffer.data(), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     if (client.bytesWritten == 0)
     {
