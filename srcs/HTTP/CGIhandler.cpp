@@ -7,6 +7,7 @@ CGIHandler::CGIHandler() {
 void CGIHandler::setEnvValues(Client client)
 {
     fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
+    fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
@@ -25,6 +26,7 @@ void CGIHandler::setEnvValues(Client client)
 
 HTTPResponse CGIHandler::generateCGIResponse()
 {
+    std::cout << "GENERATING CGI RESPONSE\n";
     std::string::size_type end = output.find("\r\n\r\n");
     if (end == std::string::npos)
     return HTTPResponse(500, "Invalid CGI output");
@@ -72,7 +74,7 @@ int CGIHandler::executeCGI(Client& client)
         return -1;
     }
     if (access(fullPath.c_str(), X_OK) != 0)
-        return -1;
+        return -1; //ERROR PAGE access forbidden
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
         return -1;
     childPid = fork();
@@ -87,10 +89,11 @@ int CGIHandler::executeCGI(Client& client)
         execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
         _exit(1);
     }
+    client.childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
 	if (!client.request.body.empty())
-		 write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
+		write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
     close(writeCGIPipe[1]);
 	return readCGIPipe[0];
 }

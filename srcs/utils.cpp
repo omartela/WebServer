@@ -1,4 +1,6 @@
 #include "HTTPRequest.hpp"
+#include "signal.h"
+#include "unistd.h"
 
 bool validateHeader(HTTPRequest req)
 {
@@ -37,3 +39,9 @@ bool validateHeader(HTTPRequest req)
     }
     return true;
 }
+
+// void handleSIGCHLD(int)
+// {
+//     uint8_t buffer = 1; 
+//     write(client.pipeFd, &buffer, sizeof(buffer));
+// }
