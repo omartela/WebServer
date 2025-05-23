@@ -290,12 +290,13 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
         // wslog.writeToLogFile(DEBUG, "We are here", true);
-        fullPath += client.serverInfo.routes[client.request.location].index_file;
+        fullPath = join_paths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
+        wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
         if (!file.is_open())
         {
-            wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
-            return HTTPResponse(500, "Internal Server Error");
+            wslog.writeToLogFile(ERROR, "404, Not Found", false);
+            return HTTPResponse(404, "Not Found");
         }
         std::ostringstream content;
         content << file.rdbuf();
@@ -371,11 +372,11 @@ HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
     printRequest(client.request);
-    if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
-        return HTTPResponse(404, "Invalid file name");
-    std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
+    std::string fullPath = "." + join_paths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
+    if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
+        return HTTPResponse(404, "Invalid file name");
     struct stat s;
     // if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     // {

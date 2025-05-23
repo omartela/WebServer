@@ -6,11 +6,14 @@ CGIHandler::CGIHandler() {
 
 void CGIHandler::setEnvValues(Client client)
 {
+    std::string server_name;
+    if (!client.serverInfo.server_names.empty())
+        server_name =  client.serverInfo.server_names.at(0);
     fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + client.serverInfo.server_names.at(0), "SERVER_PORT=" + client.serverInfo.port};
+                    "SERVER_NAME=" + server_name, "SERVER_PORT=" + client.serverInfo.port};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())

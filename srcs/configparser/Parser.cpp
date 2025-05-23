@@ -179,10 +179,10 @@ void Parser::parseCgiExtensionDirective(const std::string& line, Route& route)
     size_t space_pos = 0;
     while ((space_pos = cgi_extensions.find(" ")) != std::string::npos)
     {
-        route.accepted_methods.push_back(cgi_extensions.substr(0, space_pos));
+        route.cgi_extension.push_back(cgi_extensions.substr(0, space_pos));
         cgi_extensions.erase(0, space_pos + 1);
     }
-    route.accepted_methods.push_back(cgi_extensions); // Add the last cgi_extension
+    route.cgi_extension.push_back(cgi_extensions); // Add the last cgi_extension
 }
 
 void Parser::parseCgiExecutable(const std::string&line, Route& route)

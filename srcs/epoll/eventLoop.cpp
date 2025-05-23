@@ -6,6 +6,7 @@
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 
+bool isAllowedMethod(std::string method, Route route);
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
@@ -95,7 +96,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
                     //     handleCGI(client);
                     // }
-                    std::cout << "EPOLLIN fd " << fd << std::endl;
+                    //std::cout << "EPOLLIN fd " << fd << std::endl;
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd), loop);
                 }
@@ -223,14 +224,18 @@ static bool validateChunkedBody(Client &client)
     {
         if (!isUnsignedLongLong(str))
         {
+            wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
         bytes = StrToUnsignedLongLong(str);
-        int i = 0;
+        long long unsigned i = 0;
         while (str[i] != '\r')
         {
             if (!std::isxdigit(str[i]))
+            {
+                wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
                 return false;
+            }
             i++;
         }
         if (bytes == 0)
@@ -238,15 +243,28 @@ static bool validateChunkedBody(Client &client)
             if (str.substr(1, 4) == "\r\n\r\n")
                 return true;
             else
+            {
+                wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
                 return false;
+            }
         }
-        if (str[i + 1] != '\n')
+        if (str.size() > (i + 1) && (str[i + 1] != '\n'))
+        {
+            wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
             return false;
+        }
         str = str.substr(i + 2);
         client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
+        {
+            wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
+            wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
+            wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
+            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
+            wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
             return false;
+        }
         else
             str = str.substr(2);
     }
@@ -262,6 +280,7 @@ static void readChunkedBody(Client &client, int loop)
     {
         if (!validateChunkedBody(client))
         {
+            wslog.writeToLogFile(DEBUG, "WE GO HER FOR SOME REASON", true);
             client.response = HTTPResponse(400, "Bad request");
             if (client.response.getStatusCode() >= 400)
                 client.response = client.response.generateErrorResponse(client.response);
@@ -291,18 +310,39 @@ static bool handleCGI(Client& client)
         client.response = cgi.generateCGIResponse();
         return true;
     }
-    std::cout << "STUCK HERE" << std::endl;
     return false;
 }
 
 static void checkBody(Client &client, int loop)
 {
+    
     auto TE = client.request.headers.find("Transfer-Encoding");
     if (TE != client.request.headers.end() && TE->second == "chunked")
         readChunkedBody(client, loop);
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
+        if (client.request.isCGI == true)
+        {
+            std::cout << "OMG I'M HERE" << std::endl;
+            client.state = HANDLE_CGI;
+            cgi.setEnvValues(client);
+            client.CGIFd = cgi.executeCGI(client);
+            if (handleCGI(client) == false)
+                return ;
+            else
+            {
+                client.state = SEND;
+                if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
+                {
+                    client.response = HTTPResponse(405, "Method not allowed");
+                    return ;
+                }
+                client.writeBuffer = client.response.toString();
+                toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                return ;
+            }
+        }
         
         client.request.body = client.rawReadData;
         client.response = RequestHandler::handleRequest(client);
@@ -376,34 +416,6 @@ static void handleClientRecv(Client& client, int loop)
                 2. static response without POST -> go to SEND
                 3. dynamic response with CGI -> (registerCGI ->) go to handleCGI //maybe we want client enum state like HANDLE_CGI?
                 */
-               
-               if (client.request.isCGI == true)
-               {
-                   std::cout << "OMG I'M HERE" << std::endl;
-                   client.state = HANDLE_CGI;
-                   cgi.setEnvValues(client);
-                   client.CGIFd = cgi.executeCGI(client);
-                   if (handleCGI(client) == false)
-                        return ;
-                   else
-                   {
-                       client.state = SEND;
-                       client.writeBuffer = client.response.toString();
-                       toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                       return ;
-                    }
-                    
-                    
-                    // client.cgiPid = cgi.childPid;
-                    // client.cgiStdoutFd = cgiOutFd;
-                    // client.isCGI = true;
-                    
-                    // struct epoll_event ev;
-                    // ev.events = EPOLLIN;
-                    // ev.data.fd = cgiOutFd;
-                    // if (epoll_ctl(loop, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
-                    //     throw std::runtime_error("Failed to add CGI pipe to epoll");
-                }
                 
                 if (client.request.method == "POST")
                 {
@@ -413,6 +425,27 @@ static void handleClientRecv(Client& client, int loop)
                 }
                 else
                 {
+                    if (client.request.isCGI == true)
+                    {
+                        std::cout << "OMG I'M HERE" << std::endl;
+                        client.state = HANDLE_CGI;
+                        cgi.setEnvValues(client);
+                        client.CGIFd = cgi.executeCGI(client);
+                        if (handleCGI(client) == false)
+                                return ;
+                        else
+                        {
+                            client.state = SEND;
+                            if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
+                            {
+                                client.response = HTTPResponse(405, "Method not allowed");
+                                return ;
+                            }
+                            client.writeBuffer = client.response.toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
+                    }
                     client.state = SEND;
                     client.request.body = client.rawReadData;
                     HTTPResponse response = RequestHandler::handleRequest(client);
@@ -456,7 +489,6 @@ static void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
         {
-            std::cout << "NNANANANAA I'M HERE" << std::endl;
             if (handleCGI(client) == false)
                 return ;
             else
