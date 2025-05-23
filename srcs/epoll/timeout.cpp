@@ -8,15 +8,6 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients)
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("timerfd recv failed");
 
-<<<<<<< HEAD
-    if (clients.empty())
-    {
-        // std::cout << "No more clients connected" << std::endl;
-        return ;
-    }
-
-=======
->>>>>>> 4-plan-and-make-an-event-loop
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     for (auto it = clients.begin(); it != clients.end();)
     {

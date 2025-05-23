@@ -115,7 +115,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (clients.at(fd).erase == true)
                 {
                     wslog.writeToLogFile(INFO, "Client erased", true);
-                    clients.erase(client.fd);
+                    clients.erase(fd);
                 }
             }
         }
@@ -343,9 +343,9 @@ static void handleClientRecv(Client& client, int loop)
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
-                    client.response = HTTPResponse(403, "Bad request");
+                    client.response.push_back(HTTPResponse(403, "Bad request"));
                     client.state = SEND;
-                    client.writeBuffer = client.response.toString();
+                    client.writeBuffer = client.response.back().toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
                 }
@@ -385,7 +385,7 @@ static void handleClientRecv(Client& client, int loop)
                     else
                     {
                         client.state = SEND;
-                        client.writeBuffer = client.response.toString();
+                        client.writeBuffer = client.response.back().toString();
                         toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         return ;
                     }
@@ -452,7 +452,7 @@ static void handleClientRecv(Client& client, int loop)
             else
             {
                 client.state = SEND;
-                client.writeBuffer = client.response.toString();
+                client.writeBuffer = client.response.back().toString();
                 toggleEpollEvents(client.fd, loop, EPOLLOUT);
                 return ;
             }
