@@ -27,6 +27,7 @@ enum connectionStates {
 class Client {
     public:  //change all these to private? fix later
         int fd;
+        int childFd;
         std::chrono::steady_clock::time_point timestamp;
         enum connectionStates state;
 
@@ -41,7 +42,7 @@ class Client {
         ServerConfig serverInfo;
 
         HTTPRequest     request;
-        HTTPResponse    response;
+        std::vector<HTTPResponse>    response;
         //CGIHandler      CGIResponse;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         int pipeFd;
@@ -53,5 +54,4 @@ class Client {
         ~Client();
 
         void reset();
-        // reqTypes getMethodEnum();
 };

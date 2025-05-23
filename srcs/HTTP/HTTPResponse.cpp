@@ -30,9 +30,11 @@ HTTPResponse HTTPResponse::generateErrorResponse(HTTPResponse res)
 {
        static std::unordered_map<int, std::string> statusMessages =
        {
-        {400, "Bad request"},
+        {400, "Bad Request"},
         {403, "Forbidden"},
         {404, "Not Found"},
+        {408, "Request Timeout"},
+        {413, "Entity Too Large"},
         {500, "Internal Server Error"},
         {501, "Not Implemented"},
         {503, "Service Unavailable"}

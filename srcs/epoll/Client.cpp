@@ -51,6 +51,7 @@ void Client::reset()
     this->erase = false;
     this->request = HTTPRequest();
 }
+<<<<<<< HEAD
 
 // reqTypes Client::getMethodEnum()
 // {
@@ -62,3 +63,5 @@ void Client::reset()
 //         return DELETE;
 //     return INVALID;
 // }
+=======
+>>>>>>> 4-plan-and-make-an-event-loop
