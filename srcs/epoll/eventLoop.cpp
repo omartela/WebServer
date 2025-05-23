@@ -384,7 +384,7 @@ static void handleClientRecv(Client& client, int loop)
                    cgi.setEnvValues(client);
                    client.CGIFd = cgi.executeCGI(client);
                    if (handleCGI(client) == false)
-                   return ;
+                        return ;
                    else
                    {
                        client.state = SEND;

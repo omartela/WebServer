@@ -372,7 +372,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
 {
     printRequest(client.request);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
-        return HTTPResponse(400, "Invalid file name");
+        return HTTPResponse(404, "Invalid file name");
     std::string fullPath = "." + client.serverInfo.routes[client.request.location].abspath + client.request.file;
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
@@ -393,7 +393,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     catch(const std::exception& e)
     {
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
-        return HTTPResponse(400, "Invalid file name");
+        return HTTPResponse(404, "Invalid file name");
     }
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(405, "Method not allowed");
@@ -404,7 +404,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
             if (validFile)
                 return handleGET(client, fullPath);
             else
-                return HTTPResponse(400, "Invalid file");
+                return HTTPResponse(404, "Invalid file");
         }
         case POST:
         {
