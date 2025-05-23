@@ -69,5 +69,4 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         if (!server.routes.at(location).cgiexecutable.empty() && path.back() != '/')
             isCGI = true;
         }
-    }
 }
