@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
+
 class Client;
 
 class CGIHandler

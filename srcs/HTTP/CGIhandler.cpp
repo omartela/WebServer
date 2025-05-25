@@ -1,4 +1,7 @@
 #include "CGIhandler.hpp"
+#include "Logger.hpp"
+
+
 
 CGIHandler::CGIHandler() {
 
@@ -9,7 +12,7 @@ void CGIHandler::setEnvValues(Client client)
     std::string server_name;
     if (!client.serverInfo.server_names.empty())
         server_name =  client.serverInfo.server_names.at(0);
-    fullPath = "." + client.serverInfo.routes.at(client.request.location).abspath + client.request.file;
+    fullPath = "." + join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
     envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
                     "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
                     "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
@@ -71,11 +74,16 @@ void CGIHandler::collectCGIOutput(int readFd)
 
 int CGIHandler::executeCGI(Client& client)
 {
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
     if (access(fullPath.c_str(), X_OK) != 0)
         return -1;
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
         return -1;
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
+    if (childPid != 0)
+        wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
     if (childPid == -1)
         return -1;
     if (childPid == 0)

@@ -377,15 +377,6 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     wslog.writeToLogFile(DEBUG, "fullpath is " + fullPath, true);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(404, "Invalid file name");
-    struct stat s;
-    // if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
-    // {
-    //     wslog.writeToLogFile(ERROR, "404 Not Found", false);
-    //     return HTTPResponse(404, "Not Found");
-    // }
-    bool isDir = S_ISDIR(s.st_mode);
-    if (isDir  && fullPath.back() != '/')
-        return redirectResponse(fullPath);
     bool validFile = false;
     try
     {
@@ -396,6 +387,8 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(404, "Invalid file name");
     }
+    if (std::filesystem::is_directory(fullPath)  && fullPath.back() != '/')
+        return redirectResponse(fullPath);
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(405, "Method not allowed");
     switch (client.request.eMethod)

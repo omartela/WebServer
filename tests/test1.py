@@ -90,14 +90,14 @@ def send_delete(path, HOST, PORT):
 
 # Example usage
 if __name__ == "__main__":
-    HOST = "127.0.0.1"
-    PORT = 8001
-    HOST2 = "127.0.0.1"
+    HOST = "127.0.0.2"
+    PORT = 8004
+    HOST2 = "127.0.0.2"
     PORT2 = 8004
 
     print("\tTEST 1")
     print("\tGET")
-    send_get("/images/", HOST, PORT2)
+    # send_get("/images/", HOST, PORT2)
     # send_get("/cgi/echo.py", HOST, PORT)
     send_get("/cgi/GETpy.py", HOST2, PORT2)
     print("\tGET DONE\n")
