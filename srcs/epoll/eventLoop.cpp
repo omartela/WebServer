@@ -362,11 +362,11 @@ static void handleCGI(Client& client, int loop)
     if (pid == cgi.childPid)
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.CGIFd);
-        client.response.push_back() = cgi.generateCGIResponse();
+        cgi.collectCGIOutput(client.pipeFd);
+        client.response.push_back(cgi.generateCGIResponse());
         client.state = SEND;
         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
-            client.response = HTTPResponse(405, "Method not allowed");
+            client.response.back() = HTTPResponse(405, "Method not allowed");
         client.request.isCGI = false;
         client.writeBuffer = client.response.back().toString();
         nChildren--;
@@ -380,7 +380,7 @@ static bool checkMethods(Client &client, int loop)
     if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
     {
         client.state = SEND;
-        client.response.push_back() = HTTPResponse(405, "Method not allowed");
+        client.response.push_back(HTTPResponse(405, "Method not allowed"));
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return false;
@@ -412,7 +412,7 @@ static void checkBody(Client &client, int loop)
             cgi.setEnvValues(client);
             if (!checkMethods(client, loop))
                 return ;
-            client.CGIFd = cgi.executeCGI(client);
+            client.pipeFd = cgi.executeCGI(client);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -471,7 +471,7 @@ void handleClientRecv(Client& client, int loop)
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
-                    client.response.push_back() = HTTPResponse(403, "Bad request");
+                    client.response.push_back(HTTPResponse(403, "Bad request"));
                     if (client.response.back().getStatusCode() >= 400)
                         client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                     client.state = SEND;
@@ -521,10 +521,10 @@ void handleClientRecv(Client& client, int loop)
                     {
                         client.state = SEND;
                         client.request.body = client.rawReadData;
-                        HTTPResponse response = RequestHandler::handleRequest(client);
-                        if (client.response.getStatusCode() >= 400)
-                            client.response = client.response.generateErrorResponse(client.response);
-                        client.writeBuffer = response.toString();
+                        client.response.push_back(RequestHandler::handleRequest(client));
+                        if (client.response.back().getStatusCode() >= 400)
+                            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                        client.writeBuffer = client.response.back().toString();
                         toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         return ;
                     }
