@@ -61,6 +61,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
                     c == '\t' || c == '\v' || c == '\f');}), value.end());
             headers[key] = value;
         }
+        // this needs else?
     }
     // In the path there should be the key of the location and it should be the longest key
     // For example you could have key "/" and "/directory/"
