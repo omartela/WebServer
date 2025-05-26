@@ -43,6 +43,7 @@ static std::string getMimeType(const std::string& ext)
         {".html", "text/html"},
         {".css", "text/css"},
         {".js", "application/javascript"},
+        {".json", "application/json"},
         {".png", "image/png"},
         {".jpg", "image/jpeg"},
         {".jpeg", "image/jpeg"},
@@ -273,7 +274,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
+    // wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
     if (fullPath.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
@@ -370,7 +371,12 @@ HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
-    printRequest(client.request);
+    // printRequest(client.request);
+    for (size_t i = 0; i < client.request.file.size(); i++)
+    {
+        if (isspace(client.request.file[i]))
+            return HTTPResponse(403, "Whitespace in filename");
+    }
     std::string fullPath = "." + join_paths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);

@@ -1,17 +1,66 @@
-<!-- product.html -->
 <!DOCTYPE html>
-<html>
-<head><title>Product Page</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Product Page</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2em;
+      background-color: #f9f9f9;
+    }
+    #product {
+      border: 1px solid #ccc;
+      padding: 20px;
+      max-width: 400px;
+      background-color: #fff;
+    }
+    img {
+      max-width: 100%;
+    }
+  </style>
+</head>
 <body>
-  <h1 id="product-title">Loading...</h1>
+  <div id="product">
+    <h1 id="product-title">Loading...</h1>
+    <img id="product-image" src="" alt="" />
+    <p id="product-description"></p>
+    <p id="product-color"></p>
+  </div>
 
   <script>
-    // Extract query string
-    const params = new URLSearchParams(window.location.search);
-    const product = params.get("item");
+    // Hardcoded "database"
+    const products = {
+      "Laptop": {
+        description: "A powerful laptop for work and gaming.",
+        image: "https://via.placeholder.com/300x200?text=Laptop"
+      },
+      "Toaster": {
+        description: "A sleek 2-slice toaster with browning control.",
+        image: "https://via.placeholder.com/300x200?text=Toaster"
+      },
+      "Phone": {
+        description: "A modern smartphone with a stunning display.",
+        image: "https://via.placeholder.com/300x200?text=Phone"
+      }
+    };
 
-    if (product) {
-      document.getElementById("product-title").innerText = "Product: " + product;
+    // Get query parameters
+    const params = new URLSearchParams(window.location.search);
+    const item = params.get("item");
+    const color = params.get("color");
+
+    if (item && products[item]) {
+      const product = products[item];
+      document.getElementById("product-title").innerText = `Product: ${item}`;
+      document.getElementById("product-description").innerText = product.description;
+      document.getElementById("product-image").src = product.image;
+      document.getElementById("product-image").alt = item;
+      if (color) {
+        document.getElementById("product-color").innerText = `Color: ${color}`;
+      }
+    } else {
+      document.getElementById("product-title").innerText = "Product not found.";
     }
   </script>
 </body>

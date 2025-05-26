@@ -67,16 +67,16 @@ void CGIHandler::collectCGIOutput(int readFd)
 
 int CGIHandler::executeCGI(Client& client)
 {
-	wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
-	wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
+	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
 	if (access(fullPath.c_str(), X_OK) != 0)
 		return -1; // ERROR PAGE access forbidden
 	if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
 		return -1;
-	wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
+	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
 	childPid = fork();
 	if (childPid != 0)
-		wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
+		// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
 	if (childPid == -1)
 		return -1;
 	if (childPid == 0)
@@ -86,7 +86,7 @@ int CGIHandler::executeCGI(Client& client)
 		close(writeCGIPipe[1]);
 		close(readCGIPipe[0]);
 		execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
-		std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
+		// std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
 		_exit(1);
 	}
 	client.childPid = childPid;

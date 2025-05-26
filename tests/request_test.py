@@ -2,7 +2,7 @@ import socket
 import time
 
 s = socket.socket()
-s.connect(('127.0.0.1', 8004))
+s.connect(('127.0.0.2', 8004))
 
 req = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
 
