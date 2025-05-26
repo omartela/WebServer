@@ -572,21 +572,22 @@ void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
             return handleCGI(client, loop);
-		case HANDLE_CGI:
-        {
-            wslog.writeToLogFile(INFO, "IN HANDLE_CGI case", true);
-            if (handleCGI(client) == false)
-                return ;
-            else
-            {
-                client.state = SEND;
-                client.writeBuffer = client.response.back().toString();
-                toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                return ;
-            }
-        }
+		// case HANDLE_CGI:
+        // {
+        //     wslog.writeToLogFile(INFO, "IN HANDLE_CGI case", true);
+        //     if (handleCGI(client) == false)
+        //         return ;
+        //     else
+        //     {
+        //         client.state = SEND;
+        //         client.writeBuffer = client.response.back().toString();
+        //         toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        //         return ;
+        //     }
+        // }
 		case SEND:
             return;
+        }
     }
 }
 
