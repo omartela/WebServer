@@ -5,3 +5,5 @@ objs/
 webserver
 Test_File_Matrix.csv
 mime_type.py
+ubuntu_cgi_tester
+ubuntu_tester
