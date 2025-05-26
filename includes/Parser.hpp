@@ -34,14 +34,14 @@ struct Route
     std::string index_file;
     std::vector<std::string> cgi_extension;
     std::string upload_path;
-    std::string cgipathpython;
-    std::string cgipathphp;
+    std::string cgiexecutable;
+    size_t client_max_body_size;
 };
 
 struct ServerConfig 
 {
     std::string host;
-    int port;
+    std::string port;
     int fd;
     std::vector<std::string> server_names;
     std::map<int, std::string> error_pages;
@@ -60,6 +60,7 @@ class Parser
         void parseListenDirective(const std::string& line, ServerConfig& server_config);
         void parseServerNameDirective(const std::string& line, ServerConfig& server_config);
         void parseClientMaxBodySizeDirective(const std::string& line, ServerConfig& server_config);
+        void parseClientMaxBodySizeDirective(const std::string& line, Route &route);
         void parseErrorPageDirective(const std::string& line, ServerConfig& server_config);
         void parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config);
         void parseAbsPathDirective(const std::string& line, Route& route);
@@ -69,8 +70,7 @@ class Parser
         void parseReturnDirective(const std::string& line, Route& route);
         void parseUploadPathDirective(const std::string& line, Route& route);
         void parseCgiExtensionDirective(const std::string& line, Route& route);
-        void parseCgiPathPython(const std::string& line, Route& route);
-        void parseCgiPathPhp(const std::string& line, Route& route);
+        void parseCgiExecutable(const std::string& line, Route& route);
         // Validation functions
         bool validateServerDirective(const std::string& line);
         bool validateListenDirective(const std::string& line);

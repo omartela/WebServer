@@ -9,7 +9,7 @@
 class HTTPRequest
 {
     private:
-        void parser(const std::string raw);
+        void parser(std::string headers, ServerConfig server);
 
     public:
         std::string method;
@@ -17,8 +17,12 @@ class HTTPRequest
         std::string path;
         std::string file;
         std::string version;
+        std::string location;
+        std::string query;
+        std::string pathInfo;
         std::map<std::string, std::string> headers;
         std::string body;
+        bool isCGI;
         HTTPRequest();
-        HTTPRequest(const std::string raw);
+        HTTPRequest(std::string headers, ServerConfig server);
 };

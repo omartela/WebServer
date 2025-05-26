@@ -1,24 +1,18 @@
 
 #include "HTTPRequest.hpp"
 #include "Enums.hpp"
+#include "Logger.hpp"
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(const std::string raw) { parser(raw); }
-
-/*
-    How it works:
-    Status line: Includes the HTTP version, status code, and status message (e.g., 200 OK).
-
-    Headers: Loops through all headers and appends them to the response.
-
-    Content-Length: If there's a body, it adds the Content-Length header.
-
-    Body: Appends the body content after the headers.
-*/
+HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) 
+{ 
+    parser(headers, server); 
+}
 
 reqTypes getMethodEnum(const std::string& method)
 {
@@ -28,8 +22,9 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
-void HTTPRequest::parser(const std::string raw)
+void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
+    isCGI = false;
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -39,7 +34,15 @@ void HTTPRequest::parser(const std::string raw)
     std::istringstream request_line(line);
     request_line >> method >> path >> version;
     eMethod = getMethodEnum(method);
-    file = path.substr(path.find_last_of("/"));
+    if (path.back() != '/')
+    {
+        std::string test_location = path + "/";
+        if (server.routes.find(test_location) != server.routes.end())
+            path += '/';
+        else
+            file = path.substr(path.find_last_of("/") + 1);
+    }
+    wslog.writeToLogFile(DEBUG, "File: " + file, true);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')
@@ -51,17 +54,50 @@ void HTTPRequest::parser(const std::string raw)
         {
             std::string key = line.substr(0, colon);
             std::string value = line.substr(colon + 1);
-            while (!value.empty() && value[0] == ' ')
-                value.erase(0, 1);
+            key.erase(std::remove_if(key.begin(), key.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
+                c == '\t' || c == '\v' || c == '\f');}), key.end());
+
+            value.erase(std::remove_if(value.begin(), value.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
+                    c == '\t' || c == '\v' || c == '\f');}), value.end());
             headers[key] = value;
         }
+        // this needs else?
     }
-    std::map<std::string, std::string>::iterator it = headers.find("Content-Length");
-    if (it != headers.end())
+    // In the path there should be the key of the location and it should be the longest key
+    // For example you could have key "/" and "/directory/"
+    // the matched one should be the longest so "/directory/"
+    std::vector<std::string> matches;
+    for (auto it = server.routes.begin(); it != server.routes.end(); ++it)
     {
-        size_t contentLength = std::strtoul(it->second.c_str(), NULL, 10);
-        std::vector<char> buffer(contentLength);
-        stream.read(buffer.data(), contentLength);
-        body.assign(buffer.begin(), buffer.end());
+        if (path.find(it->first) != std::string::npos)
+            matches.push_back(it->first);
+    }
+    auto it = std::max_element(matches.begin(), matches.end(), [](const std::string& a, const std::string& b) {
+        return a.length() < b.length();
+    });
+    if (it == matches.end())
+        location = "";
+    else
+    {
+        location = *it;
+        /// file path should be the left over after location. For example "/directory/olalala/file.txt"
+        /// then file is /olalala/file.txt
+        file = path.substr(0 + location.size());
+    }
+    wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
+    if (server.routes.find(location) != server.routes.end())
+    {
+        if (!server.routes.at(location).cgiexecutable.empty())
+        {
+            std::filesystem::path filePath = file;
+            std::string ext = filePath.extension().string();
+            wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
+            wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
+            if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
+            {
+                wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
+                isCGI = true;
+            }
+        }
     }
 }

@@ -41,6 +41,7 @@ void Client::reset()
 {
     this->state = IDLE;
     this->readBuffer.clear();
+    this->chunkBuffer.clear();
     this->rawReadData.clear();
     this->previousDataAmount = 0;
     this->writeBuffer.clear();
@@ -49,15 +50,4 @@ void Client::reset()
     this->bytesWritten = 0;
     this->erase = false;
     this->request = HTTPRequest();
-}
-
-reqTypes Client::getMethodEnum()
-{
-    if (request.method == "GET")
-        return GET;
-    if (request.method == "POST")
-        return POST;
-    if (request.method == "DELETE")
-        return DELETE;
-    return INVALID;
 }
