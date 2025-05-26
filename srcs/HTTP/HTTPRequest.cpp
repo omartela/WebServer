@@ -66,6 +66,12 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
     // In the path there should be the key of the location and it should be the longest key
     // For example you could have key "/" and "/directory/"
     // the matched one should be the longest so "/directory/"
+    size_t query_pos = path.find('?');
+    if (query_pos != std::string::npos)
+    {
+        query = path.substr(query_pos + 1);
+        path = path.substr(0, query_pos);
+    }
     std::vector<std::string> matches;
     for (auto it = server.routes.begin(); it != server.routes.end(); ++it)
     {
