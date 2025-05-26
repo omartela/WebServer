@@ -28,7 +28,7 @@ void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, 
     }
 }
 
-void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
+void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, int loop)
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
@@ -53,8 +53,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
-            // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-            //     throw std::runtime_error("timeout epoll_ctl DEL failed");
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("timeout epoll_ctl DEL failed");
             ++it;
             closeClient(client, clients, children);
             continue ;

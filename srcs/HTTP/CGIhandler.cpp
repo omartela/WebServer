@@ -79,15 +79,18 @@ int CGIHandler::executeCGI(Client& client)
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
     if (access(fullPath.c_str(), X_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
         return -1; //ERROR PAGE access forbidden
+    }
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
-        return -1;
+        throw std::runtime_error("CGIHandler::executeCGI pipe creation failed");
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid != 0)
         wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
     if (childPid == -1)
-        return -1;
+        throw std::runtime_error("CGIHandler::executeCGI fork failed");
     if (childPid == 0)
     {
         dup2(writeCGIPipe[0], STDIN_FILENO);

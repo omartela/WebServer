@@ -127,7 +127,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 else
                 {
                     wslog.writeToLogFile(INFO, "Time to check timeouts!", true);
-                    checkTimeouts(timerFD, clients, nChildren);
+                    checkTimeouts(timerFD, clients, nChildren, loop);
                 }
             }
 
@@ -454,14 +454,18 @@ void handleClientRecv(Client& client, int loop)
     switch (client.state)
     {
         case IDLE:
+        {
+            wslog.writeToLogFile(INFO, "IN IDLE", true);
             client.state = READ_HEADER;        
             return ;
+        }
         case READ_HEADER:
         {
             wslog.writeToLogFile(INFO, "IN READ HEADER", true);
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
+            wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
 
             if (client.bytesRead <= 0)
             {
@@ -469,8 +473,8 @@ void handleClientRecv(Client& client, int loop)
                     wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
                 close(client.fd);
                 client.erase = true;
-                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                //     throw std::runtime_error("epoll_ctl DEL failed");
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
             
@@ -496,13 +500,6 @@ void handleClientRecv(Client& client, int loop)
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                 
-                /*
-                split into three paths here based on request:
-                1. static response with POST -> go to READ_BODY
-                2. static response without POST -> go to SEND
-                3. dynamic response with CGI -> (registerCGI ->) go to handleCGI //maybe we want client enum state like HANDLE_CGI?
-                */
-                
                 if (client.request.method == "POST")
                 {
                     client.state = READ_BODY;
@@ -514,12 +511,21 @@ void handleClientRecv(Client& client, int loop)
                 {
                     if (client.request.isCGI == true)
                     {
-                        std::cout << "OMG I'M HERE" << std::endl;
                         client.state = HANDLE_CGI;
                         cgi.setEnvValues(client);
-                        if (!checkMethods(client, loop))
+                        if (checkMethods(client, loop) == false)
                             return ;
                         client.pipeFd = cgi.executeCGI(client);
+                        if (client.pipeFd < 0)
+                        {
+                            client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
+                            if (client.response.back().getStatusCode() >= 400)
+                                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                            client.writeBuffer = client.response.back().toString();
+                            client.state = SEND;
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
                         struct itimerspec timerValues { };
                         if (nChildren == 0) //before first child
                         {
@@ -567,8 +573,8 @@ void handleClientRecv(Client& client, int loop)
             {
                 close(client.fd);
                 client.erase = true;
-                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                //     throw std::runtime_error("epoll_ctl DEL failed");
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("epoll_ctl DEL failed");
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
@@ -578,7 +584,10 @@ void handleClientRecv(Client& client, int loop)
             return ;
         }
         case HANDLE_CGI:
+        {
+            //wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
             return handleCGI(client, loop);
+        }
 		case SEND:
             return;
     }
@@ -596,8 +605,8 @@ static void handleClientSend(Client &client, int loop)
     {
         close(client.fd);
         client.erase = true;
-        // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-        //     throw std::runtime_error("check connection epoll_ctl DEL failed");
+        if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+            throw std::runtime_error("check connection epoll_ctl DEL failed");
         return ;
     }
     client.writeBuffer.erase(0, client.bytesWritten);
@@ -612,8 +621,8 @@ static void handleClientSend(Client &client, int loop)
             if (checkConnection == "close" || checkConnection == "Close")
             {
                 close(client.fd);
-                // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                //     throw std::runtime_error("check connection epoll_ctl DEL failed");
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("check connection epoll_ctl DEL failed");
                 client.erase = true;
             }
             else
@@ -626,8 +635,8 @@ static void handleClientSend(Client &client, int loop)
         else if (client.request.version == "HTTP/1.0")
         {
             close(client.fd);
-            // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-            //     throw std::runtime_error("check connection epoll_ctl DEL failed");
+            if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                throw std::runtime_error("check connection epoll_ctl DEL failed");
             client.erase = true;
         }
         else
