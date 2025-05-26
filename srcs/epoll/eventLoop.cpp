@@ -251,19 +251,19 @@ static int findOldestClient(std::map<int, Client>& clients)
     return oldestClient;
 }
 
-static bool isUnsignedLongLong(std::string str)
+static bool isHexUnsignedLongLong(std::string str)
 {
     std::stringstream ss(str);
     long long unsigned value;
-    ss >> value;
+    ss >> std::hex >> value;
     return !ss.fail();
 }
 
-static long long unsigned StrToUnsignedLongLong(std::string str)
+static long long unsigned HexStrToUnsignedLongLong(std::string str)
 {
     std::stringstream ss(str);
     long long unsigned value;
-    ss >> value;
+    ss >> std::hex >> value;
     return value;
 }
 
@@ -274,14 +274,14 @@ static bool validateChunkedBody(Client &client)
     std::string str = client.chunkBuffer;
     while (true)
     {
-        if (!isUnsignedLongLong(str))
+        if (!isHexUnsignedLongLong(str))
         {
             wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
-        bytes = StrToUnsignedLongLong(str);
+        bytes = HexStrToUnsignedLongLong(str);
         long long unsigned i = 0;
-        while (str[i] != '\r')
+        while (str[i] != '\r' && i < str.size())
         {
             if (!std::isxdigit(str[i]))
             {
@@ -306,6 +306,9 @@ static bool validateChunkedBody(Client &client)
             return false;
         }
         str = str.substr(i + 2);
+        // After parsing chunk size and skipping header
+        if (str.size() < bytes + 2) // not enough data for chunk + trailing CRLF
+            return false; // wait for more data
         client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
@@ -327,6 +330,17 @@ static void readChunkedBody(Client &client, int loop)
 {
     client.chunkBuffer += client.rawReadData;
     client.rawReadData.clear();
+    if (client.chunkBuffer.size() > 1000000) // 1MB limit for chunked body
+    {
+        wslog.writeToLogFile(DEBUG, "Chunked body too large, rejecting request", true);
+        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
+        if (client.response.back().getStatusCode() >= 400)
+                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    }
 
     if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
     {
