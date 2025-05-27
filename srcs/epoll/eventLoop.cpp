@@ -272,121 +272,59 @@ static bool validateChunkedBody(Client &client)
 {
     long long unsigned bytes;
     std::string str = client.chunkBuffer;
-    while (true)
+     // Log the start (first 20 chars) and end (last 20 chars) of the buffer
+    size_t logLen = 20;
+    std::string start = str.substr(0, std::min(logLen, str.size()));
+    std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
+    wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
+    wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
+    if (!isHexUnsignedLongLong(str))
     {
-        if (!isHexUnsignedLongLong(str))
+        wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
+        return false;
+    }
+    bytes = HexStrToUnsignedLongLong(str);
+    long long unsigned i = 0;
+    while (str[i] != '\r' && i < str.size())
+    {
+        if (!std::isxdigit(str[i]))
         {
-            wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
+            wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
             return false;
         }
-        bytes = HexStrToUnsignedLongLong(str);
-        long long unsigned i = 0;
-        while (str[i] != '\r' && i < str.size())
-        {
-            if (!std::isxdigit(str[i]))
-            {
-                wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
-                return false;
-            }
-            i++;
-        }
-        if (bytes == 0)
-        {
-            if (str.substr(1, 4) == "\r\n\r\n")
-                return true;
-            else
-            {
-                wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
-                return false;
-            }
-        }
-        if (str.size() > (i + 1) && (str[i + 1] != '\n'))
-        {
-            wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
-            return false;
-        }
-        str = str.substr(i + 2);
-        // After parsing chunk size and skipping header
-        if (str.size() < bytes + 2) // not enough data for chunk + trailing CRLF
-            return false; // wait for more data
-        client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
-        str = str.substr(bytes);
-        if (str.substr(0, 2) != "\r\n")
-        {
-            wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-            wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-            wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-            wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
-            return false;
-        }
+        i++;
+    }
+    if (bytes == 0)
+    {
+        if (str.substr(1, 4) == "\r\n\r\n")
+            return true;
         else
-            str = str.substr(2);
-    }
-    return true;
-}
-
-static void readChunkedBody(Client &client, int loop)
-{
-    client.chunkBuffer += client.rawReadData;
-    client.rawReadData.clear();
-    if (client.chunkBuffer.size() > 1000000) // 1MB limit for chunked body
-    {
-        wslog.writeToLogFile(DEBUG, "Chunked body too large, rejecting request", true);
-        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
-        if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-        client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return ;
-    }
-
-    if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
-    {
-        if (!validateChunkedBody(client))
         {
-            client.response.push_back(HTTPResponse(400, "Bad request"));
-            if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-            client.writeBuffer = client.response.back().toString();
-            client.state = SEND;
-            toggleEpollEvents(client.fd, loop, EPOLLOUT);
-            return ;
+            wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
+            return false;
         }
-        client.state = SEND;  // Kaikki chunkit luettu
-        client.request.body = client.chunkBuffer;  // Tallenna body
-        client.chunkBuffer = "";
-        client.response.push_back(RequestHandler::handleRequest(client));
-        if (client.response.back().getStatusCode() >= 400)
-            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-        client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return;
     }
-}
-
-static void handleCGI(Client& client, int loop)
-{
-    wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    pid_t pid = waitpid(cgi.childPid, NULL, WNOHANG);
-    wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(cgi.childPid), true);
-    wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
-    if (pid == cgi.childPid)
+    if (str.size() > (i + 1) && (str[i + 1] != '\n'))
     {
-        wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.pipeFd);
-        client.response.push_back(cgi.generateCGIResponse());
-        client.state = SEND;
-        if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
-            client.response.back() = HTTPResponse(405, "Method not allowed");
-        client.request.isCGI = false;
-        client.writeBuffer = client.response.back().toString();
-        nChildren--;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return ;
+        wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
+        return false;
     }
+    str = str.substr(i + 2);
+    client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
+    str = str.substr(bytes);
+    if (str.substr(0, 2) != "\r\n")
+    {
+        wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
+        wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
+        wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
+        //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
+        wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
+        return false;
+    }
+    else
+        str = str.substr(2);
+    client.chunkBuffer.erase(0, i + 2 + bytes + 2);
+    return true;
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -403,6 +341,126 @@ static bool checkMethods(Client &client, int loop)
         return true;
 }
 
+static void handleCGI(Client& client, int loop)
+{
+    wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
+    pid_t pid = waitpid(cgi.childPid, NULL, WNOHANG);
+    wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(cgi.childPid), true);
+    wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
+    const char* data = client.request.body.c_str();
+    ssize_t written;
+    if (cgi.isFdWritable(cgi.writeCGIPipe[1]))
+    {
+        if (!client.request.body.empty())
+        {
+            written = write(cgi.writeCGIPipe[1], data, client.request.body.size());
+            if (written <= 0) 
+            {
+                wslog.writeToLogFile(DEBUG, "write() failed: " + std::string(strerror(errno)), true);
+            }
+            else
+                client.request.body = client.request.body.substr(written);
+        }
+        else
+            write(cgi.writeCGIPipe[1], "a", 1);
+    }
+    if (cgi.isFdReadable(cgi.readCGIPipe[0]))
+    {
+        char buffer[4096];
+        ssize_t n;
+        n = read(cgi.readCGIPipe[0], buffer, sizeof(buffer));
+        if (n > 0)
+            cgi.output.append(buffer, n);
+    }
+    if (pid == cgi.childPid)
+    {
+        wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes closed", true);
+        close(cgi.writeCGIPipe[1]);
+        close(cgi.readCGIPipe[0]);
+        wslog.writeToLogFile(DEBUG, "CGI process finished", true);
+        cgi.collectCGIOutput(client.pipeFd);
+        client.response.push_back(cgi.generateCGIResponse());
+        cgi.output.clear();
+        client.state = SEND;
+        // IT SEEMS THAT CGI EXTENSION RULE TAKES PRECEDENCE OVER IS ALLOWED METHOD RULES IN LOCATION
+        // SO IF THE EXTENSION IS CORRECT IT SHOULD BE EXECUTED EVEN IF THE METHOD IS NOT ALLOWED
+        client.request.isCGI = false;
+        client.writeBuffer = client.response.back().toString();
+        nChildren--;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    }
+}
+
+static void readChunkedBody(Client &client, int loop)
+{
+    client.chunkBuffer += client.rawReadData;
+    client.rawReadData.clear();
+    if (client.chunkBuffer.empty() || client.chunkBuffer.size() < 2 || client.chunkBuffer.substr(client.chunkBuffer.size() - 2) != "\r\n")
+    {
+        //wslog.writeToLogFile(DEBUG, "Chunk buffer is empty or does not end with \\r\\n, waiting for more data", true);
+        return ;
+    }
+    if (!validateChunkedBody(client))
+    {
+        if (client.request.isCGI == false)
+        {
+            if (checkMethods(client, loop) == false)
+                return ;
+        }
+        else
+            client.response.push_back(HTTPResponse(400, "Bad request"));
+        if (client.response.back().getStatusCode() >= 400)
+            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    }
+    /* if (client.chunkBuffer.size() > 1000000) // 1MB limit for chunked body
+    {
+        wslog.writeToLogFile(DEBUG, "Chunked body too large, rejecting request", true);
+        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
+        if (client.response.back().getStatusCode() >= 400)
+                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+    } */
+
+    if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
+    {
+        client.request.body = client.chunkBuffer;  // Tallenna body
+        client.chunkBuffer = "";
+        if (client.request.isCGI == true)
+        {
+            wslog.writeToLogFile(DEBUG, "Handling CGI after chunked body", true);
+            client.state = HANDLE_CGI;
+            cgi.setEnvValues(client);
+            client.pipeFd = cgi.executeCGI(client);
+            struct itimerspec timerValues { };
+            if (nChildren == 0) //before first child
+            {
+                timerValues.it_value.tv_sec = CHILD_CHECK;
+                timerValues.it_interval.tv_sec = CHILD_CHECK;
+                timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+            }
+            wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
+            nChildren++;
+            handleCGI(client, loop);
+            return ;
+        }
+        client.response.push_back(RequestHandler::handleRequest(client));
+        if (client.response.back().getStatusCode() >= 400)
+            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return;
+    }
+}
+
 // void handleSIGCHLD(int)
 // {
 //     wslog.writeToLogFile(INFO, "SIGCHLD received", true);
@@ -415,7 +473,7 @@ static void checkBody(Client &client, int loop)
     
     auto TE = client.request.headers.find("Transfer-Encoding");
     if (TE != client.request.headers.end() && TE->second == "chunked")
-        readChunkedBody(client, loop);
+        return readChunkedBody(client, loop);
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
@@ -424,8 +482,6 @@ static void checkBody(Client &client, int loop)
             std::cout << "OMG I'M HERE" << std::endl;
             client.state = HANDLE_CGI;
             cgi.setEnvValues(client);
-            if (!checkMethods(client, loop))
-                return ;
             client.pipeFd = cgi.executeCGI(client);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
@@ -437,6 +493,7 @@ static void checkBody(Client &client, int loop)
             wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
             nChildren++;
             handleCGI(client, loop);
+            return ;
         }
         client.request.body = client.rawReadData;
         client.response.push_back(RequestHandler::handleRequest(client));
@@ -458,7 +515,6 @@ void handleClientRecv(Client& client, int loop)
             return ;
         case READ_HEADER:
         {
-            wslog.writeToLogFile(INFO, "IN READ HEADER", true);
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
@@ -485,7 +541,7 @@ void handleClientRecv(Client& client, int loop)
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
-                    client.response.push_back(HTTPResponse(403, "Bad request"));
+                    client.response.push_back(HTTPResponse(400, "Bad request"));
                     if (client.response.back().getStatusCode() >= 400)
                         client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                     client.state = SEND;
@@ -550,7 +606,7 @@ void handleClientRecv(Client& client, int loop)
         }
         case READ_BODY:
         {
-            wslog.writeToLogFile(INFO, "IN READ BODY", true);
+            wslog.writeToLogFile(INFO, "IN READ BODY", false);
             client.bytesRead = 0;
             char buffer2[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);

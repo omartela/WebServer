@@ -1,0 +1,6 @@
+Kun ajaa testerin testejä jos cgi scriptillä on ympäristömuuttuja 
+SCRIPT_NAME ja tämän arvo ei ole tyhjä niin silloin PATH_INFO ei voi olla tyhjä vaan pitää olla asetettu joksikin
+vaikka PATH_INFOA EI OLISI URLISSA ja en tiedä mikä on se oikea arvo on sille.
+
+Mutta jos testeri PALAUTTAA PATH_INFO  incorrect tai PATH_INFO not found niin se ei edes aja
+koko CGI scriptiä...

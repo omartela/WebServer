@@ -13,16 +13,22 @@ void CGIHandler::setEnvValues(Client client)
     if (!client.serverInfo.server_names.empty())
         server_name =  client.serverInfo.server_names.at(0);
     fullPath = "." + join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
-    envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
-                    "REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
-                    "SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-                    "SERVER_NAME=" + server_name, "SERVER_PORT=" + client.serverInfo.port};
+    // If pathInfo is empty, set it to the script name (or another default)
+    std::string path_info = client.request.pathInfo.empty() ? "aaa" : client.request.pathInfo;
+
+    wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues pathinfo is " + path_info, true);
+    envVariables = {"PATH_INFO=" + path_info,
+                    "REQUEST_METHOD=" + client.request.method,
+                    "SERVER_PROTOCOL=HTTP/1.1"};
     if (client.request.headers.find("Content-Length") != client.request.headers.end())
         envVariables.at(0) += client.request.headers.at("Content-Length");
     if (client.request.headers.find("Content-Type") != client.request.headers.end())
-        envVariables.at(0) += client.request.headers.at("Content-Type");
+        envVariables.at(1) += client.request.headers.at("Content-Type");
     for (size_t i = 0; i < envVariables.size(); i++)
+    {
+        wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envVariables[" + std::to_string(i) + "] = " + envVariables.at(i), true);
         envArray[i] = (char *) envVariables.at(i).c_str();
+    }
     envArray[envVariables.size()] = NULL;
     exceveArgs[0] = (char *) client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
     exceveArgs[1] = (char *) fullPath.c_str();
@@ -62,16 +68,49 @@ HTTPResponse CGIHandler::generateCGIResponse()
     //here alarm epoll that cgi response is ready and child is exiting
 }
 
+bool CGIHandler::isFdReadable(int fd) 
+{
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0; // Non-blocking
+
+    int ret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    if (ret > 0 && FD_ISSET(fd, &readfds)) {
+        // Data is available to read
+        return true;
+    }
+    return false; // No data available
+}
+
+bool CGIHandler::isFdWritable(int fd) 
+{
+    fd_set writefds;
+    FD_ZERO(&writefds);
+    FD_SET(fd, &writefds);
+
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0; // Non-blocking
+
+    int ret = select(fd + 1, NULL, &writefds, NULL, &timeout);
+    if (ret > 0 && FD_ISSET(fd, &writefds)) {
+        // FD is writable
+        return true;
+    }
+    return false; // Not writable
+}
+
 void CGIHandler::collectCGIOutput(int readFd)
 {
     char buffer[4096];
     ssize_t n;
-    output.clear();
 
     while ((n = read(readFd, buffer, sizeof(buffer))) > 0)
         output.append(buffer, n);
-
-    close(readFd);
 }
 
 int CGIHandler::executeCGI(Client& client)
@@ -101,8 +140,5 @@ int CGIHandler::executeCGI(Client& client)
     client.childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
-	if (!client.request.body.empty())
-		write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
-    close(writeCGIPipe[1]);
 	return readCGIPipe[0];
 }

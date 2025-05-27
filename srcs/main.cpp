@@ -13,6 +13,7 @@ Logger wslog;
 
 int main(int argc, char *argv[])
 {
+     signal(SIGPIPE, SIG_IGN);
     if (argc != 2)
     {
         std::cout << "Usage program name + file" << std::endl;
