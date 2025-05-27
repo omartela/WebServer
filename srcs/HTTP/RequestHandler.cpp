@@ -292,7 +292,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         // wslog.writeToLogFile(DEBUG, "We are here", true);
         fullPath = join_paths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
-        wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
+        // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
         if (!file.is_open())
         {
             wslog.writeToLogFile(ERROR, "404, Not Found", false);

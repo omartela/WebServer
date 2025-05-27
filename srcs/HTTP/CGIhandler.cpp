@@ -1,31 +1,53 @@
 #include "CGIhandler.hpp"
 #include "Logger.hpp"
+#include <limits.h>
 
-
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
 CGIHandler::CGIHandler() {
 
 }
 
+// std::string  join_paths(const std::string& a, const std::string& b)
+// {
+// 	if (a.empty()) return b;
+// 	if (b.empty()) return a;
+// 	if (a[a.size() - 1] == '/' && b[0] =='/')
+// 		return a + b.substr(1);
+// 	if (a[a.size() -1] != '/' && b[0] != '/')
+// 		return a + "/" + b;
+// 	return a + b;
+// }
+
 void CGIHandler::setEnvValues(Client client)
 {
-	std::string server_name;
-	if (!client.serverInfo.server_names.empty())
-		server_name = client.serverInfo.server_names.at(0);
-	fullPath = "." + join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
-	envVariables = {"CONTENT_LENGTH =", "CONTENT_TYPE=", "QUERY_STRING=" + client.request.query, "PATH_INFO=" + client.request.pathInfo,
-					"REQUEST_METHOD=" + client.request.method, "SCRIPT_FILENAME=" + fullPath, "SCRIPT_NAME=" + client.request.path, "REDIRECT_STATUS=200",
-					"SERVER_PROTOCOL=HTTP/1.1", "GATEWAY_INTERFACE=CGI/1.1", "REMOTE_ADDR=" + client.serverInfo.host,
-					"SERVER_NAME=" + server_name, "SERVER_PORT=" + client.serverInfo.port};
-	if (client.request.headers.find("Content-Length") != client.request.headers.end())
-		envVariables.at(0) += client.request.headers.at("Content-Length");
-	if (client.request.headers.find("Content-Type") != client.request.headers.end())
-		envVariables.at(0) += client.request.headers.at("Content-Type");
+	std::string server_name = client.serverInfo.server_names.empty() ? "localhost"
+			: client.serverInfo.server_names.at(0);
+	char absPath[PATH_MAX];
+	std::string localPath = join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
+	fullPath = "." + localPath;
+	realpath(fullPath.c_str(), absPath);
+	envVariables.clear();
+	envVariables = {"REQUEST_METHOD=" + client.request.method,
+					"SCRIPT_FILENAME=" + std::string(absPath),
+					"SCRIPT_NAME=" + client.request.path,
+					"QUERY_STRING=" + client.request.query,
+					"PATH_INFO=" + client.request.pathInfo,
+					"REDIRECT_STATUS=200",
+					"SERVER_PROTOCOL=HTTP/1.1",
+					"GATEWAY_INTERFACE=CGI/1.1",
+					"REMOTE_ADDR=" + client.serverInfo.host,
+					"SERVER_NAME=" + server_name,
+					"SERVER_PORT=" + client.serverInfo.port};
+	std::string conType =  client.request.headers.count("Content-Type") > 0 ? client.request.headers.at("Content-Type") : "text/plain";
+	envVariables.push_back("CONTENT_TYPE=" + conType);
+	std::string conLen = client.request.headers.count("Content-Length") > 0 ? client.request.headers.at("Content-Length") : "0";
+	envVariables.push_back("CONTENT_LENGTH=" + conLen);
 	for (size_t i = 0; i < envVariables.size(); i++)
 		envArray[i] = (char *)envVariables.at(i).c_str();
 	envArray[envVariables.size()] = NULL;
 	exceveArgs[0] = (char *)client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
-	exceveArgs[1] = (char *)fullPath.c_str();
+	exceveArgs[1] = absPath;
 	exceveArgs[2] = NULL;
 }
 
@@ -93,7 +115,10 @@ int CGIHandler::executeCGI(Client& client)
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
 	if (!client.request.body.empty())
+	{
+		wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
 		write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
+	}
 	close(writeCGIPipe[1]);
 	return readCGIPipe[0];
 }
