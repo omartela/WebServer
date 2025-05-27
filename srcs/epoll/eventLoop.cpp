@@ -370,10 +370,10 @@ static void readChunkedBody(Client &client, int loop)
 static void handleCGI(Client& client, int loop)
 {
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    pid_t pid = waitpid(cgi.childPid, NULL, WNOHANG);
-    wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(cgi.childPid), true);
+    pid_t pid = waitpid(client.childPid, NULL, WNOHANG);
+    wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.childPid), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
-    if (pid == cgi.childPid)
+    if (pid == client.childPid)
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         cgi.collectCGIOutput(client.pipeFd);
@@ -393,7 +393,7 @@ static bool checkMethods(Client &client, int loop)
 {
     if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
     {
-        client.state = SEND;
+        client.state = SEND; 
         client.response.push_back(HTTPResponse(405, "Method not allowed"));
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -402,13 +402,6 @@ static bool checkMethods(Client &client, int loop)
     else
         return true;
 }
-
-// void handleSIGCHLD(int)
-// {
-//     wslog.writeToLogFile(INFO, "SIGCHLD received", true);
-//     uint64_t notify = 1; 
-//     write(eventFD, &notify, sizeof(notify));
-// }
 
 static void checkBody(Client &client, int loop)
 {
@@ -471,10 +464,13 @@ void handleClientRecv(Client& client, int loop)
             {
                 if (client.bytesRead == 0)
                     wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
-                close(client.fd);
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
+                {
+                    std::cout << "errno = " << errno << std::endl;
+                    throw std::runtime_error("epoll_ctl DEL failed in READ_HEADER");
+                }
+                close(client.fd);
                 return ;
             }
             
@@ -527,13 +523,14 @@ void handleClientRecv(Client& client, int loop)
                             return ;
                         }
                         struct itimerspec timerValues { };
+                        wslog.writeToLogFile(INFO, "AMOUNT OF CHILDREN BEFORE THIS: " + std::to_string(nChildren), true);
                         if (nChildren == 0) //before first child
                         {
                             timerValues.it_value.tv_sec = CHILD_CHECK;
                             timerValues.it_interval.tv_sec = CHILD_CHECK;
                             timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+                            wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
                         }
-                        wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
                         nChildren++;
                         handleCGI(client, loop);
                     }
@@ -564,17 +561,18 @@ void handleClientRecv(Client& client, int loop)
             {
                 // Client disconnected
                 wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
-                close(client.fd);
                 client.erase = true;
-                epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr);
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
+                close(client.fd);
                 return ;
             }
             if (client.bytesRead < 0)
             {
-                close(client.fd);
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed");
+                    throw std::runtime_error("epoll_ctl DEL failed in READ_BODY2");
+                close(client.fd);
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
@@ -603,10 +601,10 @@ static void handleClientSend(Client &client, int loop)
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
-        close(client.fd);
         client.erase = true;
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-            throw std::runtime_error("check connection epoll_ctl DEL failed");
+            throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
+        close(client.fd);
         return ;
     }
     client.writeBuffer.erase(0, client.bytesWritten);
@@ -620,10 +618,10 @@ static void handleClientSend(Client &client, int loop)
         { 
             if (checkConnection == "close" || checkConnection == "Close")
             {
-                close(client.fd);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("check connection epoll_ctl DEL failed");
+                    throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
                 client.erase = true;
+                close(client.fd);
             }
             else
             {
@@ -634,10 +632,10 @@ static void handleClientSend(Client &client, int loop)
         }
         else if (client.request.version == "HTTP/1.0")
         {
-            close(client.fd);
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("check connection epoll_ctl DEL failed");
+                throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
             client.erase = true;
+            close(client.fd);
         }
         else
         {
