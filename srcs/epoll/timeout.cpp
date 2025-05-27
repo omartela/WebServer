@@ -52,7 +52,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
 
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-            wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
+            // wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             ++it;
@@ -76,7 +76,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
                 client.response.push_back(temp);
                 client.writeBuffer = client.response.back().body;
                 client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-                wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
+                // wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 ++it;
@@ -93,7 +93,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
             client.response.push_back(temp);
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-            wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
+            // wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             ++it;
@@ -109,7 +109,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
             client.response.push_back(temp);
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-            wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
+            // wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
             // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             //     throw std::runtime_error("timeout epoll_ctl DEL failed");
             ++it;
@@ -123,7 +123,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
             int dataRate = dataSent / elapsedTime;
             if (client.writeBuffer.size() > 1024 && dataRate < 1024) //what is proper amount?
             {
-                wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client received data too slowly!", true);
+                // std::cout << "client FD" << client.fd << " disconnected, client received data too slowly!" << std::endl;
                 // if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 //     throw std::runtime_error("timeout epoll_ctl DEL failed");
                 ++it;
@@ -132,7 +132,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children)
             }
         } 
 
-        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
+        // wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
 
         if (client.state == READ_HEADER || client.state == READ_BODY)
             client.previousDataAmount = client.rawReadData.size();

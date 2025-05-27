@@ -3,8 +3,9 @@
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
 {
-    std::filesystem::path full = path1 / path2;
-    return full.string();
+    // std::filesystem::path full = path1 / path2;
+    // return full.string();
+    return path1 / path2;
 }
 
 

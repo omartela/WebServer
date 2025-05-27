@@ -2,11 +2,12 @@
 #include <vector>
 #include <string>
 #include "Client.hpp"
+#include "Logger.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/timerfd.h>
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
+// std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
 class Client;
 
@@ -25,9 +26,9 @@ class CGIHandler
         CGIHandler();
         void setEnvValues(Client client);
         int executeCGI(Client& client);
-        void collectCGIOutput(int readFd);
         HTTPResponse generateCGIResponse();
         bool isFdWritable(int fd);
         bool isFdReadable(int fd); 
 
+        void collectCGIOutput(int readFd);
 };
