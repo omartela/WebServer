@@ -78,7 +78,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
                 client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("timeout epoll_ctl DEL failed");
+                    throw std::runtime_error("timeout epoll_ctl DEL failed in timeout2");
                 ++it;
                 closeClient(client, clients, children);
                 continue ;
@@ -95,7 +95,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("timeout epoll_ctl DEL failed");
+                throw std::runtime_error("timeout epoll_ctl DEL failed in timeout3");
             ++it;
             closeClient(client, clients, children);
             continue ;
@@ -111,7 +111,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                throw std::runtime_error("timeout epoll_ctl DEL failed");
+                throw std::runtime_error("timeout epoll_ctl DEL failed in timeout4");
             ++it;
             closeClient(client, clients, children);
             continue ;
@@ -125,7 +125,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             {
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client received data too slowly!", true);
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("timeout epoll_ctl DEL failed");
+                    throw std::runtime_error("timeout epoll_ctl DEL failed in timeout5");
                 ++it;
                 closeClient(client, clients, children);
                 continue ;

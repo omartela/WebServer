@@ -16,9 +16,8 @@ static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
 CGIHandler cgi;
-// int eventFD; //remove when making eventLoop into a class?
 int timerFD; //remove when making eventLoop into a class?
-int nChildren;
+int nChildren; //remove when making eventLoop into a class?
 int childTimerFD; //remove when making eventLoop into a class?
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
@@ -65,16 +64,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
-
-    // //create and setup eventFd to check child processes
-    // int eventFd = eventfd(0, EFD_NONBLOCK);
-    // if (eventFd < 0)
-    //     throw std::runtime_error("Failed to create eventFd");
-    // wslog.writeToLogFile(INFO, "Eventfd created, it got FD" + std::to_string(eventFd), true);
-    // setup.data.fd = eventFd;
-    // if (epoll_ctl(loop, EPOLL_CTL_ADD, eventFd, &setup) < 0)
-    //      throw std::runtime_error("Failed to add eventFd to epoll");
-    // eventFD = eventFd;
 
     while (true)
     {
@@ -369,14 +358,18 @@ static void readChunkedBody(Client &client, int loop)
 
 static void handleCGI(Client& client, int loop)
 {
-    wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
+    if (client.request.body.empty() == false)
+        cgi.writeBodyToChild(client);
+    cgi.collectCGIOutput(client);
     pid_t pid = waitpid(client.childPid, NULL, WNOHANG);
+    wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
     wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.childPid), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     if (pid == client.childPid)
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.pipeFd);
+        close(client.childReadPipeFd);
+        cgi.setOutput(client.CGIOutput);
         client.response.push_back(cgi.generateCGIResponse());
         client.state = SEND;
         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
@@ -417,17 +410,17 @@ static void checkBody(Client &client, int loop)
             std::cout << "OMG I'M HERE" << std::endl;
             client.state = HANDLE_CGI;
             cgi.setEnvValues(client);
-            if (!checkMethods(client, loop))
+            if (checkMethods(client, loop) == false)
                 return ;
-            client.pipeFd = cgi.executeCGI(client);
+            cgi.executeCGI(client);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
                 timerValues.it_value.tv_sec = CHILD_CHECK;
                 timerValues.it_interval.tv_sec = CHILD_CHECK;
                 timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+                wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
             }
-            wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
             nChildren++;
             handleCGI(client, loop);
         }
@@ -557,9 +550,8 @@ void handleClientRecv(Client& client, int loop)
             client.bytesRead = 0;
             char buffer2[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
-            if (client.bytesRead == 0)
+            if (client.bytesRead == 0) //client disconnected
             {
-                // Client disconnected
                 wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
