@@ -350,7 +350,6 @@ static void readChunkedBody(Client &client, int loop)
         if (client.response.back().getStatusCode() >= 400)
             client.response.back() = client.response.back().generateErrorResponse(client.response.back());
         client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
     }
@@ -360,6 +359,8 @@ static void handleCGI(Client& client, int loop)
 {
     if (client.request.body.empty() == false)
         cgi.writeBodyToChild(client);
+    else
+        std::cout << "BODY EMPTY\n";
     cgi.collectCGIOutput(client);
     pid_t pid = waitpid(client.childPid, NULL, WNOHANG);
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
@@ -398,7 +399,6 @@ static bool checkMethods(Client &client, int loop)
 
 static void checkBody(Client &client, int loop)
 {
-    
     auto TE = client.request.headers.find("Transfer-Encoding");
     if (TE != client.request.headers.end() && TE->second == "chunked")
         readChunkedBody(client, loop);
@@ -407,7 +407,6 @@ static void checkBody(Client &client, int loop)
     {
         if (client.request.isCGI == true)
         {
-            std::cout << "OMG I'M HERE" << std::endl;
             client.state = HANDLE_CGI;
             cgi.setEnvValues(client);
             if (checkMethods(client, loop) == false)
@@ -504,8 +503,8 @@ void handleClientRecv(Client& client, int loop)
                         cgi.setEnvValues(client);
                         if (checkMethods(client, loop) == false)
                             return ;
-                        client.pipeFd = cgi.executeCGI(client);
-                        if (client.pipeFd < 0)
+                        cgi.executeCGI(client);
+                        if (client.childReadPipeFd < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
                             if (client.response.back().getStatusCode() >= 400)

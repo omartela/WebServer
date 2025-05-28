@@ -113,6 +113,7 @@ void CGIHandler::writeBodyToChild(Client& client)
     size_t written = write(client.childWritePipeFd, client.request.body.c_str(), client.request.body.size());
     if (written > 0) 
         client.request.body = client.request.body.substr(written);
+    wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
     if (client.request.body.empty() == true)
         close(client.childWritePipeFd);
 }
