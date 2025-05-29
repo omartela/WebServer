@@ -2,7 +2,7 @@
 import socket
 
 HOST = '127.0.0.1'  # or your server's IP
-PORT = 8002         # change if needed
+PORT = 8001        # change if needed
 
 def send_request_and_read_response():
     with socket.create_connection((HOST, PORT)) as sock:

@@ -357,8 +357,12 @@ static void readChunkedBody(Client &client, int loop)
 
 static void handleCGI(Client& client, int loop)
 {
+
     if (client.request.body.empty() == false)
+    {
+        std::cout << "BODY NOT EMPTY\n";
         cgi.writeBodyToChild(client);
+    }
     else
         std::cout << "BODY EMPTY\n";
     cgi.collectCGIOutput(client);
@@ -405,8 +409,10 @@ static void checkBody(Client &client, int loop)
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
-        if (client.request.isCGI == true)
+        client.request.body = client.rawReadData;
+        if (client.request.isCGI == true) //now only non-chunked requests handle CGI?
         {
+            std::cout << "CGI IS TRUE\n";
             client.state = HANDLE_CGI;
             cgi.setEnvValues(client);
             if (checkMethods(client, loop) == false)
@@ -417,20 +423,24 @@ static void checkBody(Client &client, int loop)
             {
                 timerValues.it_value.tv_sec = CHILD_CHECK;
                 timerValues.it_interval.tv_sec = CHILD_CHECK;
-                timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+                timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
             }
             nChildren++;
             handleCGI(client, loop);
+            return ;
         }
-        client.request.body = client.rawReadData;
-        client.response.push_back(RequestHandler::handleRequest(client));
-        if (client.response.back().getStatusCode() >= 400)
-            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-        client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return ;
+        else
+        {
+            std::cout << "CGI IS FALSE\n";
+            client.response.push_back(RequestHandler::handleRequest(client));
+            if (client.response.back().getStatusCode() >= 400)
+                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+            client.writeBuffer = client.response.back().toString();
+            client.state = SEND;
+            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+            return ;
+        }
     }
 }
 
