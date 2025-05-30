@@ -1,5 +1,4 @@
 #include "CGIhandler.hpp"
-#include "Logger.hpp"
 #include <limits.h>
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
@@ -7,6 +6,10 @@ std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
 CGIHandler::CGIHandler() {
 
 }
+
+int CGIHandler::getWritePipe() { return writeCGIPipe[1]; }
+
+int CGIHandler::getChildPid() { return childPid; }
 
 // std::string  join_paths(const std::string& a, const std::string& b)
 // {
@@ -19,30 +22,38 @@ CGIHandler::CGIHandler() {
 // 	return a + b;
 // }
 
-void CGIHandler::setEnvValues(Client client)
+void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 {
-	std::string server_name = client.serverInfo.server_names.empty() ? "localhost"
-			: client.serverInfo.server_names.at(0);
+	std::string server_name = server.server_names.empty() ? "localhost"
+			: server.server_names.at(0);
 	char absPath[PATH_MAX];
-	std::string localPath = join_paths(client.serverInfo.routes.at(client.request.location).abspath, client.request.file);
+	std::string localPath = join_paths(server.routes.at(request.location).abspath, request.file);
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
+<<<<<<< HEAD
 	std::string PATH_INFO = client.request.pathInfo.empty() ? client.request.path : client.request.pathInfo;
 	envVariables = {"REQUEST_METHOD=" + client.request.method,
 					"SCRIPT_FILENAME=" + std::string(absPath),
 					"SCRIPT_NAME=" + client.request.path,
 					"QUERY_STRING=" + client.request.query,
 					"PATH_INFO=" + PATH_INFO,
+=======
+	envVariables = {"REQUEST_METHOD=" + request.method,
+					"SCRIPT_FILENAME=" + std::string(absPath),
+					"SCRIPT_NAME=" + request.path,
+					"QUERY_STRING=" + request.query,
+					"PATH_INFO=" + request.pathInfo,
+>>>>>>> http-cgi-file-handling
 					"REDIRECT_STATUS=200",
 					"SERVER_PROTOCOL=HTTP/1.1",
 					"GATEWAY_INTERFACE=CGI/1.1",
-					"REMOTE_ADDR=" + client.serverInfo.host,
+					"REMOTE_ADDR=" + server.host,
 					"SERVER_NAME=" + server_name,
-					"SERVER_PORT=" + client.serverInfo.port};
-	std::string conType =  client.request.headers.count("Content-Type") > 0 ? client.request.headers.at("Content-Type") : "text/plain";
+					"SERVER_PORT=" + server.port};
+	std::string conType =  request.headers.count("Content-Type") > 0 ? request.headers.at("Content-Type") : "text/plain";
 	envVariables.push_back("CONTENT_TYPE=" + conType);
-	std::string conLen = client.request.headers.count("Content-Length") > 0 ? client.request.headers.at("Content-Length") : "0";
+	std::string conLen = request.headers.count("Content-Length") > 0 ? request.headers.at("Content-Length") : "0";
 	envVariables.push_back("CONTENT_LENGTH=" + conLen);
 	for (size_t i = 0; i < envVariables.size(); i++)
 	{
@@ -50,7 +61,7 @@ void CGIHandler::setEnvValues(Client client)
 		wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
 	}
 	envArray[envVariables.size()] = NULL;
-	exceveArgs[0] = (char *)client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
+	exceveArgs[0] = (char *)server.routes.at(request.location).cgiexecutable.c_str();
 	exceveArgs[1] = absPath;
 	exceveArgs[2] = NULL;
 }
@@ -124,7 +135,7 @@ void CGIHandler::collectCGIOutput(int readFd)
         output.append(buffer, n);
 }
 
-int CGIHandler::executeCGI(Client& client)
+int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
 	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
 	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
@@ -144,13 +155,22 @@ int CGIHandler::executeCGI(Client& client)
 		dup2(readCGIPipe[1], STDOUT_FILENO);
 		close(writeCGIPipe[1]);
 		close(readCGIPipe[0]);
-		execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
+		execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
 		// std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
 		_exit(1);
 	}
-	client.childPid = childPid;
+	// childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
+<<<<<<< HEAD
+=======
+	if (!request.body.empty())
+	{
+		wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
+		write(writeCGIPipe[1], request.body.c_str(), 300);
+	}
+	close(writeCGIPipe[1]);
+>>>>>>> http-cgi-file-handling
 	return readCGIPipe[0];
 }
 
