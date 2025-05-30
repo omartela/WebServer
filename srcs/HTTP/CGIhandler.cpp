@@ -31,11 +31,11 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
-	std::string PATH_INFO = client.request.pathInfo.empty() ? client.request.path : client.request.pathInfo;
-	envVariables = {"REQUEST_METHOD=" + client.request.method,
+	std::string PATH_INFO = request.pathInfo.empty() ? request.path : request.pathInfo;
+	envVariables = {"REQUEST_METHOD=" + request.method,
 					"SCRIPT_FILENAME=" + std::string(absPath),
-					"SCRIPT_NAME=" + client.request.path,
-					"QUERY_STRING=" + client.request.query,
+					"SCRIPT_NAME=" + request.path,
+					"QUERY_STRING=" + request.query,
 					"PATH_INFO=" + PATH_INFO,
 					"REDIRECT_STATUS=200",
 					"SERVER_PROTOCOL=HTTP/1.1",

@@ -350,16 +350,16 @@ static bool checkMethods(Client &client, int loop)
 static void handleCGI(Client& client, int loop)
 {
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    pid_t pid = waitpid(cgi.childPid, NULL, WNOHANG);
-    wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(cgi.childPid), true);
+    pid_t pid = waitpid(client.CGI.childPid, NULL, WNOHANG);
+    wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(client.CGI.childPid), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     const char* data = client.request.body.c_str();
     ssize_t written;
-    if (cgi.isFdWritable(cgi.writeCGIPipe[1]))
+    if (client.CGI.isFdWritable(client.CGI.writeCGIPipe[1]))
     {
         if (!client.request.body.empty())
         {
-            written = write(cgi.writeCGIPipe[1], data, 300);
+            written = write(client.CGI.writeCGIPipe[1], data, 300);
             wslog.writeToLogFile(DEBUG, "Writing to CGI pipe bytes written" + std::to_string(written), true);
             if (written <= 0) 
             {
@@ -368,30 +368,30 @@ static void handleCGI(Client& client, int loop)
             else
                 client.request.body = client.request.body.substr(written);
         }
-        if (client.request.body.empty() && cgi.writeCGIPipe[1] != -1) 
+        if (client.request.body.empty() && client.CGI.writeCGIPipe[1] != -1) 
         {
-            close(cgi.writeCGIPipe[1]);
-            cgi.writeCGIPipe[1] = -1;
+            close(client.CGI.writeCGIPipe[1]);
+            client.CGI.writeCGIPipe[1] = -1;
         }
     }
-    if (cgi.isFdReadable(cgi.readCGIPipe[0]))
+    if (client.CGI.isFdReadable(client.CGI.readCGIPipe[0]))
     {
         char buffer[4096];
         ssize_t n;
         wslog.writeToLogFile(DEBUG, "Reading CGI output", true);
-        n = read(cgi.readCGIPipe[0], buffer, sizeof(buffer));
+        n = read(client.CGI.readCGIPipe[0], buffer, sizeof(buffer));
         if (n > 0)
-            cgi.output.append(buffer, n);
+            client.CGI.output.append(buffer, n);
         wslog.writeToLogFile(DEBUG, "Read from CGI bytes: " + std::to_string(n), true);
     }
-    if (pid == cgi.childPid)
+    if (pid == client.CGI.childPid)
     {
         wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes closed", true);
-        close(cgi.readCGIPipe[0]);
+        close(client.CGI.readCGIPipe[0]);
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.pipeFd);
-        client.response.push_back(cgi.generateCGIResponse());
-        cgi.output.clear();
+        client.CGI.collectCGIOutput(client.pipeFd);
+        client.response.push_back(client.CGI.generateCGIResponse());
+        client.CGI.output.clear();
         client.state = SEND;
         // IT SEEMS THAT CGI EXTENSION RULE TAKES PRECEDENCE OVER IS ALLOWED METHOD RULES IN LOCATION
         // SO IF THE EXTENSION IS CORRECT IT SHOULD BE EXECUTED EVEN IF THE METHOD IS NOT ALLOWED
@@ -448,8 +448,8 @@ static void readChunkedBody(Client &client, int loop)
         {
             wslog.writeToLogFile(DEBUG, "Handling CGI after chunked body", true);
             client.state = HANDLE_CGI;
-            cgi.setEnvValues(client);
-            client.pipeFd = cgi.executeCGI(client);
+            client.CGI.setEnvValues(client.request, client.serverInfo);
+            client.pipeFd = client.CGI.executeCGI(client.request, client.serverInfo);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -493,8 +493,8 @@ static void checkBody(Client &client, int loop)
         {
             std::cout << "BODY CGI" << std::endl;
             client.state = HANDLE_CGI;
-            cgi.setEnvValues(client);
-            client.pipeFd = cgi.executeCGI(client);
+            client.CGI.setEnvValues(client.request, client.serverInfo);
+            client.pipeFd = client.CGI.executeCGI(client.request, client.serverInfo);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
