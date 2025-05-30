@@ -15,7 +15,7 @@ static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
-CGIHandler cgi;
+// CGIHandler cgi;
 // int eventFD; //remove when making eventLoop into a class?
 int timerFD; //remove when making eventLoop into a class?
 int nChildren;
@@ -376,14 +376,20 @@ static void readChunkedBody(Client &client, int loop)
 static void handleCGI(Client& client, int loop)
 {
     // wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    pid_t pid = waitpid(cgi.childPid, NULL, WNOHANG);
+    pid_t pid = waitpid(client.CGI.getChildPid(), NULL, WNOHANG);
     // wslog.writeToLogFile(DEBUG, "cgi.childPid is: " + std::to_string(cgi.childPid), true);
     // wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
-    if (pid == cgi.childPid)
+    if (pid == client.CGI.getChildPid())
     {
+        if (!client.request.body.empty())
+        {
+            wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
+            write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
+        }
+        close(client.CGI.getWritePipe());
         // wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.pipeFd);
-        client.response.push_back(cgi.generateCGIResponse());
+        client.CGI.collectCGIOutput(client.pipeFd);
+        client.response.push_back(client.CGI.generateCGIResponse());
         client.state = SEND;
         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
             client.response.back() = HTTPResponse(405, "Method not allowed");
@@ -392,6 +398,11 @@ static void handleCGI(Client& client, int loop)
         nChildren--;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
+    }
+    if (!client.request.body.empty())
+    {
+        wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
+        write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
     }
 }
 
@@ -430,10 +441,10 @@ static void checkBody(Client &client, int loop)
             client.request.body = client.rawReadData;
             std::cout << "BODY CGI" << std::endl;
             client.state = HANDLE_CGI;
-            cgi.setEnvValues(client);
+            client.CGI.setEnvValues(client.request, client.serverInfo);
             if (!checkMethods(client, loop))
                 return ;
-            client.pipeFd = cgi.executeCGI(client);
+            client.pipeFd = client.CGI.executeCGI(client.request, client.serverInfo);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -525,10 +536,10 @@ void handleClientRecv(Client& client, int loop)
                     if (client.request.isCGI == true)
                     {
                         client.state = HANDLE_CGI;
-                        cgi.setEnvValues(client);
+                        client.CGI.setEnvValues(client.request, client.serverInfo);
                         if (!checkMethods(client, loop))
                             return ;
-                        client.pipeFd = cgi.executeCGI(client);
+                        client.pipeFd = client.CGI.executeCGI(client.request, client.serverInfo);
                         struct itimerspec timerValues { };
                         if (nChildren == 0) //before first child
                         {

@@ -1,15 +1,12 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "Client.hpp"
 #include "Logger.hpp"
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/timerfd.h>
-
-// std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
-
-class Client;
 
 class CGIHandler
 {
@@ -21,11 +18,14 @@ class CGIHandler
         int readCGIPipe[2]; //outPipe
         std::string fullPath;
         std::string output;
+        int childPid;
     public:
         pid_t childPid;
         CGIHandler();
-        void setEnvValues(Client client);
-        int executeCGI(Client& client);
+        void setEnvValues(HTTPRequest& request, ServerConfig server);
+        int executeCGI(HTTPRequest& request, ServerConfig server);
         HTTPResponse generateCGIResponse();
         void collectCGIOutput(int readFd);
+        int getWritePipe();
+        int getChildPid();
 };
