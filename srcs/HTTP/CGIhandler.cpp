@@ -31,20 +31,12 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
-<<<<<<< HEAD
 	std::string PATH_INFO = client.request.pathInfo.empty() ? client.request.path : client.request.pathInfo;
 	envVariables = {"REQUEST_METHOD=" + client.request.method,
 					"SCRIPT_FILENAME=" + std::string(absPath),
 					"SCRIPT_NAME=" + client.request.path,
 					"QUERY_STRING=" + client.request.query,
 					"PATH_INFO=" + PATH_INFO,
-=======
-	envVariables = {"REQUEST_METHOD=" + request.method,
-					"SCRIPT_FILENAME=" + std::string(absPath),
-					"SCRIPT_NAME=" + request.path,
-					"QUERY_STRING=" + request.query,
-					"PATH_INFO=" + request.pathInfo,
->>>>>>> http-cgi-file-handling
 					"REDIRECT_STATUS=200",
 					"SERVER_PROTOCOL=HTTP/1.1",
 					"GATEWAY_INTERFACE=CGI/1.1",
@@ -162,15 +154,6 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 	// childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
-<<<<<<< HEAD
-=======
-	if (!request.body.empty())
-	{
-		wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
-		write(writeCGIPipe[1], request.body.c_str(), 300);
-	}
-	close(writeCGIPipe[1]);
->>>>>>> http-cgi-file-handling
 	return readCGIPipe[0];
 }
 

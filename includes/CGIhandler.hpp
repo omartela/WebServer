@@ -19,15 +19,12 @@ class CGIHandler
         std::string output;
         int writeCGIPipe[2]; //inPipe
         int readCGIPipe[2]; //outPipe
-<<<<<<< HEAD
         pid_t childPid;
-=======
         std::string fullPath;
         std::string output;
         int childPid;
     public:
         // pid_t childPid;
->>>>>>> http-cgi-file-handling
         CGIHandler();
         void setEnvValues(HTTPRequest& request, ServerConfig server);
         int executeCGI(HTTPRequest& request, ServerConfig server);
