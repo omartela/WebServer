@@ -16,7 +16,7 @@ with open("/tmp/cgi_was_run.txt", "a") as f:
             chunks.append(chunk)
         body = b''.join(chunks)
     except Exception as e:
-        print("Content-Type: text/plain\n")
+        print("Content-Type: asdadasdasd/plain\n")
         print("Error reading stdin:", e)
         sys.exit(1)
 

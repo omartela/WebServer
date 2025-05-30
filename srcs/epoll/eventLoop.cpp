@@ -359,7 +359,8 @@ static void handleCGI(Client& client, int loop)
     {
         if (!client.request.body.empty())
         {
-            written = write(cgi.writeCGIPipe[1], data, client.request.body.size());
+            written = write(cgi.writeCGIPipe[1], data, 300);
+            wslog.writeToLogFile(DEBUG, "Writing to CGI pipe bytes written" + std::to_string(written), true);
             if (written <= 0) 
             {
                 wslog.writeToLogFile(DEBUG, "write() failed: " + std::string(strerror(errno)), true);
@@ -381,7 +382,7 @@ static void handleCGI(Client& client, int loop)
         n = read(cgi.readCGIPipe[0], buffer, sizeof(buffer));
         if (n > 0)
             cgi.output.append(buffer, n);
-        wslog.writeToLogFile(DEBUG, "CGI output read: " + cgi.output, true);
+        wslog.writeToLogFile(DEBUG, "Read from CGI bytes: " + std::to_string(n), true);
     }
     if (pid == cgi.childPid)
     {

@@ -28,11 +28,12 @@ void CGIHandler::setEnvValues(Client client)
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
+	std::string PATH_INFO = client.request.pathInfo.empty() ? client.request.path : client.request.pathInfo;
 	envVariables = {"REQUEST_METHOD=" + client.request.method,
 					"SCRIPT_FILENAME=" + std::string(absPath),
 					"SCRIPT_NAME=" + client.request.path,
 					"QUERY_STRING=" + client.request.query,
-					"PATH_INFO=" + client.request.pathInfo,
+					"PATH_INFO=" + PATH_INFO,
 					"REDIRECT_STATUS=200",
 					"SERVER_PROTOCOL=HTTP/1.1",
 					"GATEWAY_INTERFACE=CGI/1.1",
@@ -44,7 +45,10 @@ void CGIHandler::setEnvValues(Client client)
 	std::string conLen = client.request.headers.count("Content-Length") > 0 ? client.request.headers.at("Content-Length") : "0";
 	envVariables.push_back("CONTENT_LENGTH=" + conLen);
 	for (size_t i = 0; i < envVariables.size(); i++)
+	{
 		envArray[i] = (char *)envVariables.at(i).c_str();
+		wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
+	}
 	envArray[envVariables.size()] = NULL;
 	exceveArgs[0] = (char *)client.serverInfo.routes.at(client.request.location).cgiexecutable.c_str();
 	exceveArgs[1] = absPath;
