@@ -43,6 +43,7 @@ static std::string getMimeType(const std::string& ext)
         {".html", "text/html"},
         {".css", "text/css"},
         {".js", "application/javascript"},
+        {".json", "application/json"},
         {".png", "image/png"},
         {".jpg", "image/jpeg"},
         {".jpeg", "image/jpeg"},
@@ -273,8 +274,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    wslog.writeToLogFile(INFO, "Path :" + fullPath, true);
-    wslog.writeToLogFile(INFO, "index file: " + client.serverInfo.routes[client.request.location].index_file, true);
+    // wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
     if (fullPath.find("..") != std::string::npos)
     {
         wslog.writeToLogFile(ERROR, "403 Forbidden", false);
@@ -292,7 +292,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         // wslog.writeToLogFile(DEBUG, "We are here", true);
         fullPath = join_paths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
-        wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
+        // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
         if (!file.is_open())
         {
             wslog.writeToLogFile(ERROR, "404, Not Found", false);
@@ -322,7 +322,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
-    wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
+    // wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
     std::string ext = getFileExtension(fullPath);
     wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
     return generateSuccessResponse(content.str(), getMimeType(ext));
@@ -371,7 +371,12 @@ HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
-    printRequest(client.request);
+    // printRequest(client.request);
+    for (size_t i = 0; i < client.request.file.size(); i++)
+    {
+        if (isspace(client.request.file[i]))
+            return HTTPResponse(403, "Whitespace in filename");
+    }
     std::string fullPath = "." + join_paths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);

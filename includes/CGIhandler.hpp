@@ -1,7 +1,9 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "Client.hpp"
+#include "Logger.hpp"
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/timerfd.h>
@@ -21,8 +23,9 @@ class CGIHandler
         int readCGIPipe[2]; //outPipe
         std::string fullPath;
         std::string output;
+        int childPid;
     public:
-        pid_t childPid;
+        // pid_t childPid;
         CGIHandler();
         void    setEnvValues(Client client);
         void    executeCGI(Client& client);
@@ -30,4 +33,7 @@ class CGIHandler
         void    setOutput(std::string newOutput);
         void    writeBodyToChild(Client& client);
         HTTPResponse generateCGIResponse();
+        void collectCGIOutput(int readFd);
+        int getWritePipe();
+        int getChildPid();
 };

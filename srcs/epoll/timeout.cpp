@@ -132,7 +132,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             }
         } 
 
-        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
+        // wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " allowed to continue!", true);
 
         if (client.state == READ_HEADER || client.state == READ_BODY)
             client.previousDataAmount = client.rawReadData.size();

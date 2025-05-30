@@ -10,7 +10,7 @@
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPRequest.hpp"
-//#include "CGIhandler.hpp"
+#include "CGIhandler.hpp"
 
 #define READ_BUFFER_SIZE 8192
 
@@ -42,7 +42,7 @@ class Client {
 
         HTTPRequest                     request;
         std::vector<HTTPResponse>       response;
-        //CGIHandler                      CGIResponse;
+        CGIHandler                      CGI;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         
         int childWritePipeFd;

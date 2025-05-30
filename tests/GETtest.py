@@ -24,7 +24,7 @@ valid_get = (
 
 # GET with query
 get_query = (
-    "GET /search?q=test&page=2 HTTP/1.1\r\n"
+    "GET /product.html?item=Laptop&color=Green HTTP/1.1\r\n"
     "Host: tests.com\r\n"
     "\r\n"
 )
@@ -62,5 +62,5 @@ get_with_body = (
 )
 
 # Run them all
-for req in [valid_get, get_query]:#, get_with_headers, invalid_space_path, lowercase_get, get_with_body]:
+for req in [valid_get, get_query, get_with_headers, invalid_space_path]:#, lowercase_get, get_with_body]:
     send_raw_request(req)
