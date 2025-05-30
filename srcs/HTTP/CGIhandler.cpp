@@ -114,7 +114,7 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 		// std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
 		_exit(1);
 	}
-	childPid = childPid;
+	// childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
 	if (!request.body.empty())

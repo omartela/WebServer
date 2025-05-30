@@ -20,7 +20,7 @@ class CGIHandler
         std::string output;
         int childPid;
     public:
-        pid_t childPid;
+        // pid_t childPid;
         CGIHandler();
         void setEnvValues(HTTPRequest& request, ServerConfig server);
         int executeCGI(HTTPRequest& request, ServerConfig server);
