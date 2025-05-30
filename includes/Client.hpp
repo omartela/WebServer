@@ -45,9 +45,9 @@ class Client {
         CGIHandler                      CGI;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         
-        int childWritePipeFd;
-        int childReadPipeFd;
-        int childPid;
+        //int childWritePipeFd;
+        //int childReadPipeFd;
+        //int childPid;
         int childTimerFd;
 
         Client();

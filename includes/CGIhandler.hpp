@@ -24,16 +24,16 @@ class CGIHandler
         std::string fullPath;
         std::string output;
         int childPid;
+
     public:
         // pid_t childPid;
         CGIHandler();
-        void    setEnvValues(Client client);
-        void    executeCGI(Client& client);
-        void    collectCGIOutput(Client& client);
-        void    setOutput(std::string newOutput);
-        void    writeBodyToChild(Client& client);
-        HTTPResponse generateCGIResponse();
-        void collectCGIOutput(int readFd);
-        int getWritePipe();
-        int getChildPid();
+        void            setEnvValues(HTTPRequest& request, ServerConfig server);
+        void            executeCGI(HTTPRequest& request, ServerConfig server);
+        void            writeBodyToChild(HTTPRequest& request);
+        HTTPResponse    generateCGIResponse();
+        void            collectCGIOutput(int readFd);
+        int             getWritePipe();
+        int             getReadPipe();
+        int             getChildPid();
 };

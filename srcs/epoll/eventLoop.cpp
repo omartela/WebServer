@@ -43,14 +43,14 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
             throw std::runtime_error("serverSocket epoll_ctl ADD failed");
         servers[serverSocket] = newServer;
-        // std::cout << "New server #" << i << " connected, got FD " << newServer.fd << std::endl;
+        wslog.writeToLogFile(INFO, "New server #" + std::to_string(i) + " connected, got FD " +  std::to_string(newServer.fd), true);
     }
 
     //create and setup timerFd to check timeouts
     timerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFD < 0)
         std::runtime_error("failed to create timerfd");
-    // wslog.writeToLogFile(INFO, "Timerfd created, it got FD" + std::to_string(timerFD), true);
+    wslog.writeToLogFile(INFO, "Timerfd created, it got FD" + std::to_string(timerFD), true);
     setup.data.fd = timerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFD, &setup) < 0)
         throw std::runtime_error("Failed to add timerFd to epoll");
@@ -61,7 +61,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (childTimerFD < 0)
         std::runtime_error("failed to create childTimerFD");
-    // wslog.writeToLogFile(INFO, "childTimerFD created, it got FD" + std::to_string(childTimerFD), true);
+    wslog.writeToLogFile(INFO, "childTimerFD created, it got FD" + std::to_string(childTimerFD), true);
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
@@ -73,7 +73,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         {
             if (errno == EINTR)
             {
-                // wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
+                wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
                 continue;
             }
             else
@@ -94,7 +94,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
-                // std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
+                std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
                 if (timerOn == false)
                 {
                     timerValues.it_value.tv_sec = TIMEOUT;
@@ -108,7 +108,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             {
                 if (clients.empty())
                 {
-                    // wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
+                    wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
                     timerValues.it_value.tv_sec = 0;
                     timerValues.it_interval.tv_sec = 0;
                     timerfd_settime(timerFD, 0, &timerValues, 0); //stop timer
@@ -123,7 +123,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
             else if (fd == childTimerFD)
             {
-                // wslog.writeToLogFile(INFO, "Time to check children! The amount of children is " + std::to_string(nChildren), true);
+                wslog.writeToLogFile(INFO, "Time to check children! The amount of children is " + std::to_string(nChildren), true);
                 checkChildrenStatus(childTimerFD, clients, loop, nChildren);
                 if (nChildren == 0)
                 {
@@ -138,25 +138,20 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    // if (client.request.isCGI && client.cgiFD) //this maybe not needed?
-                    // {
-
-                    //     handleCGI(client);
-                    // }
-                    // std::cout << "EPOLLIN fd " << fd << std::endl;
+                    wslog.writeToLogFile(INFO, "EPOLLIN fd " + std::to_string(fd), true);
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd), loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    // std::cout << "EPOLLOUT" << std::endl;
+                    wslog.writeToLogFile(INFO, "EPOLLOUT", true);
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd), loop);
                 }
                 if (clients.at(fd).erase == true)
                 if (clients.at(fd).erase == true)
                 {
-                    // std::cout << "client erased" << std::endl;
+                    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " erased", true);
                     clients.erase(fd);
                 }
             }
@@ -312,7 +307,7 @@ static bool validateChunkedBody(Client &client)
             // wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
             // wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
             // wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
+            // wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
             // wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
             return false;
         }
@@ -367,22 +362,21 @@ static void handleCGI(Client& client, int loop)
 
     if (client.request.body.empty() == false)
     {
-        std::cout << "BODY NOT EMPTY\n";
-        cgi.writeBodyToChild(client);
+        std::cout << "BODY NOT EMPTY\n"; //REMOVE LATER
+        client.CGI.writeBodyToChild(client.request);
     }
     else
-        std::cout << "BODY EMPTY\n";
-    cgi.collectCGIOutput(client);
-    pid_t pid = waitpid(client.childPid, NULL, WNOHANG);
+        std::cout << "BODY EMPTY\n"; //REMOVE LATER
+    client.CGI.collectCGIOutput(client.CGI.getReadPipe());
+    pid_t pid = waitpid(client.CGI.getChildPid(), NULL, WNOHANG);
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.childPid), true);
+    wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
-    if (pid == client.childPid)
+    if (pid == client.CGI.getChildPid())
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        cgi.collectCGIOutput(client.pipeFd);
-        //client.CGI.collectCGIOutput(client.pipeFd);
-        client.response.push_back(cgi.generateCGIResponse());
+        client.CGI.collectCGIOutput(client.CGI.getReadPipe());
+        client.response.push_back(client.CGI.generateCGIResponse());
         client.state = SEND;
         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
             client.response.back() = HTTPResponse(405, "Method not allowed");
@@ -392,11 +386,11 @@ static void handleCGI(Client& client, int loop)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-    if (!client.request.body.empty())
-    {
-        wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
-        write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
-    }
+    // if (!client.request.body.empty()) //??
+    // {
+    //     wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
+    //     write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
+    // }
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -429,7 +423,7 @@ static void checkBody(Client &client, int loop)
             client.CGI.setEnvValues(client.request, client.serverInfo);
             if (checkMethods(client, loop) == false)
                 return ;
-            client.CGI.executeCGI(client);
+            client.CGI.executeCGI(client.request, client.serverInfo);
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -518,15 +512,15 @@ void handleClientRecv(Client& client, int loop)
                     return;
                 }
 
-                else
+                else\
                 {
                     if (client.request.isCGI == true)
                     {
                         client.state = HANDLE_CGI;
-                        cgi.setEnvValues(client);
+                        client.CGI.setEnvValues(client.request, client.serverInfo);
                         if (checkMethods(client, loop) == false)
                             return ;
-                        cgi.executeCGI(client);
+                        client.CGI.executeCGI(client.request, client.serverInfo);
                         if (client.childReadPipeFd < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
@@ -569,7 +563,7 @@ void handleClientRecv(Client& client, int loop)
         }
         case READ_BODY:
         {
-            // wslog.writeToLogFile(INFO, "IN READ BODY", true);
+            wslog.writeToLogFile(INFO, "IN READ BODY", true);
             client.bytesRead = 0;
             char buffer2[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
@@ -598,10 +592,11 @@ void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
         {
-            //wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
+            wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
             return handleCGI(client, loop);
         }
 		case SEND:
+        {
             return;
         }
     }
