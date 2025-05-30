@@ -142,6 +142,20 @@ void Parser::parseAutoIndexDirective(const std::string& line, Route& route)
         route.autoindex = true;
 }
 
+void Parser::parseCgiMethodsDirective(const std::string& line, Route& route)
+{
+    size_t pos = line.find("cgi_methods ") + 12; // Skip "cgi_methods "
+    size_t end_pos = line.find(";");
+    std::string methods = line.substr(pos, end_pos - pos);
+    size_t space_pos = 0;
+    while ((space_pos = methods.find(" ")) != std::string::npos)
+    {
+        route.cgi_methods.push_back(methods.substr(0, space_pos));
+        methods.erase(0, space_pos + 1);
+    }
+    route.cgi_methods.push_back(methods); // Add the last method
+}
+
 void Parser::parseAllowMethodsDirective(const std::string& line, Route& route)
 {
     size_t pos = line.find("allow_methods ") + 14; // Skip "allow_methods "
@@ -214,6 +228,10 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         else if (line.find("autoindex ") != std::string::npos)
         {
            parseAutoIndexDirective(line, route);
+        }
+        else if (line.find("cgi_methods ") != std::string::npos)
+        {
+            parseCgiMethodsDirective(line, route);
         }
         else if (line.find("allow_methods ") != std::string::npos)
         {
@@ -367,6 +385,15 @@ bool Parser::validateAutoIndexDirective(const std::string& line)
         return false;
 }
 
+bool Parser::validateCgiMethodsDirective(const std::string& line)
+{
+    std::regex cgi_methods_regex(R"(^\s*cgi_methods\s+(GET|POST|DELETE)(\s+(GET|POST|DELETE))*;$)");
+    if (std::regex_match(line, cgi_methods_regex))
+        return true;
+    else
+        return false;
+}
+
 bool Parser::validateAllowMethodsDirective(const std::string& line)
 {
     std::regex allow_methods_regex(R"(^\s*allow_methods\s+(GET|POST|DELETE)(\s+(GET|POST|DELETE))*;$)");
@@ -451,7 +478,7 @@ bool Parser::validateDirectives(const std::string& line)
     if (validateServerDirective(line) || validateListenDirective(line) || validateServerNameDirective(line) ||
         validateClientMaxBodySizeDirective(line) || validateErrorPageDirective(line) || validateLocationDirective(line) ||
         validateAbsPathDirective(line) || validateIndexDirective(line) || validateAutoIndexDirective(line) ||
-        validateAllowMethodsDirective(line) || validateReturnDirective(line) || validateUploadPathDirective(line) ||
+        validateAllowMethodsDirective(line) || validateCgiMethodsDirective(line) || validateReturnDirective(line) || validateUploadPathDirective(line) ||
         validateCgiExtensionDirective(line))
     {
         return true;

@@ -367,21 +367,25 @@ static void handleCGI(Client& client, int loop)
             else
                 client.request.body = client.request.body.substr(written);
         }
-        else
-            write(cgi.writeCGIPipe[1], "a", 1);
+        if (client.request.body.empty() && cgi.writeCGIPipe[1] != -1) 
+        {
+            close(cgi.writeCGIPipe[1]);
+            cgi.writeCGIPipe[1] = -1;
+        }
     }
     if (cgi.isFdReadable(cgi.readCGIPipe[0]))
     {
         char buffer[4096];
         ssize_t n;
+        wslog.writeToLogFile(DEBUG, "Reading CGI output", true);
         n = read(cgi.readCGIPipe[0], buffer, sizeof(buffer));
         if (n > 0)
             cgi.output.append(buffer, n);
+        wslog.writeToLogFile(DEBUG, "CGI output read: " + cgi.output, true);
     }
     if (pid == cgi.childPid)
     {
         wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes closed", true);
-        close(cgi.writeCGIPipe[1]);
         close(cgi.readCGIPipe[0]);
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         cgi.collectCGIOutput(client.pipeFd);
@@ -409,7 +413,6 @@ static void readChunkedBody(Client &client, int loop)
     }
     if (!validateChunkedBody(client))
     {
-        client.request.body = client.chunkBuffer;
         if (client.request.isCGI == false)
         {
             if (checkMethods(client, loop) == false)
@@ -484,9 +487,9 @@ static void checkBody(Client &client, int loop)
     auto CL = client.request.headers.find("Content-Length");
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
+        client.request.body = client.rawReadData;
         if (client.request.isCGI == true)
         {
-            client.request.body = client.rawReadData;
             std::cout << "BODY CGI" << std::endl;
             client.state = HANDLE_CGI;
             cgi.setEnvValues(client);
@@ -503,7 +506,6 @@ static void checkBody(Client &client, int loop)
             handleCGI(client, loop);
             return ;
         }
-        client.request.body = client.rawReadData;
         client.response.push_back(RequestHandler::handleRequest(client));
         if (client.response.back().getStatusCode() >= 400)
             client.response.back() = client.response.back().generateErrorResponse(client.response.back());
@@ -668,8 +670,8 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
-    // wslog.writeToLogFile(INFO, "IN SEND", true);
-    // wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    wslog.writeToLogFile(INFO, "IN SEND", true);
+    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     // wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
