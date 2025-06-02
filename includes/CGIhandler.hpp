@@ -26,6 +26,7 @@ class CGIHandler
         std::string fullPath;
         std::string output;
         std::string tempFileName;
+        bool FileOpen;
 
     public:
         // pid_t childPid;
