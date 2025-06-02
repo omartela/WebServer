@@ -80,6 +80,12 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         {
             if (errno == EINTR)
                 continue;
+            }
+            if (errno == EPIPE)
+            {
+                checkClosedClients(clients, loop, nChildren);
+                continue;
+            }
             else
                 throw std::runtime_error("epoll_wait failed");
         }
