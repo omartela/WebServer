@@ -40,6 +40,7 @@ int childTimerFD; //remove when making eventLoop into a class?
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
+    signal(SIGPIPE, handleSIGPIPE);
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;

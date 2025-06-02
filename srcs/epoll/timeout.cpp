@@ -2,6 +2,12 @@
 #include "Logger.hpp"
 #include "Client.hpp"
 
+void handleSIGPIPE(int signum) 
+{ 
+    (void)signum;
+    return ;
+}
+
 void closeClient(Client& client, std::map<int, Client>& clients, int& children, int loop)
 {
     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -25,7 +31,7 @@ void checkClosedClients(std::map<int, Client>& clients, int loop, int& children)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, checkedClient.fd, nullptr) < 0)
                 throw std::runtime_error("timeout epoll_ctl DEL failed in checkClosedClients");
-            closeClient(checkedClient, clients, children);
+            closeClient(checkedClient, clients, children, loop);
         }
     }
 }
