@@ -5,6 +5,8 @@
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 #include "Logger.hpp"
+#include <sys/stat.h>
+
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -261,7 +263,7 @@ static long long unsigned HexStrToUnsignedLongLong(std::string str)
 
 static bool validateChunkedBody(Client &client)
 {
-    while (client.chunkBuffer.empty() == false)
+   while (client.chunkBuffer.empty() == false)
     {
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
@@ -282,49 +284,7 @@ static bool validateChunkedBody(Client &client)
         {
             if (!std::isxdigit(str[i]))
             {
-                // wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
-                return false;
-            }
-            bytes = HexStrToUnsignedLongLong(str);
-            long long unsigned i = 0;
-            while (str[i] != '\r' && i < str.size())
-            {
-                if (!std::isxdigit(str[i]))
-                {
-                    // wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
-                    return false;
-                }
-                i++;
-            }
-            if (bytes == 0)
-            {
-                if (str.substr(1, 4) == "\r\n\r\n")
-                    return true;
-                else
-                {
-                    // wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
-                    return false;
-                }
-            }
-            if (str.size() > (i + 1) && (str[i + 1] != '\n'))
-            {
-                // wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
-                return false;
-            }
-            str = str.substr(i + 2);
-            // After parsing chunk size and skipping header
-            if (str.size() < bytes + 2) // not enough data for chunk + trailing CRLF
-                return false; // wait for more data
-            /// tahan kohtaan kirjoitetaan tiedostoon validoitu chunkki
-            client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
-            str = str.substr(bytes);
-            if (str.substr(0, 2) != "\r\n")
-            {
-                // wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-                // wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-                // wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-                // wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-                // wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
+                wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
                 return false;
             }
             i++;
@@ -345,8 +305,12 @@ static bool validateChunkedBody(Client &client)
             return false;
         }
         str = str.substr(i + 2);
-        /// tahan kohtaan kirjoitetaan tiedostoon validoitu chunkkis
-        client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
+        if (client.request.FileUsed == true) 
+        {
+            // Write existing body to file
+
+            write(client.request.FileFd, str.substr(0, bytes).data(), bytes);
+        }
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
         {
@@ -366,27 +330,33 @@ static bool validateChunkedBody(Client &client)
 
 static void readChunkedBody(Client &client, int loop)
 {
-    /// jos tiedosto kaytossa ala lisaa chunked bufferiin .rawReadData
     if (client.request.FileUsed == false) // 1MB limit for chunked body
     {
         // Avataan tiedosto
         // Laitetaan flagi paalle etta tiedosto kaytossa
         // tarkista open palautusarvo
-        client.request.FileUsed == true;
-        client.request.FileIsOpen == true;
+        client.request.tempFileName = "tempSaveFile " + std::to_string(std::time(NULL));
+        client.request.FileFd = open(client.request.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+        if (client.request.FileFd == -1)
+            wslog.writeToLogFile(ERROR, "Opening temporary file for chunked request failed", true);
+        else
+        {
+            client.request.FileUsed = true;
+            client.request.FileIsOpen = true;
+        }
     }
     // tarkista onnistuiko tiedoston avaus
     // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
     if (client.request.FileIsOpen == true)
     {
-
-        client.chunkBuffer += client.rawReadData;
+        write(client.request.FileFd, client.rawReadData.data(), client.rawReadData.size());
         client.rawReadData.clear();
     }
 
     /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
-    if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
+    if (client.rawReadData.size() >= 5 && client.rawReadData.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
     {
+
         if (!validateChunkedBody(client))
         {
             client.response.push_back(HTTPResponse(400, "Bad request"));
@@ -397,9 +367,21 @@ static void readChunkedBody(Client &client, int loop)
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
         }
+        /// Tarkista onko FileIsUsed kaytossa
+        /// kayta stat funktiota katsomaan tiedoston koko
+        // laita tiedoston koko content-length
+        // sulje tiedosto.
+        if (client.request.FileUsed == false)
+        {
+            struct stat st;
+            if (stat(client.request.tempFileName.c_str(), &st) == 0)
+                client.request.headers["Content-Length"] = std::to_string(st.st_size);
+            else
+                client.request.headers["Content-Length"] = "0";
+            if (client.request.FileIsOpen == false)
+                close(client.request.FileFd);
+        }
         client.state = SEND;  // Kaikki chunkit luettu
-        client.request.body = client.chunkBuffer;  // Tallenna body
-        client.chunkBuffer = "";
         client.response.push_back(RequestHandler::handleRequest(client));
         // if (client.response.back().getStatusCode() >= 400)
         //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
