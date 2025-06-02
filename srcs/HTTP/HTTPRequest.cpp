@@ -102,7 +102,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
             // wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
             if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
             {
-                // wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
+                wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
                 if (std::find(server.routes.at(location).cgi_methods.begin(), server.routes.at(location).cgi_methods.end(), method) != server.routes.at(location).cgi_methods.end())
                     isCGI = true;
                 else

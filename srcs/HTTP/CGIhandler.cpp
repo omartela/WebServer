@@ -108,8 +108,15 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
 	if (request.FileUsed)
 	{
-		tempFileName = "tempCGIouput_" + std::to_string(std::time(NULL)); 
-		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDONLY, 0644);
+		tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+		FileOpen = true;
+		request.FileFd = open(request.tempFileName.c_str(), O_RDONLY, 0644);
+		if (request.FileFd == -1)
+		{
+			/// error
+			return -1;
+		}
 		writeCGIPipe[0] = request.FileFd;
 	}
     if (access(fullPath.c_str(), X_OK) != 0)
@@ -141,9 +148,12 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 		close(writeCGIPipe[0]);
 		close(readCGIPipe[1]);
 	}
-    int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
-    fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
-    flags = fcntl(readCGIPipe[0], F_GETFL);
-    fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+	if (!request.FileUsed)
+	{
+		int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
+		fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+		flags = fcntl(readCGIPipe[0], F_GETFL);
+		fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+	}
 	return 0;
 }
