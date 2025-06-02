@@ -24,3 +24,5 @@
 
 void eventLoop(std::vector<ServerConfig> serverConfigs);
 void handleClientRecv(Client& client, int loop);
+void handleSIGPIPE(int signum);
+void checkClosedClients(std::map<int, Client>& clients, int loop, int& children);

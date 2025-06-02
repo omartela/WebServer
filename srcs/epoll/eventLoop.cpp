@@ -76,6 +76,11 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
                 continue;
             }
+            if (errno == EPIPE)
+            {
+                checkClosedClients(clients, loop, nChildren);
+                continue;
+            }
             else
                 throw std::runtime_error("epoll_wait failed");
         }
