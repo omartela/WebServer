@@ -280,9 +280,6 @@ static bool validateChunkedBody(Client &client)
     {
         if (!std::isxdigit(str[i]))
         {
-<<<<<<< HEAD
-            wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
-=======
             // wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
@@ -325,7 +322,6 @@ static bool validateChunkedBody(Client &client)
             // wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
             // wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
             // wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
->>>>>>> testing
             return false;
         }
         i++;

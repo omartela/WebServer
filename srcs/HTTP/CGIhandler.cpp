@@ -73,51 +73,6 @@ HTTPResponse CGIHandler::generateCGIResponse()
 	return res;
 }
 
-<<<<<<< HEAD
-bool CGIHandler::isFdReadable(int fd) 
-{
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(fd, &readfds);
-
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0; // Non-blocking
-
-    int ret = select(fd + 1, &readfds, NULL, NULL, &timeout);
-    if (ret > 0 && FD_ISSET(fd, &readfds)) {
-        // Data is available to read
-        return true;
-    }
-    return false; // No data available
-}
-
-bool CGIHandler::isFdWritable(int fd) 
-{
-    fd_set writefds;
-    FD_ZERO(&writefds);
-    FD_SET(fd, &writefds);
-
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0; // Non-blocking
-
-    int ret = select(fd + 1, NULL, &writefds, NULL, &timeout);
-    if (ret > 0 && FD_ISSET(fd, &writefds)) {
-        // FD is writable
-        return true;
-    }
-    return false; // Not writable
-}
-
-void CGIHandler::collectCGIOutput(int readFd)
-{
-    char buffer[4096];
-    ssize_t n;
-
-    while ((n = read(readFd, buffer, sizeof(buffer))) > 0)
-        output.append(buffer, n);
-=======
 void CGIHandler::collectCGIOutput(int childReadPipeFd)
 {
     char buffer[65536];
@@ -133,7 +88,6 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
 
     //close(readFd);
->>>>>>> testing
 }
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)
@@ -178,9 +132,6 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     //client.childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
-<<<<<<< HEAD
-	return readCGIPipe[0];
-=======
 
     int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
     fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
@@ -191,5 +142,4 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     // client.childReadPipeFd = readCGIPipe[0];
 
 	return ;
->>>>>>> testing
 }
