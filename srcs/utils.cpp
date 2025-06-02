@@ -2,11 +2,19 @@
 #include "utils.hpp"
 #include <filesystem>
 
-std::atomic<int> signum = 0;
+std::atomic<int> eventFD = 0;
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2) //rename joinPaths
 {
     return path1 / path2;
+}
+
+void handleSIGPIPE(int signum) 
+{ 
+    //std::cout << "eventFD = " << eventFD << std::endl;
+    write(eventFD, &signum, sizeof(signum));
+    //std::cout << "written = " << written << std::endl;
+    return ;
 }
 
 bool validateHeader(HTTPRequest req)
