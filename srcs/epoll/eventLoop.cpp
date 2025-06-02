@@ -1,5 +1,12 @@
 #include "EventLoop.hpp"
 #include "timeout.hpp"
+#include "HTTPResponse.hpp"
+#include "Logger.hpp"
+#include "RequestHandler.hpp"
+#include "CGIhandler.hpp"
+#include "Logger.hpp"
+#include <sys/stat.h>
+
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -305,6 +312,69 @@ static bool validateChunkedBody(Client &client)
         client.chunkBuffer.erase(0, i + 2 + bytes + 2);
     }
     return true;
+}
+
+static void readChunkedBody(Client &client, int loop)
+{
+    if (client.request.FileUsed == false) // 1MB limit for chunked body
+    {
+        // Avataan tiedosto
+        // Laitetaan flagi paalle etta tiedosto kaytossa
+        // tarkista open palautusarvo
+        client.request.tempFileName = "tempSaveFile " + std::to_string(std::time(NULL));
+        client.request.FileFd = open(client.request.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+        if (client.request.FileFd == -1)
+            wslog.writeToLogFile(ERROR, "Opening temporary file for chunked request failed", true);
+        else
+        {
+            client.request.FileUsed = true;
+            client.request.FileIsOpen = true;
+        }
+    }
+    // tarkista onnistuiko tiedoston avaus
+    // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
+    if (client.request.FileIsOpen == true)
+    {
+        write(client.request.FileFd, client.rawReadData.data(), client.rawReadData.size());
+        client.rawReadData.clear();
+    }
+
+    /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
+    if (client.rawReadData.size() >= 5 && client.rawReadData.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
+    {
+
+        if (!validateChunkedBody(client))
+        {
+            client.response.push_back(HTTPResponse(400, "Bad request"));
+            if (client.response.back().getStatusCode() >= 400)
+                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+            client.writeBuffer = client.response.back().toString();
+            client.state = SEND;
+            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+            return ;
+        }
+        /// Tarkista onko FileIsUsed kaytossa
+        /// kayta stat funktiota katsomaan tiedoston koko
+        // laita tiedoston koko content-length
+        // sulje tiedosto.
+        if (client.request.FileUsed == false)
+        {
+            struct stat st;
+            if (stat(client.request.tempFileName.c_str(), &st) == 0)
+                client.request.headers["Content-Length"] = std::to_string(st.st_size);
+            else
+                client.request.headers["Content-Length"] = "0";
+            if (client.request.FileIsOpen == false)
+                close(client.request.FileFd);
+        }
+        client.state = SEND;  // Kaikki chunkit luettu
+        client.response.push_back(RequestHandler::handleRequest(client));
+        if (client.response.back().getStatusCode() >= 400)
+            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        client.writeBuffer = client.response.back().toString();
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return;
+    }
 }
 
 static void handleCGI(Client& client, int loop)
