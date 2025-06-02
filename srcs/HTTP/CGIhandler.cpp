@@ -103,6 +103,7 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
 }
 
 int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
@@ -123,12 +124,14 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
         return -1; //generate ERROR PAGE access forbidden
+        return -1; //generate ERROR PAGE access forbidden
     }
-    if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
+    if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
         return -1;
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
+        return -1;
         return -1;
     if (childPid == 0)
     {
@@ -143,17 +146,19 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
         std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
-	if (!request.FileUsed)
-	{
-		close(writeCGIPipe[0]);
-		close(readCGIPipe[1]);
-	}
-	if (!request.FileUsed)
-	{
-		int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
-		fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
-		flags = fcntl(readCGIPipe[0], F_GETFL);
-		fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
-	}
+	// Mieti mitka fd suljetaan kun on tiedosto kaytossa...
+
+    //client.childPid = childPid;
+	close(writeCGIPipe[0]);
+	close(readCGIPipe[1]);
+
+    int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
+    fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+    flags = fcntl(readCGIPipe[0], F_GETFL);
+    fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+
+    // client.childWritePipeFd = writeCGIPipe[1];
+    // client.childReadPipeFd = readCGIPipe[0];
+
 	return 0;
 }

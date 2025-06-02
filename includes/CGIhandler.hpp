@@ -32,7 +32,7 @@ class CGIHandler
         // pid_t childPid;
         CGIHandler();
         void            setEnvValues(HTTPRequest& request, ServerConfig server);
-        int            executeCGI(HTTPRequest& request, ServerConfig server);
+        int             executeCGI(HTTPRequest& request, ServerConfig server);
         void            writeBodyToChild(HTTPRequest& request);
         HTTPResponse    generateCGIResponse();
         void            collectCGIOutput(int readFd);
