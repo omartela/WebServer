@@ -25,8 +25,7 @@ class HTTPRequest
         std::string tempFileName;
         bool FileUsed;
         int FileFd;
-        bool FileIsOpen;
-        std::string tempFileName;  
+        bool FileIsOpen; 
         bool isCGI;
         HTTPRequest();
         HTTPRequest(std::string headers, ServerConfig server);
