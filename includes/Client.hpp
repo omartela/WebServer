@@ -34,7 +34,7 @@ class Client {
         size_t previousDataAmount;;
         std::string readBuffer;
         std::string writeBuffer;
-        std::string CGIOutput;
+        //std::string CGIOutput;
         int bytesRead;
         int bytesWritten;
         bool erase;

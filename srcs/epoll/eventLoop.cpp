@@ -362,12 +362,14 @@ static void handleCGI(Client& client, int loop)
 
     if (client.request.body.empty() == false)
     {
-        std::cout << "BODY NOT EMPTY\n"; //REMOVE LATER
+        std::cout << "WRITING\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
     else
-        std::cout << "BODY EMPTY\n"; //REMOVE LATER
-    client.CGI.collectCGIOutput(client.CGI.getReadPipe());
+    {
+        std::cout << "READING\n"; //REMOVE LATER
+        client.CGI.collectCGIOutput(client.CGI.getReadPipe());
+    }
     pid_t pid = waitpid(client.CGI.getChildPid(), NULL, WNOHANG);
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
     wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
@@ -512,7 +514,7 @@ void handleClientRecv(Client& client, int loop)
                     return;
                 }
 
-                else\
+                else
                 {
                     if (client.request.isCGI == true)
                     {
@@ -521,7 +523,7 @@ void handleClientRecv(Client& client, int loop)
                         if (checkMethods(client, loop) == false)
                             return ;
                         client.CGI.executeCGI(client.request, client.serverInfo);
-                        if (client.childReadPipeFd < 0)
+                        if (client.CGI.getReadPipe() < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
                             if (client.response.back().getStatusCode() >= 400)
@@ -557,8 +559,8 @@ void handleClientRecv(Client& client, int loop)
                     }
                 }
             }
-            else
-                return ;
+            // else
+            //     return ;
             return ;
         }
         case READ_BODY:
@@ -606,10 +608,10 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
-    // wslog.writeToLogFile(INFO, "IN SEND", true);
-    // wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    wslog.writeToLogFile(INFO, "IN SEND", true);
+    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-    // wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+    wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
         client.erase = true;
@@ -619,7 +621,7 @@ static void handleClientSend(Client &client, int loop)
         return ;
     }
     client.writeBuffer.erase(0, client.bytesWritten);
-    // wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
+    wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
     if (client.writeBuffer.empty())
     {
         std::string checkConnection;

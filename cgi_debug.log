@@ -1,0 +1,42 @@
+[2025-06-02 09:26:47] CGI script started
+[2025-06-02 09:26:47] Printed headers
+[2025-06-02 09:26:48] CGI script started
+[2025-06-02 09:26:48] Printed headers
+[2025-06-02 09:27:02] Read 1048576 bytes from stdin
+[2025-06-02 09:27:18] Wrote chunk 1 of size 1048576
+[2025-06-02 09:27:34] Wrote chunk 2 of size 1048576
+[2025-06-02 09:27:34] CGI script completed
+[2025-06-02 09:27:34] Read 1048576 bytes from stdin
+[2025-06-02 09:27:50] Wrote chunk 1 of size 1048576
+[2025-06-02 09:28:06] Wrote chunk 2 of size 1048576
+[2025-06-02 09:28:06] CGI script completed
+[2025-06-02 09:30:53] CGI script started
+[2025-06-02 09:30:53] Printed headers
+[2025-06-02 09:31:08] Read 1048576 bytes from stdin
+[2025-06-02 09:31:24] Wrote chunk 1 of size 1048576
+[2025-06-02 09:31:40] Wrote chunk 2 of size 1048576
+[2025-06-02 09:31:40] CGI script completed
+[2025-06-02 09:35:57] CGI script started
+[2025-06-02 09:35:57] Printed headers
+[2025-06-02 09:36:13] Read 1048578 bytes from stdin
+[2025-06-02 09:36:29] Wrote chunk 1 of size 1048578
+[2025-06-02 09:36:45] Wrote chunk 2 of size 1048578
+[2025-06-02 09:36:45] CGI script completed
+[2025-06-02 09:37:38] CGI script started
+[2025-06-02 09:37:38] Printed headers
+[2025-06-02 09:37:54] Read 1048578 bytes from stdin
+[2025-06-02 09:38:10] Wrote chunk 1 of size 1048578
+[2025-06-02 09:38:26] Wrote chunk 2 of size 1048578
+[2025-06-02 09:38:26] CGI script completed
+[2025-06-02 09:39:37] CGI script started
+[2025-06-02 09:39:37] Printed headers
+[2025-06-02 09:39:53] Read 1048578 bytes from stdin
+[2025-06-02 09:40:09] Wrote chunk 1 of size 1048578
+[2025-06-02 09:40:25] Wrote chunk 2 of size 1048578
+[2025-06-02 09:40:25] CGI script completed
+[2025-06-02 09:41:44] CGI script started
+[2025-06-02 09:41:44] Printed headers
+[2025-06-02 09:42:00] Read 1048578 bytes from stdin
+[2025-06-02 09:42:16] Wrote chunk 1 of size 1048578
+[2025-06-02 09:42:32] Wrote chunk 2 of size 1048578
+[2025-06-02 09:42:32] CGI script completed

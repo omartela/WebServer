@@ -8,7 +8,7 @@ CGI_PATH = '/cgi/big_echo.py'
 
 # Create a large POST body (e.g. 1MB)
 BODY_SIZE = 1024 * 1024  # 1 MB
-body = "A" * BODY_SIZE
+body = "0" * BODY_SIZE
 
 # Construct raw HTTP POST request
 request = (
@@ -17,7 +17,7 @@ request = (
     f"Content-Length: {len(body)}\r\n"
     f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
-    f"\r\n"
+    f"\r\n\r\n"
     f"{body}"
 )
 

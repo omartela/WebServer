@@ -31,7 +31,6 @@ Client& Client::operator=(const Client& copy)
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
-        this->CGIOutput = copy.CGIOutput;
         this->serverInfo = copy.serverInfo;
         this->request = copy.request;
     }
@@ -47,7 +46,6 @@ void Client::reset()
     this->previousDataAmount = 0;
     this->writeBuffer.clear();
     this->headerString.clear();
-    this->CGIOutput.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->erase = false;

@@ -47,6 +47,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 {
 	// std::cout << "GENERATING CGI RESPONSE\n";
 	std::string::size_type end = output.find("\r\n\r\n");
+    wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
 	if (end == std::string::npos)
 		return HTTPResponse(500, "Invalid CGI output");
 	std::string headers = output.substr(0, end);
@@ -70,7 +71,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 
 void CGIHandler::collectCGIOutput(int childReadPipeFd)
 {
-    char buffer[4096];
+    char buffer[65536];
     ssize_t n;
     //output.clear();
 
