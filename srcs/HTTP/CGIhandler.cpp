@@ -108,6 +108,7 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 	/// Duppaa se tiedoston fd STDIN_FILENO
 	/// Avaa uus tiedosto cgi vastauksen kirjoittamista varten
 	/// Duppaa STDOUT_FILENO uuden tiedoston fd:hen.
+
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
     if (access(fullPath.c_str(), X_OK) != 0)
