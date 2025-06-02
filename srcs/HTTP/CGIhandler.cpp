@@ -3,24 +3,13 @@
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
-CGIHandler::CGIHandler() {
-
-}
+CGIHandler::CGIHandler() { }
 
 int CGIHandler::getWritePipe() { return writeCGIPipe[1]; }
 
-int CGIHandler::getChildPid() { return childPid; }
+int CGIHandler::getReadPipe() {return readCGIPipe[0]; }
 
-// std::string  join_paths(const std::string& a, const std::string& b)
-// {
-// 	if (a.empty()) return b;
-// 	if (b.empty()) return a;
-// 	if (a[a.size() - 1] == '/' && b[0] =='/')
-// 		return a + b.substr(1);
-// 	if (a[a.size() -1] != '/' && b[0] != '/')
-// 		return a + "/" + b;
-// 	return a + b;
-// }
+int CGIHandler::getChildPid() { return childPid; }
 
 void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 {
@@ -62,6 +51,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 {
 	// std::cout << "GENERATING CGI RESPONSE\n";
 	std::string::size_type end = output.find("\r\n\r\n");
+    wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
 	if (end == std::string::npos)
 		return HTTPResponse(500, "Invalid CGI output");
 	std::string headers = output.substr(0, end);
@@ -79,9 +69,11 @@ HTTPResponse CGIHandler::generateCGIResponse()
 			res.headers[line.substr(0, colon)] = line.substr(colon + 2);
 	}
 	res.headers["Content-Length"] = std::to_string(res.body.size());
+    //output.clear //?
 	return res;
 }
 
+<<<<<<< HEAD
 bool CGIHandler::isFdReadable(int fd) 
 {
     fd_set readfds;
@@ -125,100 +117,79 @@ void CGIHandler::collectCGIOutput(int readFd)
 
     while ((n = read(readFd, buffer, sizeof(buffer))) > 0)
         output.append(buffer, n);
+=======
+void CGIHandler::collectCGIOutput(int childReadPipeFd)
+{
+    char buffer[65536];
+    ssize_t n;
+    //output.clear();
+
+    // while ((n = read(readFd, buffer, sizeof(buffer)) > 0)
+    //     output.append(buffer, n);
+
+    n = read(childReadPipeFd, buffer, sizeof(buffer));
+    if (n > 0)
+        output.append(buffer, n);
+    wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
+
+    //close(readFd);
+>>>>>>> testing
 }
 
-int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+void CGIHandler::writeBodyToChild(HTTPRequest& request)
 {
-	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
-	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
-	if (access(fullPath.c_str(), X_OK) != 0)
-		return -1; // ERROR PAGE access forbidden
-	if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
-		return -1;
-	// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
-	childPid = fork();
-	if (childPid != 0)
-		// wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
-	if (childPid == -1)
-		return -1;
-	if (childPid == 0)
-	{
-		dup2(writeCGIPipe[0], STDIN_FILENO);
-		dup2(readCGIPipe[1], STDOUT_FILENO);
-		close(writeCGIPipe[1]);
-		close(readCGIPipe[0]);
-		execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
-		// std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
-		_exit(1);
-	}
-	// childPid = childPid;
+    // write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
+    // close(writeCGIPipe[1]);
+    size_t written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
+    if (written > 0) 
+        request.body = request.body.substr(written);
+    wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
+    if (request.body.empty() == true)
+        close(writeCGIPipe[1]);
+}
+
+void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+{
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
+    if (access(fullPath.c_str(), X_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
+        return ; //generate ERROR PAGE access forbidden
+    }
+    if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
+        throw std::runtime_error("CGIHandler::executeCGI pipe creation failed");
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
+    childPid = fork();
+    if (childPid != 0)
+        wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
+    if (childPid == -1)
+        throw std::runtime_error("CGIHandler::executeCGI fork failed");
+    if (childPid == 0)
+    {
+        dup2(writeCGIPipe[0], STDIN_FILENO);
+        dup2(readCGIPipe[1], STDOUT_FILENO);
+        close(writeCGIPipe[1]);
+        close(readCGIPipe[0]);
+        execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
+        std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
+        _exit(1);
+    }
+    //client.childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
+<<<<<<< HEAD
 	return readCGIPipe[0];
+=======
+
+    int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
+    fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+    flags = fcntl(readCGIPipe[0], F_GETFL);
+    fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+
+    // client.childWritePipeFd = writeCGIPipe[1];
+    // client.childReadPipeFd = readCGIPipe[0];
+
+	return ;
+>>>>>>> testing
 }
-
-// void registerCGI(Client& client, int epollFd, CGIHandler& cgi, int cgiOutFd)
-// {
-//     client.cgiPid = cgi.childPid;
-//     client.cgiStdoutFd = cgiOutFd; //or register eventfd instead?
-//     client.isCGI = true;
-
-//     struct epoll_event ev;
-//     ev.events = EPOLLIN;
-//     ev.data.fd = cgiOutFd;
-//     if (epoll_ctl(epollFd, EPOLL_CTL_ADD, cgiOutFd, &ev) < 0)
-//         throw std::runtime_error("Failed to add CGI pipe to epoll");
-// }
-
-// HTTPResponse CGIHandler::executeCGI(Client& client)
-// {
-//     if (access(fullPath.c_str(), X_OK) != 0)
-//         return  HTTPResponse(403, "Forbidden");
-//     // int inPipe[2], outPipe[2];
-//     pipe(writeCGIPipe);//inPipe
-//     pipe(readCGIPipe);//outPipe
-//     pid_t pid = fork();
-//     if (pid == 0)
-//     {
-//         dup2(writeCGIPipe[0], STDIN_FILENO);
-//         dup2(readCGIPipe[1], STDOUT_FILENO);
-//         close(writeCGIPipe[1]);
-//         close(readCGIPipe[0]);
-//         execve(client.serverInfo.routes[client.request.location].cgiexecutable.c_str(), exceveArgs, envArray);
-//         _exit(1);
-//     }
-//     close(writeCGIPipe[0]);
-//     close(readCGIPipe[1]);
-//     write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
-//     close(readCGIPipe[1]);
-//     char buffer[4096];
-//     std::string output;
-//     ssize_t n;
-//     while ((n = read(readCGIPipe[0], buffer, sizeof(buffer))) > 0)
-//         output.append(buffer, n);
-//     close(readCGIPipe[0]);
-//     int childPid;
-//     childPid = waitpid(pid, NULL, WNOHANG);
-//     std::string::size_type end = output.find("\r\n\r\n");
-//     if (end == std::string::npos)
-//     return HTTPResponse(500, "Invalid CGI output");
-//     if (childPid == 0)
-//     {
-//         std::string headers = output.substr(0, end);
-//         std::string body = output.substr(end + 4);
-//         HTTPResponse res(200, "OK");
-//         res.body = body;
-//         std::istringstream header(headers);
-//         std::string line;
-//         while (std::getline(header, line))
-//         {
-//             if (line.back() == '\r')
-//                 line.pop_back();
-//             size_t colon = line.find(':');
-//             if (colon != std::string::npos)
-//                 res.headers[line.substr(0, colon)] = line.substr(colon + 2);
-//         }
-//         res.headers["Content-Length"] = std::to_string(res.body.size());
-//         return res;
-//     }
-// }

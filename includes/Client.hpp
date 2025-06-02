@@ -12,7 +12,7 @@
 #include "HTTPRequest.hpp"
 #include "CGIhandler.hpp"
 
-#define READ_BUFFER_SIZE 1000 //nginx has 8192?
+#define READ_BUFFER_SIZE 8192
 
 enum connectionStates {
     IDLE,
@@ -34,6 +34,7 @@ class Client {
         size_t previousDataAmount;;
         std::string readBuffer;
         std::string writeBuffer;
+        //std::string CGIOutput;
         int bytesRead;
         int bytesWritten;
         bool erase;
@@ -43,8 +44,10 @@ class Client {
         std::vector<HTTPResponse>       response;
         CGIHandler                      CGI;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
-        int pipeFd;
-        int childPid;
+        
+        //int childWritePipeFd;
+        //int childReadPipeFd;
+        //int childPid;
         int childTimerFd;
 
         Client();

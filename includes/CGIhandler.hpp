@@ -7,6 +7,11 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/timerfd.h>
+#include <fcntl.h>
+
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
+
+class Client;
 
 class CGIHandler
 {
@@ -20,6 +25,7 @@ class CGIHandler
         int readCGIPipe[2]; //outPipe
         pid_t childPid;
         std::string fullPath;
+<<<<<<< HEAD
         // pid_t childPid;
         CGIHandler();
         void setEnvValues(HTTPRequest& request, ServerConfig server);
@@ -31,4 +37,20 @@ class CGIHandler
         void collectCGIOutput(int readFd);
         int getWritePipe();
         int getChildPid();
+=======
+        std::string output;
+        int childPid;
+
+    public:
+        // pid_t childPid;
+        CGIHandler();
+        void            setEnvValues(HTTPRequest& request, ServerConfig server);
+        void            executeCGI(HTTPRequest& request, ServerConfig server);
+        void            writeBodyToChild(HTTPRequest& request);
+        HTTPResponse    generateCGIResponse();
+        void            collectCGIOutput(int readFd);
+        int             getWritePipe();
+        int             getReadPipe();
+        int             getChildPid();
+>>>>>>> testing
 };
