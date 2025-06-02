@@ -8,11 +8,6 @@ std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
     return path1 / path2;
 }
 
-void handleSIGPIPE()
-{
-    return ;
-}
-
 bool validateHeader(HTTPRequest req)
 {
     //check if request line is valid
