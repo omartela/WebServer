@@ -252,7 +252,7 @@ static bool validateChunkedBody(Client &client)
    while (client.chunkBuffer.empty() == false)
     {
         long long unsigned bytes;
-        std::string str = client.chunkBuffer;
+        std::string str = client.rawReadData;
         // Log the start (first 20 chars) and end (last 20 chars) of the buffer
         size_t logLen = 20;
         std::string start = str.substr(0, std::min(logLen, str.size()));
@@ -294,7 +294,6 @@ static bool validateChunkedBody(Client &client)
         if (client.request.FileUsed == true) 
         {
             // Write existing body to file
-
             write(client.request.FileFd, str.substr(0, bytes).data(), bytes);
         }
         str = str.substr(bytes);
@@ -381,102 +380,33 @@ static void readChunkedBody(Client &client, int loop)
             client.request.FileIsOpen = true;
         }
     }
-    // tarkista onnistuiko tiedoston avaus
-    // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
-    if (client.request.FileIsOpen == true)
-        write(client.request.FileFd, client.rawReadData.data(), client.rawReadData.size());
-
+    if (client.rawReadData.empty() || client.rawReadData.size() < 5 || client.rawReadData.substr(client.rawReadData.size() - 2) != "\r\n")
+    {
+        //wslog.writeToLogFile(DEBUG, "Chunk buffer is empty or does not end with \\r\\n, waiting for more data", true);
+        return ;
+    }
     /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
+    client.chunkBuffer += client.rawReadData;
+    wslog.writeToLogFile(DEBUG, "size is " + std::to_string(client.rawReadData.size()), true);
     if (client.rawReadData.size() >= 5 && client.rawReadData.substr(client.rawReadData.size() - 5) == "0\r\n\r\n")
     {
-
         if (!validateChunkedBody(client))
         {
-            client.response.push_back(HTTPResponse(400, "Bad request"));
-            if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-            client.writeBuffer = client.response.back().toString();
-            client.state = SEND;
-            toggleEpollEvents(client.fd, loop, EPOLLOUT);
-            return ;
-        }
-        /// Tarkista onko FileIsUsed kaytossa
-        /// kayta stat funktiota katsomaan tiedoston koko
-        // laita tiedoston koko content-length
-        // sulje tiedosto.
-        if (client.request.FileUsed == false)
-        {
-            struct stat st;
-            if (stat(client.request.tempFileName.c_str(), &st) == 0)
-                client.request.headers["Content-Length"] = std::to_string(st.st_size);
-            else
-                client.request.headers["Content-Length"] = "0";
-            if (client.request.FileIsOpen == false)
-                close(client.request.FileFd);
-        }
-        if (client.request.isCGI == true)
-        {
-            wslog.writeToLogFile(DEBUG, "Handling CGI after chunked body", true);
-            client.state = HANDLE_CGI;
-            client.CGI.setEnvValues(client.request, client.serverInfo);
-            client.CGI.executeCGI(client.request, client.serverInfo);
-            struct itimerspec timerValues { };
-            if (nChildren == 0) //before first child
+            if (client.request.isCGI == false)
             {
-                timerValues.it_value.tv_sec = CHILD_CHECK;
-                timerValues.it_interval.tv_sec = CHILD_CHECK;
-                timerfd_settime(childTimerFD, 0, &timerValues, 0); //there are children, check timeouts more often
+                if (RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes.at(client.request.location)) == false)
+                    return ;
             }
-            wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
-            nChildren++;
-            handleCGI(client, loop);
-            return ;
-        }
-        client.state = SEND;  // Kaikki chunkit luettu
-        client.response.push_back(RequestHandler::handleRequest(client));
-        if (client.response.back().getStatusCode() >= 400)
-            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-        client.writeBuffer = client.response.back().toString();
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return;
-    }
-     client.rawReadData.clear();
-}
-
-static void readChunkedBody(Client &client, int loop)
-{
-    if (client.request.FileUsed == false) // 1MB limit for chunked body
-    {
-        // Avataan tiedosto
-        // Laitetaan flagi paalle etta tiedosto kaytossa
-        // tarkista open palautusarvo
-        client.request.tempFileName = "/tmp/tempSaveFile " + std::to_string(std::time(NULL));
-        client.request.FileFd = open(client.request.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
-        if (client.request.FileFd == -1)
-            wslog.writeToLogFile(ERROR, "Opening temporary file for chunked request failed", true);
-        else
-        {
-            client.request.FileUsed = true;
-            client.request.FileIsOpen = true;
-        }
-    }
-    // tarkista onnistuiko tiedoston avaus
-    // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
-    if (client.request.FileIsOpen == true)
-        write(client.request.FileFd, client.rawReadData.data(), client.rawReadData.size());
-
-    /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
-    if (client.rawReadData.size() >= 5 && client.rawReadData.substr(client.rawReadData.size() - 5) == "0\r\n\r\n")
-    {
-
-        if (!validateChunkedBody(client))
-        {
-            client.response.push_back(HTTPResponse(400, "Bad request"));
-            client.writeBuffer = client.response.back().toString();
+            else
+            {
+                client.response.push_back(HTTPResponse(400, "Bad request"));
+                client.writeBuffer = client.response.back().toString();
+            }
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
         }
+
         /// Tarkista onko FileIsUsed kaytossa
         /// kayta stat funktiota katsomaan tiedoston koko
         // laita tiedoston koko content-length
@@ -515,7 +445,7 @@ static void readChunkedBody(Client &client, int loop)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
     }
-     client.rawReadData.clear();
+    client.rawReadData.clear();
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -590,6 +520,7 @@ void handleClientRecv(Client& client, int loop)
         {
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
+            wslog.writeToLogFile(INFO, "READING HEADER", true);
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
 
@@ -626,6 +557,7 @@ void handleClientRecv(Client& client, int loop)
                 }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                wslog.writeToLogFile(INFO, "size rawreaddata = " + client.rawReadData, true);
                 
                 if (client.request.method == "POST")
                 {
