@@ -102,7 +102,7 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
         close(writeCGIPipe[1]);
 }
 
-void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
 	/// kato flagi FileIsUsed jos flagi paalla ala pipee
 	/// Duppaa se tiedoston fd STDIN_FILENO
@@ -113,16 +113,16 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     if (access(fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
-        return ; //generate ERROR PAGE access forbidden
+        return -1; //generate ERROR PAGE access forbidden
     }
     if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
-        throw std::runtime_error("CGIHandler::executeCGI pipe creation failed");
+        return -1;
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid != 0)
         wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
     if (childPid == -1)
-        throw std::runtime_error("CGIHandler::executeCGI fork failed");
+        return -1;
     if (childPid == 0)
     {
         dup2(writeCGIPipe[0], STDIN_FILENO);
@@ -147,5 +147,5 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     // client.childWritePipeFd = writeCGIPipe[1];
     // client.childReadPipeFd = readCGIPipe[0];
 
-	return ;
+	return 0;
 }

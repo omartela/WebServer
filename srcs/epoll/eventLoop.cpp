@@ -479,7 +479,8 @@ static void checkBody(Client &client, int loop)
             client.CGI.setEnvValues(client.request, client.serverInfo);
             if (checkMethods(client, loop) == false)
                 return ;
-            client.CGI.executeCGI(client.request, client.serverInfo);
+            if (client.CGI.executeCGI(client.request, client.serverInfo) < 0)
+                return ; //generate error
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -575,7 +576,8 @@ void handleClientRecv(Client& client, int loop)
                         client.CGI.setEnvValues(client.request, client.serverInfo);
                         if (checkMethods(client, loop) == false)
                             return ;
-                        client.CGI.executeCGI(client.request, client.serverInfo);
+                        if (client.CGI.executeCGI(client.request, client.serverInfo) < 0)
+                            return ; //generate error
                         if (client.CGI.getReadPipe() < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
