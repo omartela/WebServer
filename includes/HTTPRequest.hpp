@@ -22,6 +22,9 @@ class HTTPRequest
         std::string pathInfo;
         std::map<std::string, std::string> headers;
         std::string body;
+        bool FileUsed;
+        int FileFd;
+        bool FileIsOpen;
         bool isCGI;
         HTTPRequest();
         HTTPRequest(std::string headers, ServerConfig server);

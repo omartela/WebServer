@@ -261,26 +261,19 @@ static long long unsigned HexStrToUnsignedLongLong(std::string str)
 
 static bool validateChunkedBody(Client &client)
 {
-    long long unsigned bytes;
-    std::string str = client.chunkBuffer;
-     // Log the start (first 20 chars) and end (last 20 chars) of the buffer
-    size_t logLen = 20;
-    std::string start = str.substr(0, std::min(logLen, str.size()));
-    std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
-    wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
-    wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
-    if (!isHexUnsignedLongLong(str))
+    while (client.chunkBuffer.empty() == false)
     {
-        wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
-        return false;
-    }
-    bytes = HexStrToUnsignedLongLong(str);
-    long long unsigned i = 0;
-    while (str[i] != '\r' && i < str.size())
-    {
-        if (!std::isxdigit(str[i]))
+        long long unsigned bytes;
+        std::string str = client.chunkBuffer;
+        // Log the start (first 20 chars) and end (last 20 chars) of the buffer
+        size_t logLen = 20;
+        std::string start = str.substr(0, std::min(logLen, str.size()));
+        std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
+        wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
+        wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
+        if (!isHexUnsignedLongLong(str))
         {
-            // wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
+            wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
         bytes = HexStrToUnsignedLongLong(str);
@@ -289,7 +282,49 @@ static bool validateChunkedBody(Client &client)
         {
             if (!std::isxdigit(str[i]))
             {
-                // wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
+                // wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
+                return false;
+            }
+            bytes = HexStrToUnsignedLongLong(str);
+            long long unsigned i = 0;
+            while (str[i] != '\r' && i < str.size())
+            {
+                if (!std::isxdigit(str[i]))
+                {
+                    // wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
+                    return false;
+                }
+                i++;
+            }
+            if (bytes == 0)
+            {
+                if (str.substr(1, 4) == "\r\n\r\n")
+                    return true;
+                else
+                {
+                    // wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
+                    return false;
+                }
+            }
+            if (str.size() > (i + 1) && (str[i + 1] != '\n'))
+            {
+                // wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
+                return false;
+            }
+            str = str.substr(i + 2);
+            // After parsing chunk size and skipping header
+            if (str.size() < bytes + 2) // not enough data for chunk + trailing CRLF
+                return false; // wait for more data
+            /// tahan kohtaan kirjoitetaan tiedostoon validoitu chunkki
+            client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
+            str = str.substr(bytes);
+            if (str.substr(0, 2) != "\r\n")
+            {
+                // wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
+                // wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
+                // wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
+                // wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
+                // wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
                 return false;
             }
             i++;
@@ -300,81 +335,56 @@ static bool validateChunkedBody(Client &client)
                 return true;
             else
             {
-                // wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
+                wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
                 return false;
             }
         }
         if (str.size() > (i + 1) && (str[i + 1] != '\n'))
         {
-            // wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
+            wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
             return false;
         }
         str = str.substr(i + 2);
-        // After parsing chunk size and skipping header
-        if (str.size() < bytes + 2) // not enough data for chunk + trailing CRLF
-            return false; // wait for more data
+        /// tahan kohtaan kirjoitetaan tiedostoon validoitu chunkkis
         client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
         {
-            // wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-            // wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-            // wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-            // wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-            // wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
+            wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
+            wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
+            wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
+            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
+            wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
             return false;
         }
-        i++;
-    }
-    if (bytes == 0)
-    {
-        if (str.substr(1, 4) == "\r\n\r\n")
-            return true;
         else
-        {
-            wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
-            return false;
-        }
+            str = str.substr(2);
+        client.chunkBuffer.erase(0, i + 2 + bytes + 2);
     }
-    if (str.size() > (i + 1) && (str[i + 1] != '\n'))
-    {
-        wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
-        return false;
-    }
-    str = str.substr(i + 2);
-    client.request.body += str.substr(0, bytes); // add the validated bytes to the request body
-    str = str.substr(bytes);
-    if (str.substr(0, 2) != "\r\n")
-    {
-        wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-        wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-        wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-        //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-        wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
-        return false;
-    }
-    else
-        str = str.substr(2);
-    client.chunkBuffer.erase(0, i + 2 + bytes + 2);
     return true;
 }
 
 static void readChunkedBody(Client &client, int loop)
 {
-    client.chunkBuffer += client.rawReadData;
-    client.rawReadData.clear();
-    if (client.chunkBuffer.size() > 1000000) // 1MB limit for chunked body
+    /// jos tiedosto kaytossa ala lisaa chunked bufferiin .rawReadData
+    if (client.request.FileUsed == false) // 1MB limit for chunked body
     {
-        // wslog.writeToLogFile(DEBUG, "Chunked body too large, rejecting request", true);
-        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
-        if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-        client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return ;
+        // Avataan tiedosto
+        // Laitetaan flagi paalle etta tiedosto kaytossa
+        // tarkista open palautusarvo
+        client.request.FileUsed == true;
+        client.request.FileIsOpen == true;
+    }
+    // tarkista onnistuiko tiedoston avaus
+    // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
+    if (client.request.FileIsOpen == true)
+    {
+
+        client.chunkBuffer += client.rawReadData;
+        client.rawReadData.clear();
     }
 
+    /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
     if (client.chunkBuffer.size() >= 5 && client.chunkBuffer.substr(client.chunkBuffer.size() - 5) == "0\r\n\r\n")
     {
         if (!validateChunkedBody(client))
@@ -419,6 +429,8 @@ static void handleCGI(Client& client, int loop)
     if (pid == client.CGI.getChildPid())
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
+        /// jos FileIsUsed lue tiedostosta... muista myos avata tiedosto, koska CGI sulkee tiedoston kun on lopettanut kirjoittamisen
+        //  Sulje tiedsto kun olet lukenut
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
         client.response.push_back(client.CGI.generateCGIResponse());
         client.state = SEND;

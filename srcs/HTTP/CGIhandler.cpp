@@ -104,6 +104,10 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
 
 void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
+	/// kato flagi FileIsUsed jos flagi paalla ala pipee
+	/// Duppaa se tiedoston fd STDIN_FILENO
+	/// Avaa uus tiedosto cgi vastauksen kirjoittamista varten
+	/// Duppaa STDOUT_FILENO uuden tiedoston fd:hen.
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
     if (access(fullPath.c_str(), X_OK) != 0)
@@ -129,6 +133,8 @@ void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
         std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
+	// Mieti mitka fd suljetaan kun on tiedosto kaytossa...
+
     //client.childPid = childPid;
 	close(writeCGIPipe[0]);
 	close(readCGIPipe[1]);
