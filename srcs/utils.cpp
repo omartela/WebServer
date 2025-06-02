@@ -10,7 +10,6 @@ std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
 
 void handleSIGPIPE()
 {
-    
     return ;
 }
 
