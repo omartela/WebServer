@@ -15,6 +15,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <stdexcept>
+#include <sys/stat.h>
 #include "Parser.hpp"
 #include "Client.hpp"
 

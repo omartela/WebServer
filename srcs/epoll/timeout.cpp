@@ -1,12 +1,7 @@
 #include "timeout.hpp"
 #include "Logger.hpp"
 #include "Client.hpp"
-
-void handleSIGPIPE(int signum) 
-{ 
-    (void)signum;
-    return ;
-}
+#include "utils.hpp"
 
 void closeClient(Client& client, std::map<int, Client>& clients, int& children, int loop)
 {
@@ -32,6 +27,7 @@ void checkClosedClients(std::map<int, Client>& clients, int loop, int& children)
             if (epoll_ctl(loop, EPOLL_CTL_DEL, checkedClient.fd, nullptr) < 0)
                 throw std::runtime_error("timeout epoll_ctl DEL failed in checkClosedClients");
             closeClient(checkedClient, clients, children, loop);
+            wslog.writeToLogFile(INFO, "client FD" + std::to_string(checkedClient.fd) + " disconnected", true);
         }
     }
 }
@@ -67,22 +63,22 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
         auto& client = it->second;
         ++it;
 
-        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
+        // std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
 
-        if (now > timeout) //408 request timeout error page?
-        {
+        // if (now > timeout) //408 request timeout error page?
+        // {
             
-            // if (temp.getStatusCode() >= 400)
-            //     temp = temp.generateErrorResponse(temp);
-            client.response.push_back(HTTPResponse(408, "Request Timeout"));
+        //     // if (temp.getStatusCode() >= 400)
+        //     //     temp = temp.generateErrorResponse(temp);
+        //     client.response.push_back(HTTPResponse(408, "Request Timeout"));
 
-            client.writeBuffer = client.response.back().body;
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-            wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
-            closeClient(client, clients, children, loop);
-            continue ;
-        }
+        //     client.writeBuffer = client.response.back().body;
+        //     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+        //     wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
+        //     closeClient(client, clients, children, loop);
+        //     continue ;
+        // }
 
         if ((client.state == READ_HEADER || client.state == READ_BODY) && elapsedTime > 0)
         {

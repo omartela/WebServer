@@ -5,8 +5,7 @@
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 #include "Logger.hpp"
-#include <sys/stat.h>
-
+#include "utils.hpp"
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
@@ -15,24 +14,6 @@ static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& c
 static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
-
-void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
-{
-    uint64_t tempBuffer;
-    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
-    if (bytesRead != sizeof(tempBuffer))
-        throw std::runtime_error("childTimerFd recv failed");
-    
-    for (auto it = clients.begin(); it != clients.end(); it++)
-    {
-        auto& client = it->second;
-        if (children > 0 && client.request.isCGI == true)
-        {
-            handleClientRecv(client, loop);
-            continue ;
-        }
-    }
-}
 
 int timerFD; //remove when making eventLoop into a class?
 int nChildren; //remove when making eventLoop into a class?
@@ -74,17 +55,22 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
+
+    //create and setup eventFD for signals
+    eventFD = eventfd(0, EFD_NONBLOCK);
+    if (eventFD < 0)
+        std::runtime_error("failed to create eventFD");
+    wslog.writeToLogFile(INFO, "eventFD created, it got FD" + std::to_string(eventFD), true);
+    setup.data.fd = eventFD;
+    if (epoll_ctl(loop, EPOLL_CTL_ADD, eventFD, &setup) < 0)
+        throw std::runtime_error("Failed to add eventFD to epoll");
+
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
         {
             if (errno == EINTR)
-                continue;
-            }
-            if (errno == EPIPE)
-            {
-                checkClosedClients(clients, loop, nChildren);
                 continue;
             }
             else
@@ -135,6 +121,13 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
+
+            else if (fd == eventFD)
+            {
+                std::cout << "EVENTFD RECEIVED\n";
+                checkClosedClients(clients, loop, nChildren);
+            }
+
             else if (clients.find(fd) != clients.end())
             {
                 if (eventLog[i].events & EPOLLIN)
@@ -672,30 +665,8 @@ static void handleClientSend(Client &client, int loop)
         client.writeBuffer = client.response.front().toString();
     }
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
-    if (client.request.isCGI == true && !client.CGI.tempFileName.empty())
-    {
-        if (client.CGI.FileOpen == false)
-        {
-            client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
-            if (client.CGI.readCGIPipe[1] != -1)
-                client.CGI.FileOpen = true;
-        }
-        char buffer[65536];
-        ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
-        client.writeBuffer.append(buffer, bytesread);
-        if (bytesread == -1)
-        {
-            ///error handling;
-            return;
-        }
-        else if (bytesread == 0)
-            close(client.CGI.readCGIPipe[1]);
-        wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
-        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
-    }
-    else
-        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+    //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
