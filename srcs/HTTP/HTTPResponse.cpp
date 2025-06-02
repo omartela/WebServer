@@ -1,9 +1,9 @@
 
-#include "../includes/HTTPResponse.hpp"
+#include "HTTPResponse.hpp"
 #include <sstream>
 #include <unordered_map>
 
-HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg) {}
+HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg) { if (code >= 400) generateErrorResponse(code, msg);}
 
 std::string HTTPResponse::toString() const
 {
@@ -12,7 +12,8 @@ std::string HTTPResponse::toString() const
     for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
         response << it->first << ": " << it->second << "\r\n";
     response << "\r\n";
-    response << body;
+    if (!body.empty())
+        response << body;
     return response.str();
 }
 
@@ -26,7 +27,7 @@ std::string HTTPResponse::getStatusMessage()
     return stat_msg;
 }
 
-HTTPResponse HTTPResponse::generateErrorResponse(HTTPResponse res)
+void HTTPResponse::generateErrorResponse(int code, const std::string& msg)
 {
        static std::unordered_map<int, std::string> statusMessages =
        {
@@ -48,23 +49,18 @@ HTTPResponse HTTPResponse::generateErrorResponse(HTTPResponse res)
        };
 
        std::string reason;
-       if (statusMessages.find(res.getStatusCode()) != statusMessages.end())
+       if (statusMessages.find(code) != statusMessages.end())
        {
-        reason = statusMessages[res.status];
+        reason = statusMessages[code];
        }
        else
        {
         reason = "Unknown Error";
        }
+       body = "<html><head><title>" + std::to_string(code) + " " + reason +
+            "</title></head><body><h1>" + std::to_string(code) + " " + reason +
+            "</h1><p>The server encountered an error: " + msg + ".</p></body></html>";
 
-       HTTPResponse response(res.status, reason);
-       std::string body = "<html><head><title>" + std::to_string(res.status) + " " + reason +
-                       "</title></head><body><h1>" + std::to_string(res.status) + " " + reason +
-                       "</h1><p>The server encountered an error: " + res.getStatusMessage() + ".</p></body></html>";
-
-        response.headers["Content-Type"] = "text/html; charset=UTF-8";
-        response.headers["Content-Length"] = std::to_string(body.size());
-        response.body = body;
-
-        return response;
+        headers["Content-Type"] = "text/html; charset=UTF-8";
+        headers["Content-Length"] = std::to_string(body.size());
 }

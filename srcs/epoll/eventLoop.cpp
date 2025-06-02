@@ -390,8 +390,8 @@ static void readChunkedBody(Client &client, int loop)
         if (!validateChunkedBody(client))
         {
             client.response.push_back(HTTPResponse(400, "Bad request"));
-            if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+            // if (client.response.back().getStatusCode() >= 400)
+            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
             client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -401,8 +401,8 @@ static void readChunkedBody(Client &client, int loop)
         client.request.body = client.chunkBuffer;  // Tallenna body
         client.chunkBuffer = "";
         client.response.push_back(RequestHandler::handleRequest(client));
-        if (client.response.back().getStatusCode() >= 400)
-            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+        // if (client.response.back().getStatusCode() >= 400)
+        //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
@@ -412,12 +412,12 @@ static void readChunkedBody(Client &client, int loop)
 static void handleCGI(Client& client, int loop)
 {
 
-    if (client.request.body.empty() == false)
+    if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
-    else
+    else if (!client.request.FileUsed)
     {
         std::cout << "READING\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
@@ -431,8 +431,11 @@ static void handleCGI(Client& client, int loop)
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         /// jos FileIsUsed lue tiedostosta... muista myos avata tiedosto, koska CGI sulkee tiedoston kun on lopettanut kirjoittamisen
         //  Sulje tiedsto kun olet lukenut
-        client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-        client.response.push_back(client.CGI.generateCGIResponse());
+        if (!client.request.FileUsed)
+        {
+            client.CGI.collectCGIOutput(client.CGI.getReadPipe());
+            client.response.push_back(client.CGI.generateCGIResponse());
+        }    
         client.state = SEND;
         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
             client.response.back() = HTTPResponse(405, "Method not allowed");
@@ -496,8 +499,8 @@ static void checkBody(Client &client, int loop)
         {
             std::cout << "CGI IS FALSE\n";
             client.response.push_back(RequestHandler::handleRequest(client));
-            if (client.response.back().getStatusCode() >= 400)
-                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+            // if (client.response.back().getStatusCode() >= 400)
+            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
             client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -549,8 +552,8 @@ void handleClientRecv(Client& client, int loop)
                 if (validateHeader(client.request) == false)
                 {
                     client.response.push_back(HTTPResponse(400, "Bad request"));
-                    if (client.response.back().getStatusCode() >= 400)
-                        client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                    // if (client.response.back().getStatusCode() >= 400)
+                    //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                     client.state = SEND;
                     client.writeBuffer = client.response.back().toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -579,8 +582,8 @@ void handleClientRecv(Client& client, int loop)
                         if (client.CGI.getReadPipe() < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
-                            if (client.response.back().getStatusCode() >= 400)
-                                client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                            // if (client.response.back().getStatusCode() >= 400)
+                            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                             client.writeBuffer = client.response.back().toString();
                             client.state = SEND;
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -604,8 +607,8 @@ void handleClientRecv(Client& client, int loop)
                         client.state = SEND;
                         client.request.body = client.rawReadData;
                         client.response.push_back(RequestHandler::handleRequest(client));
-                        if (client.response.back().getStatusCode() >= 400)
-                            client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                        // if (client.response.back().getStatusCode() >= 400)
+                        //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                         client.writeBuffer = client.response.back().toString();
                         toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         return ;

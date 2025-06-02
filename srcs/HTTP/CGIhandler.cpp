@@ -102,50 +102,48 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
         close(writeCGIPipe[1]);
 }
 
-void CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
-	/// kato flagi FileIsUsed jos flagi paalla ala pipee
-	/// Duppaa se tiedoston fd STDIN_FILENO
-	/// Avaa uus tiedosto cgi vastauksen kirjoittamista varten
-	/// Duppaa STDOUT_FILENO uuden tiedoston fd:hen.
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
+	if (request.FileUsed)
+	{
+		tempFileName = "tempCGIouput_" + std::to_string(std::time(NULL)); 
+		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDONLY, 0644);
+		writeCGIPipe[0] = request.FileFd;
+	}
     if (access(fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
-        return ; //generate ERROR PAGE access forbidden
+        return -1; //generate ERROR PAGE access forbidden
     }
-    if (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1)
-        throw std::runtime_error("CGIHandler::executeCGI pipe creation failed");
+    if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
+        return -1;
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
-    if (childPid != 0)
-        wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI childPid is: " + std::to_string(childPid), true);
     if (childPid == -1)
-        throw std::runtime_error("CGIHandler::executeCGI fork failed");
+        return -1;
     if (childPid == 0)
     {
         dup2(writeCGIPipe[0], STDIN_FILENO);
         dup2(readCGIPipe[1], STDOUT_FILENO);
-        close(writeCGIPipe[1]);
-        close(readCGIPipe[0]);
+		if (!request.FileUsed)
+		{
+			close(writeCGIPipe[1]);
+			close(readCGIPipe[0]);
+		}
         execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
         std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
-	// Mieti mitka fd suljetaan kun on tiedosto kaytossa...
-
-    //client.childPid = childPid;
-	close(writeCGIPipe[0]);
-	close(readCGIPipe[1]);
-
+	if (!request.FileUsed)
+	{
+		close(writeCGIPipe[0]);
+		close(readCGIPipe[1]);
+	}
     int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
     fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
     flags = fcntl(readCGIPipe[0], F_GETFL);
     fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
-
-    // client.childWritePipeFd = writeCGIPipe[1];
-    // client.childReadPipeFd = readCGIPipe[0];
-
-	return ;
+	return 0;
 }

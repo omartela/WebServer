@@ -22,6 +22,7 @@ class HTTPRequest
         std::string pathInfo;
         std::map<std::string, std::string> headers;
         std::string body;
+        std::string tempFileName;
         bool FileUsed;
         int FileFd;
         bool FileIsOpen;
