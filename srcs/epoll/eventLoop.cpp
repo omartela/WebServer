@@ -5,20 +5,16 @@
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 #include "Logger.hpp"
-#include <sys/stat.h>
-
+#include "utils.hpp"
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-//static void handleClientRecv(Client &client, int loop);
 static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
-// CGIHandler cgi;
-// int eventFD; //remove when making eventLoop into a class?
 int timerFD; //remove when making eventLoop into a class?
 int nChildren; //remove when making eventLoop into a class?
 int childTimerFD; //remove when making eventLoop into a class?
@@ -69,6 +65,15 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
 
+    //create and setup eventFD for signals
+    eventFD = eventfd(0, EFD_NONBLOCK);
+    if (eventFD < 0)
+        std::runtime_error("failed to create eventFD");
+    wslog.writeToLogFile(INFO, "eventFD created, it got FD" + std::to_string(eventFD), true);
+    setup.data.fd = eventFD;
+    if (epoll_ctl(loop, EPOLL_CTL_ADD, eventFD, &setup) < 0)
+        throw std::runtime_error("Failed to add eventFD to epoll");
+
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -77,11 +82,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             if (errno == EINTR)
             {
                 wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
-                continue;
-            }
-            if (errno == EPIPE)
-            {
-                checkClosedClients(clients, loop, nChildren);
                 continue;
             }
             else
@@ -140,6 +140,12 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     // wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
+            }
+
+            else if (fd == eventFD)
+            {
+                std::cout << "EVENTFD RECEIVED\n";
+                checkClosedClients(clients, loop, nChildren);
             }
 
             else if (clients.find(fd) != clients.end())
@@ -655,7 +661,7 @@ static void handleClientSend(Client &client, int loop)
     if (client.state != SEND)
         return ;
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)

@@ -86,6 +86,7 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     if (n > 0)
         output.append(buffer, n);
     wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
+	wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
 
     //close(readFd);
 }
