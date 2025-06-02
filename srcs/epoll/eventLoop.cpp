@@ -266,7 +266,7 @@ static bool validateChunkedBody(Client &client)
    while (client.chunkBuffer.empty() == false)
     {
         long long unsigned bytes;
-        std::string str = client.chunkBuffer;
+        std::string str = client.rawReadData;
         // Log the start (first 20 chars) and end (last 20 chars) of the buffer
         size_t logLen = 20;
         std::string start = str.substr(0, std::min(logLen, str.size()));
@@ -308,7 +308,6 @@ static bool validateChunkedBody(Client &client)
         if (client.request.FileUsed == true) 
         {
             // Write existing body to file
-
             write(client.request.FileFd, str.substr(0, bytes).data(), bytes);
         }
         str = str.substr(bytes);
@@ -395,25 +394,33 @@ static void readChunkedBody(Client &client, int loop)
             client.request.FileIsOpen = true;
         }
     }
-    // tarkista onnistuiko tiedoston avaus
-    // jos tiedosto auki kirjoita client.rawReadData tiedostoon.
-    if (client.request.FileIsOpen == true)
-        write(client.request.FileFd, client.rawReadData.data(), client.rawReadData.size());
-
+    if (client.rawReadData.empty() || client.rawReadData.size() < 5 || client.rawReadData.substr(client.rawReadData.size() - 2) != "\r\n")
+    {
+        //wslog.writeToLogFile(DEBUG, "Chunk buffer is empty or does not end with \\r\\n, waiting for more data", true);
+        return ;
+    }
     /// validoi toi viimeinen chunk client.rawReadDatasta eika chunkbufferista
+    client.chunkBuffer += client.rawReadData;
+    wslog.writeToLogFile(DEBUG, "size is " + std::to_string(client.rawReadData.size()), true);
     if (client.rawReadData.size() >= 5 && client.rawReadData.substr(client.rawReadData.size() - 5) == "0\r\n\r\n")
     {
-
         if (!validateChunkedBody(client))
         {
-            client.response.push_back(HTTPResponse(400, "Bad request"));
-            // if (client.response.back().getStatusCode() >= 400)
-            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
-            client.writeBuffer = client.response.back().toString();
+            if (client.request.isCGI == false)
+            {
+                if (RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes.at(client.request.location)) == false)
+                    return ;
+            }
+            else
+            {
+                client.response.push_back(HTTPResponse(400, "Bad request"));
+                client.writeBuffer = client.response.back().toString();
+            }
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
         }
+
         /// Tarkista onko FileIsUsed kaytossa
         /// kayta stat funktiota katsomaan tiedoston koko
         // laita tiedoston koko content-length
@@ -454,7 +461,7 @@ static void readChunkedBody(Client &client, int loop)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
     }
-     client.rawReadData.clear();
+    client.rawReadData.clear();
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -531,6 +538,7 @@ void handleClientRecv(Client& client, int loop)
         {
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
+            wslog.writeToLogFile(INFO, "READING HEADER", true);
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
 
@@ -555,7 +563,7 @@ void handleClientRecv(Client& client, int loop)
             if (headerEnd != std::string::npos)
             {
                 client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
+                wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
@@ -569,6 +577,7 @@ void handleClientRecv(Client& client, int loop)
                 }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                wslog.writeToLogFile(INFO, "size rawreaddata = " + client.rawReadData, true);
                 
                 if (client.request.method == "POST")
                 {
