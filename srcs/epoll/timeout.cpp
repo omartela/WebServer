@@ -45,10 +45,10 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
 
         if (now > timeout) //408 request timeout error page?
         {
-            HTTPResponse temp(408, "Request Timeout");
-            if (temp.getStatusCode() >= 400)
-                temp = temp.generateErrorResponse(temp);
-            client.response.push_back(temp);
+            
+            // if (temp.getStatusCode() >= 400)
+            //     temp = temp.generateErrorResponse(temp);
+            client.response.push_back(HTTPResponse(408, "Request Timeout"));
 
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
@@ -70,10 +70,9 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                HTTPResponse temp(408, "Request Timeout");
-                if (temp.getStatusCode() >= 400)
-                    temp = temp.generateErrorResponse(temp);
-                client.response.push_back(temp);
+                // if (temp.getStatusCode() >= 400)
+                //     temp = temp.generateErrorResponse(temp);
+                client.response.push_back( HTTPResponse(407, "Request Timeout"));
                 client.writeBuffer = client.response.back().body;
                 client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
@@ -87,10 +86,10 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
 
         if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //413 entity too large error page? also replace magic number
         {
-            HTTPResponse temp(413, "Entity too large");
-            if (temp.getStatusCode() >= 400)
-                temp = temp.generateErrorResponse(temp);
-            client.response.push_back(temp);
+            ;
+            // if (temp.getStatusCode() >= 400)
+                // temp = temp.generateErrorResponse();
+            client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
@@ -103,10 +102,10 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
 
         if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size) //413 entity too large?
         {
-            HTTPResponse temp(413, "Entity too large");
-            if (temp.getStatusCode() >= 400)
-                temp = temp.generateErrorResponse(temp);
-            client.response.push_back(temp);
+
+            // if (temp.getStatusCode() >= 400)
+            //     temp = temp.generateErrorResponse(temp);
+            client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
