@@ -9,12 +9,9 @@ std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
     return path1 / path2;
 }
 
-void handleSignals(int signal) 
+void handleSIGPIPE()
 {
-    if (signal == SIGPIPE)
-        signal = 0;
-    else if (signal == SIGINT)
-        signum = signal;
+    
     return ;
 }
 
