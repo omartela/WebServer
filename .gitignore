@@ -7,3 +7,5 @@ Test_File_Matrix.csv
 mime_type.py
 ubuntu_cgi_tester
 ubuntu_tester
+actual.txt
+expected.text

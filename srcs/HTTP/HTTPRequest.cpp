@@ -22,10 +22,34 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
+static std::string hexToAscii(std::string str)
+{
+    std::stringstream ss(str);
+    int value;
+    ss >> std::hex >> value;
+    return std::string(1, static_cast<char>(value));
+}
+
+static void decode(std::string& raw)
+{
+    for (size_t i = 0; i < raw.size(); i++)
+    {
+        if (raw[i] == '%')
+        {
+            std::string temp = raw.substr(i + 1,  2);
+            raw.erase(i, 3);
+            temp = hexToAscii(temp);
+            raw.insert(i, temp);
+        }
+    }
+}
+
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
-    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
+    wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
+    decode(raw);
+    wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, true);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -43,7 +67,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         else
             file = path.substr(path.find_last_of("/") + 1);
     }
-    // wslog.writeToLogFile(DEBUG, "File: " + file, true);
+    wslog.writeToLogFile(DEBUG, "File: " + file, true);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')

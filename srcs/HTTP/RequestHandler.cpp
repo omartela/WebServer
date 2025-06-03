@@ -275,11 +275,11 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
     // wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
-    if (fullPath.find("..") != std::string::npos)
-    {
-        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
-        return HTTPResponse(403, "Forbidden");
-    }
+    // if (fullPath.find("..") != std::string::npos)
+    // {
+    //     wslog.writeToLogFile(ERROR, "403 Forbidden", false);
+    //     return HTTPResponse(403, "Forbidden");
+    // }
     struct stat s;
     if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     {
@@ -382,6 +382,11 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
         return HTTPResponse(404, "Invalid file name");
+    if (fullPath.find("..") != std::string::npos)
+    {
+        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
+        return HTTPResponse(403, "Forbidden");
+    }
     bool validFile = false;
     try
     {

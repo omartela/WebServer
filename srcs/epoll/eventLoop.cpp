@@ -407,8 +407,6 @@ static void readChunkedBody(Client &client, int loop)
         if (!validateChunkedBody(client))
         {
             client.response.push_back(HTTPResponse(400, "Bad request"));
-            // if (client.response.back().getStatusCode() >= 400)
-            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
             client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -448,8 +446,6 @@ static void readChunkedBody(Client &client, int loop)
         }
         client.state = SEND;  // Kaikki chunkit luettu
         client.response.push_back(RequestHandler::handleRequest(client));
-        // if (client.response.back().getStatusCode() >= 400)
-        //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
@@ -507,8 +503,6 @@ static void checkBody(Client &client, int loop)
         {
             std::cout << "CGI IS FALSE\n";
             client.response.push_back(RequestHandler::handleRequest(client));
-            // if (client.response.back().getStatusCode() >= 400)
-            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
             client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -555,13 +549,11 @@ void handleClientRecv(Client& client, int loop)
             if (headerEnd != std::string::npos)
             {
                 client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
+                wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                 client.request = HTTPRequest(client.headerString, client.serverInfo);
                 if (validateHeader(client.request) == false)
                 {
                     client.response.push_back(HTTPResponse(400, "Bad request"));
-                    // if (client.response.back().getStatusCode() >= 400)
-                    //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                     client.state = SEND;
                     client.writeBuffer = client.response.back().toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -589,9 +581,7 @@ void handleClientRecv(Client& client, int loop)
                         client.CGI.executeCGI(client.request, client.serverInfo);
                         if (client.CGI.getReadPipe() < 0)
                         {
-                            client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
-                            // if (client.response.back().getStatusCode() >= 400)
-                            //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
+                            client.response.push_back(HTTPResponse(404, "Not Found 1")); //or something else
                             client.writeBuffer = client.response.back().toString();
                             client.state = SEND;
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -615,16 +605,12 @@ void handleClientRecv(Client& client, int loop)
                         client.state = SEND;
                         client.request.body = client.rawReadData;
                         client.response.push_back(RequestHandler::handleRequest(client));
-                        // if (client.response.back().getStatusCode() >= 400)
-                        //     client.response.back() = client.response.back().generateErrorResponse(client.response.back());
                         client.writeBuffer = client.response.back().toString();
                         toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         return ;
                     }
                 }
             }
-            // else
-            //     return ;
             return ;
         }
         case READ_BODY:
