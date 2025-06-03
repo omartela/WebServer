@@ -259,6 +259,7 @@ static bool validateChunkedBody(Client &client)
         std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
         wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
         wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
+        wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + client.chunkBuffer.size(), true);
         if (!isHexUnsignedLongLong(str))
         {
             wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
@@ -342,7 +343,6 @@ static void handleCGI(Client& client, int loop)
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
             client.response.push_back(client.CGI.generateCGIResponse());
         }    
-        client.state = SEND;
         if (!client.CGI.tempFileName.empty())
         {
             close(client.CGI.readCGIPipe[1]);
@@ -350,6 +350,7 @@ static void handleCGI(Client& client, int loop)
         }
 /*         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))*/
         // client.response.back() = HTTPResponse(405, "Method not allowed");
+        client.state = SEND;
         client.response.push_back(HTTPResponse(200, "OK"));
         if (!client.request.FileUsed)
             client.request.isCGI = false;
