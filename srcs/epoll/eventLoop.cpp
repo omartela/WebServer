@@ -562,7 +562,6 @@ void handleClientRecv(Client& client, int loop)
                 }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
-                wslog.writeToLogFile(INFO, "size rawreaddata = " + client.rawReadData, true);
                 
                 if (client.request.method == "POST")
                 {
