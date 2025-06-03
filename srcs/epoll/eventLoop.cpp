@@ -416,6 +416,9 @@ static void readChunkedBody(Client &client, int loop)
         std::size_t endPos = client.chunkBuffer.find("0\r\n\r\n");
         if (endPos != std::string::npos)
         {
+            std::string leftover = client.chunkBuffer.substr(endPos + 5);
+            client.rawReadData.clear();
+            client.rawReadData += leftover;
             // ota kaikki alusta "0\r\n\r\n" asti
             client.chunkBuffer = client.chunkBuffer.substr(0, endPos + 5);
         }
@@ -477,6 +480,7 @@ static void readChunkedBody(Client &client, int loop)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return;
     }
+    client.rawReadData.clear();
 }
 
 static void checkBody(Client &client, int loop)
