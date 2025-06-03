@@ -1,4 +1,5 @@
 #include "CGIhandler.hpp"
+#include "utils.hpp"
 #include <limits.h>
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
@@ -39,7 +40,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	for (size_t i = 0; i < envVariables.size(); i++)
 	{
 		envArray[i] = (char *)envVariables.at(i).c_str();
-		wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
+		//wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
 	}
 	envArray[envVariables.size()] = NULL;
 	exceveArgs[0] = (char *)server.routes.at(request.location).cgiexecutable.c_str();
@@ -75,8 +76,11 @@ HTTPResponse CGIHandler::generateCGIResponse()
 
 void CGIHandler::collectCGIOutput(int childReadPipeFd)
 {
+	// if (signum != 0)
+    //     return ;
+	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
     char buffer[65536];
-    ssize_t n;
+    int n;
     //output.clear();
 
     // while ((n = read(readFd, buffer, sizeof(buffer)) > 0)
@@ -95,7 +99,10 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
 {
     // write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
     // close(writeCGIPipe[1]);
-    size_t written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
+	// if (signum != 0)
+    //     return ;
+	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
+    int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);
     wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
@@ -116,14 +123,14 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     if (access(fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
-        return -1; //generate ERROR PAGE access forbidden
+        return -403;
     }
     if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
-        return -1;
+        return -500;
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
-        return -1;
+        return -500;
     if (childPid == 0)
     {
         dup2(writeCGIPipe[0], STDIN_FILENO);
