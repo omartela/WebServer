@@ -15,7 +15,7 @@ def send_chunked_request():
     client_socket.send(headers.encode())
     
     # Send chunk 1 (size 5 bytes)
-    client_socket.send(b"7\r\n, 0000\r\n")
+    client_socket.send(b"7\r\n, 00000\r\n")
     client_socket.send(b"5\r\nHello\r\n")
     time.sleep(1.5)
     # Send chunk 2 (size 7 bytes)
