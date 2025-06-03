@@ -22,6 +22,7 @@ int childTimerFD; //remove when making eventLoop into a class?
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
     signal(SIGPIPE, handleSIGPIPE);
+    //signal(SIGPIPE, SIG_IGN);
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;
@@ -318,7 +319,8 @@ static bool validateChunkedBody(Client &client)
 
 static void handleCGI(Client& client, int loop)
 {
-
+    if (signum != 0)
+        return ;
     if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
@@ -359,11 +361,6 @@ static void handleCGI(Client& client, int loop)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-    // if (!client.request.body.empty()) //??
-    // {
-    //     wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
-    //     write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
-    // }
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -645,6 +642,8 @@ void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
         {
+            if (signum != 0)
+                return ;
             wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
             return handleCGI(client, loop);
         }
@@ -657,7 +656,7 @@ void handleClientRecv(Client& client, int loop)
 
 static void handleClientSend(Client &client, int loop)
 {
-    if (client.state != SEND)
+    if (client.state != SEND || signum != 0)
         return ;
     if (client.rawReadData.empty() == false)
     {
