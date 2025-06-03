@@ -2,8 +2,8 @@
 #include "utils.hpp"
 #include <filesystem>
 
-std::atomic<int> eventFD = 0;
-std::atomic<int> signum = 0;
+//std::atomic<int> eventFD = 0;
+//std::atomic<int> signum = 0;
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2) //rename joinPaths
 {
@@ -11,11 +11,12 @@ std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
 }
 
 void handleSIGPIPE(int signal) 
-{ 
+{
+    signal = 0;
     //std::cout << "eventFD = " << eventFD << std::endl;
-    write(eventFD, &signal, sizeof(signal));
-    signum = signal;
-    //std::cout << "written = " << written << std::endl;
+    //write(eventFD, &signal, sizeof(signal));
+    //signum = signal;
+    //std::cout << "signum = " << signum << std::endl;
     return ;
 }
 
