@@ -4,6 +4,9 @@ import sys
 import os
 import time
 
+# sys.stdin.close()
+# sys.exit()
+
 # Log helper
 def log(message):
     with open("cgi_debug.log", "a") as f:

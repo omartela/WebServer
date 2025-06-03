@@ -11,31 +11,31 @@ void closeClient(Client& client, std::map<int, Client>& clients, int& children, 
         children--;
     close(client.fd);
     clients.erase(client.fd);
+    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " closed!", true);
 }
 
-void checkClosedClients(std::map<int, Client>& clients, int loop, int& children) //not sure if works, havent tested
-{
-    for (auto it = clients.begin(); it != clients.end();)
-    {
-        auto& checkedClient = it->second;
-        ++it;
+// void checkClosedClients(std::map<int, Client>& clients, int loop, int& children) //not sure if works, havent tested
+// {
+//     wslog.writeToLogFile(INFO, "Checking closed clients...", true);
+//     for (auto it = clients.begin(); it != clients.end();)
+//     {
+//         auto& client = it->second;
+//         ++it;
 
-        char buf1[1];
-        int readAttempt = recv(checkedClient.fd, buf1, sizeof(buf1), MSG_PEEK);
-        if (readAttempt == 0)
-        {
-            
-            if (epoll_ctl(loop, EPOLL_CTL_DEL, checkedClient.fd, nullptr) < 0)
-                throw std::runtime_error("timeout epoll_ctl DEL failed in checkClosedClients");
-            closeClient(checkedClient, clients, children, loop);
-            wslog.writeToLogFile(INFO, "client FD" + std::to_string(checkedClient.fd) + " disconnected", true);
-        }
-    }
-    if (signum != 0)
-    {
-        signum = 0;
-    }
-}
+//         char buf1[1];
+//         int readAttempt = recv(client.fd, buf1, sizeof(buf1), MSG_PEEK | MSG_DONTWAIT);
+//         wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + ", it read this many bytes: " + std::to_string(readAttempt) + ", errno = " + std::to_string(errno), true);
+//         if (readAttempt <= 0)
+//         {
+//             client.response.push_back( HTTPResponse(500, "Internal Server Error"));
+//             client.writeBuffer = client.response.back().body;
+//             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+//             closeClient(client, clients, children, loop);
+//         }
+//     }
+//     if (signum != 0)
+//         signum = 0;
+// }
 
 // void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
 // {
@@ -79,7 +79,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             client.response.push_back(HTTPResponse(408, "Request Timeout"));
 
             client.writeBuffer = client.response.back().body;
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
             closeClient(client, clients, children, loop);
             continue ;
@@ -99,7 +99,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
                 //     temp = temp.generateErrorResponse(temp);
                 client.response.push_back( HTTPResponse(407, "Request Timeout"));
                 client.writeBuffer = client.response.back().body;
-                client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+                client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
                 wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client sent data too slowly!", true);
                 closeClient(client, clients, children, loop);
                 continue ;
@@ -113,7 +113,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
                 // temp = temp.generateErrorResponse();
             client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, header size too big!", true);
             closeClient(client, clients, children, loop);
             continue ;
@@ -126,7 +126,7 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             //     temp = temp.generateErrorResponse(temp);
             client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, body size too big!", true);
             closeClient(client, clients, children, loop);
             continue ;
