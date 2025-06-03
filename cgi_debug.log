@@ -211,6 +211,9 @@
 [2025-06-02 17:25:06] Printed headers
 [2025-06-02 17:25:22] Read 1048578 bytes from stdin
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 0a0e570 (update)
 [2025-06-03 09:28:39] CGI script started
 [2025-06-03 09:28:39] Printed headers
 [2025-06-03 09:28:43] Read 786432 bytes from stdin
@@ -272,6 +275,7 @@
 [2025-06-03 10:25:01] Printed headers
 [2025-06-03 10:25:03] CGI script started
 [2025-06-03 10:25:03] Printed headers
+<<<<<<< HEAD
 [2025-06-03 10:53:12] CGI script started
 [2025-06-03 10:53:12] Printed headers
 [2025-06-03 10:53:15] Read 1048578 bytes from stdin
@@ -617,3 +621,5 @@
 [2025-06-04 11:30:53] CGI script completed
 =======
 >>>>>>> 40cc2cb (tried to test pipe capacity)
+=======
+>>>>>>> 0a0e570 (update)

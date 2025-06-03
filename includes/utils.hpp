@@ -7,3 +7,4 @@ bool validateHeader(HTTPRequest req);
 void handleSIGPIPE(int signum);
 
 extern std::atomic<int> eventFD;
+extern std::atomic<int> signum;
