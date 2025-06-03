@@ -266,7 +266,7 @@ static bool validateChunkedBody(Client &client)
     while (client.chunkBuffer.empty() == false)
     {
         long long unsigned bytes;
-        std::string str = client.rawReadData;
+        std::string str = client.chunkBuffer;
         // Log the start (first 20 chars) and end (last 20 chars) of the buffer
         size_t logLen = 20;
         std::string start = str.substr(0, std::min(logLen, str.size()));
