@@ -2,9 +2,9 @@
 
 import socket
 
-HOST = '127.0.0.1'
-PORT = 8001
-CGI_PATH = '/cgi/bigger_echo.py'
+HOST = '127.0.0.2'
+PORT = 8004
+CGI_PATH = '/cgi/big_echo.py'
 
 # Create a large POST body (e.g. 1MB)
 BODY_SIZE = 1024 * 1024  # 1 MB

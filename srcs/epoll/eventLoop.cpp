@@ -334,6 +334,8 @@ static bool validateChunkedBody(Client &client)
 static void handleCGI(Client& client, int loop)
 {
     int status;
+    if (client.request.body.empty())
+        close(client.CGI.writeCGIPipe[1]);
     if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
@@ -369,10 +371,8 @@ static void handleCGI(Client& client, int loop)
         /// jos FileIsUsed lue tiedostosta... muista myos avata tiedosto, koska CGI sulkee tiedoston kun on lopettanut kirjoittamisen
         //  Sulje tiedsto kun olet lukenut
         if (!client.request.FileUsed)
-        {
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-            client.response.push_back(client.CGI.generateCGIResponse());
-        }    
+        client.response.push_back(client.CGI.generateCGIResponse());
         if (!client.CGI.tempFileName.empty())
         {
             close(client.CGI.readCGIPipe[1]);
@@ -381,7 +381,6 @@ static void handleCGI(Client& client, int loop)
 /*         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))*/
         // client.response.back() = HTTPResponse(405, "Method not allowed");
         client.state = SEND;
-        client.response.push_back(HTTPResponse(200, "OK"));
         if (!client.request.FileUsed)
             client.request.isCGI = false;
         client.writeBuffer = client.response.back().toString();
@@ -454,7 +453,7 @@ static void readChunkedBody(Client &client, int loop)
         /// kayta stat funktiota katsomaan tiedoston koko
         // laita tiedoston koko content-length
         // sulje tiedosto.
-        if (client.request.FileUsed == false)
+        if (client.request.FileUsed == true)
         {
             struct stat st;
             if (stat(client.request.tempFileName.c_str(), &st) == 0)
@@ -502,6 +501,7 @@ static void checkBody(Client &client, int loop)
     if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
     {
         client.request.body = client.rawReadData;
+        client.rawReadData = client.rawReadData.substr(client.request.body.size());
         if (client.request.isCGI == true) //now only non-chunked requests handle CGI?
         {
             std::cout << "CGI IS TRUE\n";
@@ -626,7 +626,7 @@ void handleClientRecv(Client& client, int loop)
                                 client.response.push_back(HTTPResponse(500, "Internal Server Error"));
                             else if (error == -403)
                                 client.response.push_back(HTTPResponse(403, "Forbidden"));
-                            client.writeBuffer = client.response.back().body;
+                            client.writeBuffer = client.response.back().toString();
                             client.state = SEND;
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                         }
@@ -793,5 +793,5 @@ static void toggleEpollEvents(int fd, int loop, uint32_t events)
     ev.data.fd = fd;
     ev.events = events;
     if (epoll_ctl(loop, EPOLL_CTL_MOD, fd, &ev) < 0)
-        throw std::runtime_error("epoll_ctl MOD failed");
+        throw std::runtime_error("epoll_ctl MOD failed " + std::to_string(errno));
 }
