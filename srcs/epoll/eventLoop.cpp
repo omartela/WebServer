@@ -273,7 +273,7 @@ static bool validateChunkedBody(Client &client)
         std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
         wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
         wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
-        wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + client.chunkBuffer.size(), true);
+        wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + std::to_string(client.chunkBuffer.size()), true);
         if (!isHexUnsignedLongLong(str))
         {
             wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
@@ -686,6 +686,11 @@ static void handleClientSend(Client &client, int loop)
 {
     if (client.state != SEND)
         return ;
+    if (client.rawReadData.empty() == false)
+    {
+        client.response.front() = HTTPResponse(501, "Not implemented");
+        client.writeBuffer = client.response.front().toString();
+    }
     wslog.writeToLogFile(INFO, "IN SEND", true);
     wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     if (client.request.isCGI == true && !client.CGI.tempFileName.empty())
