@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys
+import os, sys, time
 print("Content-Type: text/plain\n")
 print(f"Method: {os.environ.get('REQUEST_METHOD')}")
 print(f"Query: {os.environ.get('QUERY_STRING', '')}")

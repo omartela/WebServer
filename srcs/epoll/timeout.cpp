@@ -74,8 +74,9 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
         if (now > timeout)
         {
             client.response.push_back(HTTPResponse(408, "Request Timeout"));
-            client.writeBuffer = client.response.back().body;
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+            client.writeBuffer.clear();
+            client.writeBuffer = client.response.back().toString();
+            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
             closeClient(client, clients, children, loop);
             continue ;
