@@ -157,14 +157,9 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
                 continue ;
             }
         }
-        if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //replace magic number
+        if ((client.state == READ_HEADER && client.rawReadData.size() > 8192) || (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size))
         {
-            createErrorResponse(client, 413, "Entity too large", " disconnected, header size too big!");
-            continue ;
-        }
-        if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size)
-        {
-            createErrorResponse(client, 413, "Entity too large", " disconnected, body size too big!");
+            createErrorResponse(client, 413, "Entity too large", " disconnected, size too big!");
             continue ;
         }
         if (client.state == SEND && elapsedTime > 0) //make more comprehensive later
