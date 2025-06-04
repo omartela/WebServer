@@ -11,6 +11,7 @@ void closeClient(Client& client, std::map<int, Client>& clients, int& children, 
     if (client.request.isCGI == true)
         children--;
     close(client.fd);
+    client.fd = -1;
     client.erase = true;
     clients.erase(client.fd);
 }

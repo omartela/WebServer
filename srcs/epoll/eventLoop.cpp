@@ -395,6 +395,7 @@ static void handleCGI(Client& client, int loop)
         if (!client.CGI.tempFileName.empty())
         {
             close(client.CGI.readCGIPipe[1]);
+            client.CGI.readCGIPipe[1] = -1;
             client.CGI.FileOpen = false;
         }
 /*         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))*/
@@ -486,7 +487,10 @@ static void readChunkedBody(Client &client, int loop)
             else
                 client.request.headers["Content-Length"] = "0";
             if (client.request.FileIsOpen == false)
+            {
                 close(client.request.FileFd);
+                client.request.FileFd = -1;
+            }
         }
         if (client.request.isCGI == true)
         {
@@ -600,6 +604,7 @@ void handleClientRecv(Client& client, int loop)
                 }
                 wslog.writeToLogFile(ERROR, "Closing Client FD" + std::to_string(client.fd) + " disconnected!", true);
                 close(client.fd);
+                client.fd = -1;
                 return ;
             }
 
@@ -707,6 +712,7 @@ void handleClientRecv(Client& client, int loop)
                     throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
                 wslog.writeToLogFile(ERROR, "Closing Client FD" + std::to_string(client.fd) + " disconnected!", true);
                 close(client.fd);
+                client.fd = -1;
                 return ;
             }
             buffer2[client.bytesRead] = '\0';
@@ -757,7 +763,10 @@ static void handleClientSend(Client &client, int loop)
             return;
         }
         else if (bytesread == 0)
+        {
             close(client.CGI.readCGIPipe[1]);
+            client.CGI.readCGIPipe[1] = -1;
+        }
         wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
         client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
     }
@@ -771,6 +780,7 @@ static void handleClientSend(Client &client, int loop)
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
         close(client.fd);
+        client.fd = -1;
         return ; 
     }
     client.writeBuffer.erase(0, client.bytesWritten);
@@ -789,6 +799,7 @@ static void handleClientSend(Client &client, int loop)
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
                 close(client.fd);
+                client.fd = -1;
             }
             else
             {
@@ -804,6 +815,7 @@ static void handleClientSend(Client &client, int loop)
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
             close(client.fd);
+            client.fd = -1;
         }
         else
         {
