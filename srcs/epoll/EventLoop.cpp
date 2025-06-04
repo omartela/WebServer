@@ -1,40 +1,14 @@
 #include "EventLoop.hpp"
-#include "timeout.hpp"
-#include "HTTPResponse.hpp"
-#include "Logger.hpp"
-#include "RequestHandler.hpp"
-#include "CGIhandler.hpp"
-#include "Logger.hpp"
-#include "utils.hpp"
 
-bool        validateHeader(HTTPRequest req);
-void        eventLoop(std::vector<ServerConfig> servers);
-static int  initServerSocket(ServerConfig server);
-static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-static void handleClientSend(Client &client, int loop);
-static void toggleEpollEvents(int fd, int loop, uint32_t events);
-static int  findOldestClient(std::map<int, Client>& clients);
-
-int timerFD; //remove when making eventLoop into a class?
-int nChildren; //remove when making eventLoop into a class?
-int childTimerFD; //remove when making eventLoop into a class?
-
-void eventLoop(std::vector<ServerConfig> serverConfigs)
+EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues { }
 {
     signal(SIGPIPE, handleSignals);
     signal(SIGINT, handleSignals);
-    std::map<int, ServerConfig> servers;
-    std::map<int, Client> clients;
-    int serverSocket;
-    struct epoll_event setup;
-    std::vector<epoll_event> eventLog(MAX_CONNECTIONS);
     nChildren = 0;
-    int loop = epoll_create1(0);
+    loop = epoll_create1(0);
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
-        // ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
-        // newServer = serverConfigs[i];
         serverConfigs[i].fd = serverSocket;
         setup.data.fd = serverConfigs[i].fd;
         setup.events = EPOLLIN;
@@ -48,15 +22,19 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     setup.data.fd = timerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFD, &setup) < 0)
         throw std::runtime_error("Failed to add timerFd to epoll");
-    struct itimerspec timerValues { };
-    bool timerOn = false;
+    timerOn = false;
     childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (childTimerFD < 0)
         std::runtime_error("failed to create childTimerFD");
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
+}
 
+EventLoop::~EventLoop() {}
+
+void EventLoop::startLoop()
+{
     while (signum == 0)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
@@ -77,49 +55,29 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
         {
             int fd = eventLog[i].data.fd;
             if (servers.find(fd) != servers.end())
-            {
-                Client newClient;
-                int clientFd = acceptNewClient(loop, fd, clients);
-                setup.data.fd = clientFd;
+            { 
+                Client newClient(loop, fd, clients, servers[fd]);
+                clients[newClient.fd] = newClient;
+                setup.data.fd = clients[newClient.fd].fd;
                 setup.events = EPOLLIN;
-                newClient.serverInfo = servers[fd];
-                newClient.fd = clientFd;
-                newClient.timestamp = std::chrono::steady_clock::now();
-                if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
+                if (epoll_ctl(loop, EPOLL_CTL_ADD, clients[newClient.fd].fd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
-                clients[clientFd] = newClient;
                 if (timerOn == false)
-                {
-                    timerValues.it_value.tv_sec = TIMEOUT;
-                    timerValues.it_interval.tv_sec = TIMEOUT / 2; 
-                    timerfd_settime(timerFD, 0, &timerValues, 0); //start timeout timer
-                    timerOn = true;
-                }
+                    setTimerValues(1);
             }
             else if (fd == timerFD)
             {
                 if (clients.empty())
-                {
-                    timerValues.it_value.tv_sec = 0;
-                    timerValues.it_interval.tv_sec = 0;
-                    timerfd_settime(timerFD, 0, &timerValues, 0);
-                    timerOn = false;
-                }
+                    setTimerValues(2);
                 else
-                    checkTimeouts(timerFD, clients, nChildren, loop);
+                    checkTimeouts();
             }
             else if (fd == childTimerFD)
             {
                 checkChildrenStatus(childTimerFD, clients, loop, nChildren);
                 if (nChildren == 0)
-                {
-                    timerValues.it_value.tv_sec = 0;
-                    timerValues.it_interval.tv_sec = 0;
-                    wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
-                    timerfd_settime(childTimerFD, 0, &timerValues, 0);
-                }
+                    setTimerValues(3);
             }
-
             else if (clients.find(fd) != clients.end())
             {
                 if (eventLog[i].events & EPOLLIN)
@@ -139,6 +97,128 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     //continue ;
                 }
             }
+        }
+    }
+}
+
+void EventLoop::setTimerValues(int n)
+{
+    if (n == 1)
+    {
+        timerValues.it_value.tv_sec = TIMEOUT;
+        timerValues.it_interval.tv_sec = TIMEOUT / 2; 
+        timerfd_settime(timerFD, 0, &timerValues, 0); //start timeout timer
+        timerOn = true;
+    }
+    else if (n == 2)
+    {
+        wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
+        timerValues.it_value.tv_sec = 0;
+        timerValues.it_interval.tv_sec = 0;
+        timerfd_settime(timerFD, 0, &timerValues, 0); //stop timer
+        timerOn = false;
+    }
+    if (n == 3)
+    {
+        timerValues.it_value.tv_sec = 0;
+        timerValues.it_interval.tv_sec = 0;
+        wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
+        timerfd_settime(childTimerFD, 0, &timerValues, 0);
+    }
+}
+
+
+void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, int& children, int loop)
+{
+    uint64_t tempBuffer;
+    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
+    if (bytesRead != sizeof(tempBuffer))
+        throw std::runtime_error("timerfd recv failed");
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    for (auto it = clients.begin(); it != clients.end();)
+    {
+        auto& client = it->second;
+        ++it;
+        int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
+        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
+        if (now > timeout)
+        {
+            createErrorResponse(client, 408, "Request Timeout", " timed out due to inactivity!");
+            continue ;
+        }
+        if ((client.state == READ_HEADER || client.state == READ_BODY) && elapsedTime > 0)
+        {
+            int dataReceived = client.rawReadData.size() - client.previousDataAmount;
+            int dataRate = dataReceived / elapsedTime;
+            if ((client.rawReadData.size() > 64 && dataRate < 1024)
+                || (client.rawReadData.size() < 64 && dataReceived < 15))
+            {
+                createErrorResponse(client, 407, "Request Timeout", " disconnected, client sent data too slowly!");
+                continue ;
+            }
+        }
+        if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //replace magic number
+        {
+            createErrorResponse(client, 413, "Entity too large", " disconnected, header size too big!");
+            continue ;
+        }
+        if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size)
+        {
+            createErrorResponse(client, 413, "Entity too large", " disconnected, body size too big!");
+            continue ;
+        }
+        if (client.state == SEND && elapsedTime > 0) //make more comprehensive later
+        {
+            int dataSent = client.previousDataAmount - client.writeBuffer.size();
+            int dataRate = dataSent / elapsedTime;
+            if (client.writeBuffer.size() > 1024 && dataRate < 1024) //what is proper amount?
+            {
+                wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " disconnected, client received data too slowly!", true);
+                closeClient(client.fd);
+                continue ;
+            }
+        } 
+        if (client.state == READ_HEADER || client.state == READ_BODY)
+            client.previousDataAmount = client.rawReadData.size();
+        else if (client.state == SEND)
+            client.previousDataAmount = client.writeBuffer.size();
+    }
+}
+
+void EventLoop::createErrorResponse(Client &client, int code, std::string msg, std::string logMsg)
+{
+    client.response.push_back(HTTPResponse(code, msg));
+    client.writeBuffer = client.response.back().body;
+    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+    wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + logMsg, true);
+    closeClient(client.fd);
+}
+
+void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clients, int& children, int loop)
+{
+    if (epoll_ctl(loop, EPOLL_CTL_DEL, fd, nullptr) < 0)
+        throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
+    if (clients[fd].request.isCGI == true)
+        nChildren--;
+    close(clients[fd].fd);
+    clients.erase(clients[fd].fd);
+    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(clients[fd].fd) + " closed!", true);
+}
+
+void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
+{
+    uint64_t tempBuffer;
+    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+    if (bytesRead != sizeof(tempBuffer))
+        throw std::runtime_error("childTimerFd recv failed");
+    
+    for (auto it = clients.begin(); it != clients.end(); ++it)
+    {
+        auto& client = it->second;
+        if (children > 0 && client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
         }
     }
 }

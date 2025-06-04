@@ -1,16 +1,22 @@
 #pragma once
+
+#include "Parser.hpp"
+#include "Enums.hpp"
+#include "HTTPResponse.hpp"
+#include "HTTPRequest.hpp"
+#include "CGIhandler.hpp"
+#include <netinet/in.h>
 #include <vector>
 #include <map>
 #include <string>
 #include <cstring>
 #include <sstream>
 #include <chrono>
-#include <chrono>
-#include "Parser.hpp"
-#include "Enums.hpp"
-#include "HTTPResponse.hpp"
-#include "HTTPRequest.hpp"
-#include "CGIhandler.hpp"
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/timerfd.h>
+#include <sys/eventfd.h>
+#include <sys/stat.h>
 
 #define READ_BUFFER_SIZE 8192
 #define BODY_MEMORY_LIMIT 200
@@ -46,12 +52,9 @@ class Client {
         CGIHandler                      CGI;
         std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
         
-        //int childWritePipeFd;
-        //int childReadPipeFd;
-        //int childPid;
         int childTimerFd;
 
-        Client();
+        Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server);
         Client(const Client& copy);
         Client& operator=(const Client& copy);
         ~Client();

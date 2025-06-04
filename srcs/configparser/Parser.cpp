@@ -548,19 +548,15 @@ bool Parser::parseConfigFile(const std::string& config_file)
         wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
         return false;
     }
-    // Parsing logic goes here
-    // For example, read lines and populate server_configs vector
-
     std::string line;
     while (getline(file, line))
     {
-        // Check if the line contains "server {" with a space in between
         trimLeadingAndTrailingSpaces(line);
         if (line.empty() || line.at(0) == '#')
             continue;
         if (line.find("server {") != std::string::npos)
         {
-            ServerConfig server_config{}; // alustaa default arvoihin structin siksi kaarisulkeet
+            ServerConfig server_config{};
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
                 trimLeadingAndTrailingSpaces(line);
@@ -584,7 +580,6 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 {
                    parseLocationDirective(file, line, server_config);
                 }
-                // Populate server_config based on the line content
             }
             server_configs.push_back(server_config);
         }
