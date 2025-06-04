@@ -7,10 +7,34 @@
 #include <vector>
 #include <algorithm>
 
-HTTPRequest::HTTPRequest() {}
+HTTPRequest::HTTPRequest() 
+{
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
+}
 
 HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
 {
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
     parser(headers, server);
 }
 
@@ -47,6 +71,7 @@ reqTypes getMethodEnum(const std::string& method)
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
+    FileUsed = false;
     // wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
     std::istringstream stream(raw);
     std::string line;
