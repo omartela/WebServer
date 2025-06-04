@@ -2,21 +2,19 @@
 #include "utils.hpp"
 #include <filesystem>
 
-//std::atomic<int> eventFD = 0;
-//std::atomic<int> signum = 0;
+std::atomic<int> signum = 0;
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2) //rename joinPaths
 {
     return path1 / path2;
 }
 
-void handleSIGPIPE(int signal) 
+void handleSignals(int signal) 
 {
-    signal = 0;
-    //std::cout << "eventFD = " << eventFD << std::endl;
-    //write(eventFD, &signal, sizeof(signal));
-    //signum = signal;
-    //std::cout << "signum = " << signum << std::endl;
+    if (signal == SIGPIPE)
+        signal = 0;
+    else if (signal == SIGINT)
+        signum = signal;
     return ;
 }
 

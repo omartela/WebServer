@@ -548,6 +548,9 @@
 [2025-06-03 14:17:44] CGI script started
 [2025-06-03 14:17:44] Printed headers
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> a45582a (leaks plugged, SIGINT calls signal handler)
 [2025-06-03 16:56:45] CGI script started
 [2025-06-03 16:56:45] Printed headers
 [2025-06-03 16:56:45] Read 1056518 bytes from stdin
@@ -615,6 +618,7 @@
 [2025-06-04 10:40:38] CGI script started
 [2025-06-04 10:40:38] Printed headers
 [2025-06-04 10:40:38] Read 105361000 bytes from stdin
+<<<<<<< HEAD
 [2025-06-04 11:24:49] CGI script started
 [2025-06-04 11:24:49] Printed headers
 [2025-06-04 11:24:49] Read 1056518 bytes from stdin
@@ -629,3 +633,5 @@
 >>>>>>> 0a0e570 (update)
 =======
 >>>>>>> f788795 (reacts approbiately if child process crashes. also added error pages for executeCGI exceptions)
+=======
+>>>>>>> a45582a (leaks plugged, SIGINT calls signal handler)
