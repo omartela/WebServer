@@ -7,10 +7,34 @@
 #include <vector>
 #include <algorithm>
 
-HTTPRequest::HTTPRequest() {}
+HTTPRequest::HTTPRequest() 
+{
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
+}
 
 HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
 {
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
     parser(headers, server);
 }
 
