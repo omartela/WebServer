@@ -166,5 +166,4 @@ test_path_traversal
 # test_not_found_script
 # test_timeout_script
 # test_malformed_output
-# test_concurrent_requests
-
+test_concurrent_requests
