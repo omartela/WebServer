@@ -44,16 +44,16 @@ void closeClient(Client& client, std::map<int, Client>& clients, int& children, 
 //     if (bytesRead != sizeof(tempBuffer))
 //         throw std::runtime_error("childTimerFd recv failed");
     
-//     for (auto it = clients.begin(); it != clients.end(); it++)
-//     {
-//         auto& client = it->second;
-//         if (children > 0 && client.request.isCGI == true)
-//         {
-//             handleClientRecv(client, loop);
-//             continue ;
-//         }
-//     }
-// }
+    for (auto it = clients.begin(); it != clients.end(); ++it)
+    {
+        auto& client = it->second;
+        if (children > 0 && client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
+        }
+    }
+}
 
 void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, int loop)
 {
@@ -68,16 +68,12 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
         auto& client = it->second;
         ++it;
 
-        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         int elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - client.timestamp).count();
+        std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
 
-        if (now > timeout) //408 request timeout error page?
+        if (now > timeout)
         {
-            
-            // if (temp.getStatusCode() >= 400)
-            //     temp = temp.generateErrorResponse(temp);
             client.response.push_back(HTTPResponse(408, "Request Timeout"));
-
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + " timed out due to inactivity!", true);
@@ -89,14 +85,9 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
         {
             int dataReceived = client.rawReadData.size() - client.previousDataAmount;
             int dataRate = dataReceived / elapsedTime;
-            // std::cout << "data received: " << dataReceived << std::endl;
-            // std::cout << "data rate: " << dataRate << std::endl;
-            // std::cout << "read data size: " << client.rawReadData.size() << std::endl;
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                // if (temp.getStatusCode() >= 400)
-                //     temp = temp.generateErrorResponse(temp);
                 client.response.push_back( HTTPResponse(407, "Request Timeout"));
                 client.writeBuffer = client.response.back().body;
                 client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -106,11 +97,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             }
         }
 
-        if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //413 entity too large error page? also replace magic number
+        if (client.state == READ_HEADER && client.rawReadData.size() > 8192) //replace magic number
         {
-            ;
-            // if (temp.getStatusCode() >= 400)
-                // temp = temp.generateErrorResponse();
             client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -119,11 +107,8 @@ void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, i
             continue ;
         }
 
-        if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size) //413 entity too large?
+        if (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size)
         {
-
-            // if (temp.getStatusCode() >= 400)
-            //     temp = temp.generateErrorResponse(temp);
             client.response.push_back(HTTPResponse(413, "Entity too large"));
             client.writeBuffer = client.response.back().body;
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);

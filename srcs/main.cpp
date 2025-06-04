@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
         //SocketsHandler sockethandler(parser.getServerConfigs());
         eventLoop(parser.getServerConfigs());
         //sockethandler.Run();
+        std::cout << "Exiting eventLoop\n";
     }
     catch (const std::invalid_argument& e)
     {
