@@ -10,23 +10,23 @@ void closeClient(Client& client, std::map<int, Client>& clients, int& children)
     clients.erase(client.fd);
 }
 
-void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
-{
-    uint64_t tempBuffer;
-    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
-    if (bytesRead != sizeof(tempBuffer))
-        throw std::runtime_error("childTimerFd recv failed");
+// void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
+// {
+//     uint64_t tempBuffer;
+//     ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+//     if (bytesRead != sizeof(tempBuffer))
+//         throw std::runtime_error("childTimerFd recv failed");
     
-    for (auto it = clients.begin(); it != clients.end(); it++)
-    {
-        auto& client = it->second;
-        if (children > 0 && client.request.isCGI == true)
-        {
-            handleClientRecv(client, loop);
-            continue ;
-        }
-    }
-}
+//     for (auto it = clients.begin(); it != clients.end(); it++)
+//     {
+//         auto& client = it->second;
+//         if (children > 0 && client.request.isCGI == true)
+//         {
+//             handleClientRecv(client, loop);
+//             continue ;
+//         }
+//     }
+// }
 
 void checkTimeouts(int timerFd, std::map<int, Client>& clients, int& children, int loop)
 {

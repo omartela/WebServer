@@ -1,24 +1,32 @@
-#include "eventLoop.hpp"
+#include "EventLoop.hpp"
 #include "timeout.hpp"
-#include "HTTPResponse.hpp"
-#include "Logger.hpp"
-#include "RequestHandler.hpp"
-#include "CGIhandler.hpp"
-#include "Logger.hpp"
-#include <sys/stat.h>
-
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-//static void handleClientRecv(Client &client, int loop);
 static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
-// CGIHandler cgi;
-// int eventFD; //remove when making eventLoop into a class?
+void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children)
+{
+    uint64_t tempBuffer;
+    ssize_t bytesRead = read(timerFd, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+    if (bytesRead != sizeof(tempBuffer))
+        throw std::runtime_error("childTimerFd recv failed");
+    
+    for (auto it = clients.begin(); it != clients.end(); it++)
+    {
+        auto& client = it->second;
+        if (children > 0 && client.request.isCGI == true)
+        {
+            handleClientRecv(client, loop);
+            continue ;
+        }
+    }
+}
+
 int timerFD; //remove when making eventLoop into a class?
 int nChildren; //remove when making eventLoop into a class?
 int childTimerFD; //remove when making eventLoop into a class?
@@ -31,53 +39,40 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     struct epoll_event setup;
     std::vector<epoll_event> eventLog(MAX_CONNECTIONS);
     nChildren = 0;
-
     int loop = epoll_create1(0);
-
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
-        ServerConfig newServer;
+        // ServerConfig newServer;
         serverSocket = initServerSocket(serverConfigs[i]);
-        newServer = serverConfigs[i];
-        newServer.fd = serverSocket;
-        setup.data.fd = newServer.fd;
+        // newServer = serverConfigs[i];
+        serverConfigs[i].fd = serverSocket;
+        setup.data.fd = serverConfigs[i].fd;
         setup.events = EPOLLIN;
         if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
             throw std::runtime_error("serverSocket epoll_ctl ADD failed");
-        servers[serverSocket] = newServer;
-        wslog.writeToLogFile(INFO, "New server #" + std::to_string(i) + " connected, got FD " +  std::to_string(newServer.fd), true);
+        servers[serverSocket] = serverConfigs[i];
     }
-
-    //create and setup timerFd to check timeouts
     timerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFD < 0)
         std::runtime_error("failed to create timerfd");
-    wslog.writeToLogFile(INFO, "Timerfd created, it got FD" + std::to_string(timerFD), true);
     setup.data.fd = timerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFD, &setup) < 0)
         throw std::runtime_error("Failed to add timerFd to epoll");
     struct itimerspec timerValues { };
     bool timerOn = false;
-
-    //create and setup childTimerFD to check child processes
     childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (childTimerFD < 0)
         std::runtime_error("failed to create childTimerFD");
-    wslog.writeToLogFile(INFO, "childTimerFD created, it got FD" + std::to_string(childTimerFD), true);
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
-
     while (true)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
         {
             if (errno == EINTR)
-            {
-                wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
                 continue;
-            }
             else
                 throw std::runtime_error("epoll_wait failed");
         }
@@ -96,66 +91,50 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (epoll_ctl(loop, EPOLL_CTL_ADD, clientFd, &setup) < 0)
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
                 clients[clientFd] = newClient;
-                std::cout << "New client with FD "<< clients[clientFd].fd << " connected to server with FD " << serverSocket << std::endl;
                 if (timerOn == false)
                 {
                     timerValues.it_value.tv_sec = TIMEOUT;
                     timerValues.it_interval.tv_sec = TIMEOUT / 2;
-                    timerfd_settime(timerFD, 0, &timerValues, 0); //start timeout timer
+                    timerfd_settime(timerFD, 0, &timerValues, 0);
                     timerOn = true;
                 }
             }
-
             else if (fd == timerFD)
             {
                 if (clients.empty())
                 {
-                    wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
                     timerValues.it_value.tv_sec = 0;
                     timerValues.it_interval.tv_sec = 0;
-                    timerfd_settime(timerFD, 0, &timerValues, 0); //stop timer
+                    timerfd_settime(timerFD, 0, &timerValues, 0);
                     timerOn = false;
                 }
                 else
-                {
-                    wslog.writeToLogFile(INFO, "Time to check timeouts!", true);
                     checkTimeouts(timerFD, clients, nChildren, loop);
-                }
             }
-
             else if (fd == childTimerFD)
             {
-                wslog.writeToLogFile(INFO, "Time to check children! The amount of children is " + std::to_string(nChildren), true);
                 checkChildrenStatus(childTimerFD, clients, loop, nChildren);
                 if (nChildren == 0)
                 {
                     timerValues.it_value.tv_sec = 0;
                     timerValues.it_interval.tv_sec = 0;
-                    // wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
-
             else if (clients.find(fd) != clients.end())
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    wslog.writeToLogFile(INFO, "EPOLLIN fd " + std::to_string(fd), true);
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd), loop);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
-                    wslog.writeToLogFile(INFO, "EPOLLOUT", true);
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd), loop);
                 }
                 if (clients.at(fd).erase == true)
-                if (clients.at(fd).erase == true)
-                {
-                    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " erased", true);
                     clients.erase(fd);
-                }
             }
         }
     }
