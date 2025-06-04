@@ -619,6 +619,9 @@
 [2025-06-04 10:40:38] Printed headers
 [2025-06-04 10:40:38] Read 105361000 bytes from stdin
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> a4be3c4 (Fixes many issues)
 [2025-06-04 11:24:49] CGI script started
 [2025-06-04 11:24:49] Printed headers
 [2025-06-04 11:24:49] Read 1056518 bytes from stdin
@@ -627,6 +630,7 @@
 [2025-06-04 11:30:53] Printed headers
 [2025-06-04 11:30:53] Read 1056518 bytes from stdin
 [2025-06-04 11:30:53] CGI script completed
+<<<<<<< HEAD
 =======
 >>>>>>> 40cc2cb (tried to test pipe capacity)
 =======
@@ -635,3 +639,5 @@
 >>>>>>> f788795 (reacts approbiately if child process crashes. also added error pages for executeCGI exceptions)
 =======
 >>>>>>> a45582a (leaks plugged, SIGINT calls signal handler)
+=======
+>>>>>>> a4be3c4 (Fixes many issues)
