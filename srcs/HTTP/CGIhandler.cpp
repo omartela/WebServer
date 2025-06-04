@@ -4,7 +4,11 @@
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
-CGIHandler::CGIHandler() { }
+CGIHandler::CGIHandler() 
+{
+	writeCGIPipe[1] = -1;
+	writeCGIPipe[0] = -1;
+}
 
 int CGIHandler::getWritePipe() { return writeCGIPipe[1]; }
 
@@ -107,7 +111,11 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
         request.body = request.body.substr(written);
     wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
     if (request.body.empty() == true)
+	{
+		wslog.writeToLogFile(ERROR, "Closing write pipe after writing body to child FD =" + std::to_string(writeCGIPipe[1]), true);
         close(writeCGIPipe[1]);
+		writeCGIPipe[1] = -1;
+	}
 }
 
 int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
@@ -133,7 +141,10 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
         return -403;
     }
     if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
+	{
         return -500;
+	}	
+	wslog.writeToLogFile(ERROR, "Pipe FDs: writeCGIPipe[0] = " + std::to_string(writeCGIPipe[0]) +  ", writeCGIPipe[1] = " + std::to_string(writeCGIPipe[1]) + ", readCGIPipe[0] = " + std::to_string(readCGIPipe[0]) +  ", readCGIPipe[1] = " + std::to_string(readCGIPipe[1]), true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
@@ -145,7 +156,9 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 		if (!request.FileUsed)
 		{
 			close(writeCGIPipe[1]);
+			writeCGIPipe[1] = -1;
 			close(readCGIPipe[0]);
+			readCGIPipe[0] = -1;
 		}
         execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
         std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
@@ -153,8 +166,12 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     }
 	if (!request.FileUsed)
 	{
+		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
+		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
 		close(writeCGIPipe[0]);
+		writeCGIPipe[0] = -1;
 		close(readCGIPipe[1]);
+		readCGIPipe[1] = -1;
 	}
 	if (!request.FileUsed)
 	{

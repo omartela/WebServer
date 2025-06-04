@@ -68,6 +68,8 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
 
     while (signum == 0)
     {
+        static int iteration = 0;
+        wslog.writeToLogFile(ERROR, "eventLoop iteration: " + std::to_string(++iteration), true);
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
         {
@@ -331,11 +333,33 @@ static bool validateChunkedBody(Client &client)
     return true;
 }
 
+void print_fd_flags(int fd) {
+    int fd_flags = fcntl(fd, F_GETFD);
+    int fl_flags = fcntl(fd, F_GETFL);
+
+    std::cout << "FD " << fd << " F_GETFD: " << fd_flags;
+    if (fd_flags & FD_CLOEXEC) std::cout << " (FD_CLOEXEC)";
+    std::cout << std::endl;
+
+    std::cout << "FD " << fd << " F_GETFL: " << fl_flags;
+    if (fl_flags & O_NONBLOCK) std::cout << " (O_NONBLOCK)";
+    if ((fl_flags & O_ACCMODE) == O_RDONLY) std::cout << " (O_RDONLY)";
+    if ((fl_flags & O_ACCMODE) == O_WRONLY) std::cout << " (O_WRONLY)";
+    if ((fl_flags & O_ACCMODE) == O_RDWR)   std::cout << " (O_RDWR)";
+    std::cout << std::endl;
+}
+
 static void handleCGI(Client& client, int loop)
 {
     int status;
     if (client.request.body.empty())
+    {
+        wslog.writeToLogFile(INFO, "Client FD: " + std::to_string(client.fd), true);
+        wslog.writeToLogFile(ERROR, "Client request body is empty, not writing to child pipe fd " + std::to_string(client.CGI.writeCGIPipe[1]), true);
         close(client.CGI.writeCGIPipe[1]);
+        client.CGI.writeCGIPipe[1] = -1;
+
+    }
     if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
@@ -352,19 +376,14 @@ static void handleCGI(Client& client, int loop)
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
     wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
+    print_fd_flags(client.fd);
     if (pid == client.CGI.getChildPid())
-    {
-        wslog.writeToLogFile(DEBUG, "CGI process finished", true);
-        nChildren--;
-        client.request.isCGI = false;
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        
+    {   
         if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
         {
             wslog.writeToLogFile(DEBUG, "Child failed!", true);
             client.response.push_back( HTTPResponse(500, "Internal Server Error"));
-            client.writeBuffer = client.response.back().body;
+            client.writeBuffer = client.response.back().toString();
             return ;
         }
 
@@ -380,10 +399,16 @@ static void handleCGI(Client& client, int loop)
         }
 /*         if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))*/
         // client.response.back() = HTTPResponse(405, "Method not allowed");
-        client.state = SEND;
         if (!client.request.FileUsed)
             client.request.isCGI = false;
         client.writeBuffer = client.response.back().toString();
+        wslog.writeToLogFile(DEBUG, "CGI process finished", true);
+        nChildren--;
+        client.state = SEND;
+        print_fd_flags(client.fd);
+        wslog.writeToLogFile(ERROR, "Client erase status" + std::to_string(client.erase), true);
+        //wslog.writeToLogFile(ERROR, "Client FD is closed for fd " + std::to_string(client.fd), true);
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
 }
@@ -507,11 +532,6 @@ static void checkBody(Client &client, int loop)
             std::cout << "CGI IS TRUE\n";
             client.state = HANDLE_CGI;
             client.CGI.setEnvValues(client.request, client.serverInfo);
-            if (client.request.isCGI == false)
-            {
-                if (checkMethods(client, loop) == false)
-                    return ;
-            }
             int error = client.CGI.executeCGI(client.request, client.serverInfo);
             if (error < 0)
             {
@@ -569,6 +589,7 @@ void handleClientRecv(Client& client, int loop)
             wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
             if (client.bytesRead <= 0)
             {
+                wslog.writeToLogFile(INFO, "handleclient recv failed" + std::to_string(client.fd), true);
                 if (client.bytesRead == 0)
                     wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
                 client.erase = true;
@@ -577,6 +598,7 @@ void handleClientRecv(Client& client, int loop)
                     std::cout << "errno = " << errno << std::endl;
                     throw std::runtime_error("epoll_ctl DEL failed in READ_HEADER");
                 }
+                wslog.writeToLogFile(ERROR, "Closing Client FD" + std::to_string(client.fd) + " disconnected!", true);
                 close(client.fd);
                 return ;
             }
@@ -619,6 +641,7 @@ void handleClientRecv(Client& client, int loop)
                         client.CGI.setEnvValues(client.request, client.serverInfo);
                         if (checkMethods(client, loop) == false)
                             return ;
+                        wslog.writeToLogFile(ERROR, "Client FD: " + std::to_string(client.fd), true);
                         int error = client.CGI.executeCGI(client.request, client.serverInfo);
                         if (error < 0)
                         {
@@ -682,6 +705,7 @@ void handleClientRecv(Client& client, int loop)
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
+                wslog.writeToLogFile(ERROR, "Closing Client FD" + std::to_string(client.fd) + " disconnected!", true);
                 close(client.fd);
                 return ;
             }
@@ -735,13 +759,14 @@ static void handleClientSend(Client &client, int loop)
         else if (bytesread == 0)
             close(client.CGI.readCGIPipe[1]);
         wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
-        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
     }
     else
-        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT);
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
+        wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " disconnected during send", true);
         client.erase = true;
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
@@ -759,6 +784,7 @@ static void handleClientSend(Client &client, int loop)
         {
             if (checkConnection == "close" || checkConnection == "Close")
             {
+                wslog.writeToLogFile(ERROR, "Client closed connection", true);
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
@@ -774,6 +800,7 @@ static void handleClientSend(Client &client, int loop)
         else if (client.request.version == "HTTP/1.0")
         {
             client.erase = true;
+            wslog.writeToLogFile(ERROR, "Closed connection for HTTP/1.0", true);
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
             close(client.fd);
@@ -792,6 +819,10 @@ static void toggleEpollEvents(int fd, int loop, uint32_t events)
     struct epoll_event ev;
     ev.data.fd = fd;
     ev.events = events;
+    wslog.writeToLogFile(INFO, "Toggling epoll events for fd " + std::to_string(fd) + " to " + std::to_string(events), true);
     if (epoll_ctl(loop, EPOLL_CTL_MOD, fd, &ev) < 0)
-        throw std::runtime_error("epoll_ctl MOD failed " + std::to_string(errno));
+    {
+        std::string errmsg = strerror(errno);
+        throw std::runtime_error("epoll_ctl MOD failed: " + errmsg + " for fd " + std::to_string(fd));
+    }
 }

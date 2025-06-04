@@ -1,7 +1,8 @@
 HTTP/1.1 200 OK
-Content-Length: 7
-Content-Type: text/plain
-Method: GET
-Query: name=webserv&age=42
+Content-Length: 33
+Content-Type: application/x-www-form-urlencoded
+Method: POST
+Query: 
 
 Body:
+username=test&password=123
