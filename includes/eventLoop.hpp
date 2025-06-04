@@ -19,7 +19,7 @@
 #include "Client.hpp"
 
 #define MAX_CONNECTIONS 1000
-#define TIMEOUT 60 //testing only, increase later to 60
+#define TIMEOUT 180000 //testing only, increase later to 60
 #define CHILD_CHECK 1
 
 void eventLoop(std::vector<ServerConfig> serverConfigs);
