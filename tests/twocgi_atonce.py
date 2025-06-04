@@ -13,7 +13,8 @@ def send_chunked_request():
     headers += "\r\n"  # End of headers
     headers += "abcde"
     
-    client_socket.send(headers.encode()) 
+    client_socket.send(headers.encode())
+    time.sleep(60);
     client_socket.send(headers.encode())
 
     response = client_socket.recv(1024).decode()

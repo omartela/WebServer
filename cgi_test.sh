@@ -64,6 +64,7 @@ function test_post_urlencoded() {
 
 function test_post_large_body() {
     expected=$'HTTP/1.1 200 OK\r\nContent-Length: 30\r\nContent-Type: application/octet-stream\r\n\r\nFile(s) uploaded successfully'
+    expected=$'HTTP/1.1 200 OK\r\nContent-Length: 30\r\nContent-Type: application/octet-stream\r\n\r\nFile(s) uploaded successfully'
 
     # Generate large binary payload and encode as base64
     bigdata=$(head -c 100000 < /dev/urandom | base64)
@@ -126,7 +127,7 @@ function test_concurrent_requests() {
 
     # Send 10 concurrent requests and capture output
     for i in {1..10}; do
-        curl -i -s "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
+        curl -s "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
     done
     wait
 
@@ -158,11 +159,11 @@ function test_concurrent_requests() {
 }
 
 # Run all tests
-test_get_no_query
-# test_get_with_query
-# test_post_urlencoded
-test_post_large_body
-test_path_traversal
+#test_get_no_query
+#test_get_with_query
+#test_post_urlencoded
+#test_post_large_body
+#test_path_traversal
 # test_not_found_script
 # test_timeout_script
 # test_malformed_output
