@@ -13,7 +13,6 @@ Logger wslog;
 
 int main(int argc, char *argv[])
 {
-    signal(SIGPIPE, SIG_IGN);
     if (argc != 2)
     {
         std::cout << "Usage program name + file" << std::endl;
@@ -28,6 +27,7 @@ int main(int argc, char *argv[])
         //SocketsHandler sockethandler(parser.getServerConfigs());
         eventLoop(parser.getServerConfigs());
         //sockethandler.Run();
+        std::cout << "Exiting eventLoop\n";
     }
     catch (const std::invalid_argument& e)
     {

@@ -4,9 +4,6 @@ import sys
 import os
 import time
 
-# sys.stdin.close()
-# sys.exit()
-
 # Log helper
 def log(message):
     with open("cgi_debug.log", "a") as f:
@@ -23,6 +20,7 @@ log("Printed headers")
 
 # Read stdin (request body)
 body = sys.stdin.read()
+body = body * 100
 log(f"Read {len(body)} bytes from stdin")
 
 # Respond with a large response (repeat the input)

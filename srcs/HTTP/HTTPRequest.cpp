@@ -22,6 +22,28 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
+// static std::string hexToAscii(std::string str)
+// {
+//     std::stringstream ss(str);
+//     int value;
+//     ss >> std::hex >> value;
+//     return std::string(1, static_cast<char>(value));
+// }
+
+// static void decode(std::string& raw)
+// {
+//     for (size_t i = 0; i < raw.size(); i++)
+//     {
+//         if (raw[i] == '%')
+//         {
+//             std::string temp = raw.substr(i + 1,  2);
+//             raw.erase(i, 3);
+//             temp = hexToAscii(temp);
+//             raw.insert(i, temp);
+//         }
+//     }
+// }
+
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
@@ -91,15 +113,15 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         /// then file is /olalala/file.txt
         file = path.substr(0 + location.size());
     }
-    // wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
+    wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
     if (server.routes.find(location) != server.routes.end())
     {
         if (!server.routes.at(location).cgiexecutable.empty())
         {
             std::filesystem::path filePath = file;
             std::string ext = filePath.extension().string();
-            // wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
-            // wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
             if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
             {
                 wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);

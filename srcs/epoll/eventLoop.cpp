@@ -5,26 +5,24 @@
 #include "RequestHandler.hpp"
 #include "CGIhandler.hpp"
 #include "Logger.hpp"
-#include <sys/stat.h>
-
+#include "utils.hpp"
 
 bool        validateHeader(HTTPRequest req);
 void        eventLoop(std::vector<ServerConfig> servers);
 static int  initServerSocket(ServerConfig server);
 static int  acceptNewClient(int loop, int serverSocket, std::map<int, Client>& clients);
-//static void handleClientRecv(Client &client, int loop);
 static void handleClientSend(Client &client, int loop);
 static void toggleEpollEvents(int fd, int loop, uint32_t events);
 static int  findOldestClient(std::map<int, Client>& clients);
 
-// CGIHandler cgi;
-// int eventFD; //remove when making eventLoop into a class?
 int timerFD; //remove when making eventLoop into a class?
 int nChildren; //remove when making eventLoop into a class?
 int childTimerFD; //remove when making eventLoop into a class?
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
+    signal(SIGPIPE, handleSignals);
+    signal(SIGINT, handleSignals);
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;
@@ -68,7 +66,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
 
-    while (true)
+    while (signum == 0)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
@@ -76,7 +74,10 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             if (errno == EINTR)
             {
                 wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
-                continue;
+                if (signum != 0)
+                    break ;
+                else
+                    continue;
             }
             else
                 throw std::runtime_error("epoll_wait failed");
@@ -100,7 +101,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 if (timerOn == false)
                 {
                     timerValues.it_value.tv_sec = TIMEOUT;
-                    timerValues.it_interval.tv_sec = TIMEOUT / 2;
+                    timerValues.it_interval.tv_sec = TIMEOUT / 2; 
                     timerfd_settime(timerFD, 0, &timerValues, 0); //start timeout timer
                     timerOn = true;
                 }
@@ -131,7 +132,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                 {
                     timerValues.it_value.tv_sec = 0;
                     timerValues.it_interval.tv_sec = 0;
-                    // wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
+                    wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
@@ -151,10 +152,10 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     handleClientSend(clients.at(fd), loop);
                 }
                 if (clients.at(fd).erase == true)
-                if (clients.at(fd).erase == true)
                 {
-                    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " erased", true);
+                    wslog.writeToLogFile(INFO, "Erasing client FD" + std::to_string(fd) + " from clients map", true);
                     clients.erase(fd);
+                    //continue ;
                 }
             }
         }
@@ -332,24 +333,39 @@ static bool validateChunkedBody(Client &client)
 
 static void handleCGI(Client& client, int loop)
 {
-
+    int status;
     if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
-    else if (!client.request.FileUsed)
+    else if (client.request.FileUsed == false)
     {
         std::cout << "READING\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
     }
-    pid_t pid = waitpid(client.CGI.getChildPid(), NULL, WNOHANG);
+    // if (signum != 0)
+    //     return ;
+    pid_t pid = waitpid(client.CGI.getChildPid(), &status, WNOHANG);
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
     wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
     wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     if (pid == client.CGI.getChildPid())
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
+        nChildren--;
+        client.request.isCGI = false;
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        
+        if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+        {
+            wslog.writeToLogFile(DEBUG, "Child failed!", true);
+            client.response.push_back( HTTPResponse(500, "Internal Server Error"));
+            client.writeBuffer = client.response.back().body;
+            return ;
+        }
+
         /// jos FileIsUsed lue tiedostosta... muista myos avata tiedosto, koska CGI sulkee tiedoston kun on lopettanut kirjoittamisen
         //  Sulje tiedsto kun olet lukenut
         if (!client.request.FileUsed)
@@ -369,15 +385,8 @@ static void handleCGI(Client& client, int loop)
         if (!client.request.FileUsed)
             client.request.isCGI = false;
         client.writeBuffer = client.response.back().toString();
-        nChildren--;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-    // if (!client.request.body.empty()) //??
-    // {
-    //     wslog.writeToLogFile(DEBUG, "WRITING TO STDIN", true);
-    //     write(client.CGI.getWritePipe(), client.request.body.c_str(), 300);
-    // }
 }
 
 static bool checkMethods(Client &client, int loop)
@@ -503,7 +512,18 @@ static void checkBody(Client &client, int loop)
                 if (checkMethods(client, loop) == false)
                     return ;
             }
-            client.CGI.executeCGI(client.request, client.serverInfo);
+            int error = client.CGI.executeCGI(client.request, client.serverInfo);
+            if (error < 0)
+            {
+                if (error == -500)
+                    client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+                else if (error == -403)
+                    client.response.push_back(HTTPResponse(403, "Forbidden"));
+                client.writeBuffer = client.response.back().body;
+                client.state = SEND;
+                toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                return ;
+            }
             struct itimerspec timerValues { };
             if (nChildren == 0) //before first child
             {
@@ -547,7 +567,6 @@ void handleClientRecv(Client& client, int loop)
             wslog.writeToLogFile(INFO, "READING HEADER", true);
             client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
             wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
-
             if (client.bytesRead <= 0)
             {
                 if (client.bytesRead == 0)
@@ -600,7 +619,17 @@ void handleClientRecv(Client& client, int loop)
                         client.CGI.setEnvValues(client.request, client.serverInfo);
                         if (checkMethods(client, loop) == false)
                             return ;
-                        client.CGI.executeCGI(client.request, client.serverInfo);
+                        int error = client.CGI.executeCGI(client.request, client.serverInfo);
+                        if (error < 0)
+                        {
+                            if (error == -500)
+                                client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+                            else if (error == -403)
+                                client.response.push_back(HTTPResponse(403, "Forbidden"));
+                            client.writeBuffer = client.response.back().body;
+                            client.state = SEND;
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                        }
                         if (client.CGI.getReadPipe() < 0)
                         {
                             client.response.push_back(HTTPResponse(404, "Not Found")); //or something else
@@ -647,20 +676,12 @@ void handleClientRecv(Client& client, int loop)
             client.bytesRead = 0;
             char buffer2[READ_BUFFER_SIZE];
             client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
-            if (client.bytesRead == 0) //client disconnected
+            if (client.bytesRead <= 0) //client disconnected
             {
                 wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
-                close(client.fd);
-                return ;
-            }
-            if (client.bytesRead < 0)
-            {
-                client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed in READ_BODY2");
                 close(client.fd);
                 return ;
             }
@@ -672,6 +693,8 @@ void handleClientRecv(Client& client, int loop)
         }
         case HANDLE_CGI:
         {
+            // if (signum != 0)
+            //     return ;
             wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
             return handleCGI(client, loop);
         }
@@ -723,7 +746,7 @@ static void handleClientSend(Client &client, int loop)
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
         close(client.fd);
-        return ;
+        return ; 
     }
     client.writeBuffer.erase(0, client.bytesWritten);
     wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
@@ -736,9 +759,9 @@ static void handleClientSend(Client &client, int loop)
         {
             if (checkConnection == "close" || checkConnection == "Close")
             {
+                client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
-                client.erase = true;
                 close(client.fd);
             }
             else
@@ -750,9 +773,9 @@ static void handleClientSend(Client &client, int loop)
         }
         else if (client.request.version == "HTTP/1.0")
         {
+            client.erase = true;
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
-            client.erase = true;
             close(client.fd);
         }
         else
