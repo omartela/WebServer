@@ -21,7 +21,8 @@ int childTimerFD; //remove when making eventLoop into a class?
 
 void eventLoop(std::vector<ServerConfig> serverConfigs)
 {
-    signal(SIGPIPE, handleSIGPIPE);
+    signal(SIGPIPE, handleSignals);
+    signal(SIGINT, handleSignals);
     std::map<int, ServerConfig> servers;
     std::map<int, Client> clients;
     int serverSocket;
@@ -65,16 +66,7 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
 
-    // //create and setup eventFD for signals
-    // eventFD = eventfd(0, EFD_NONBLOCK);
-    // if (eventFD < 0)
-    //     std::runtime_error("failed to create eventFD");
-    // wslog.writeToLogFile(INFO, "eventFD created, it got FD" + std::to_string(eventFD), true);
-    // setup.data.fd = eventFD;
-    // if (epoll_ctl(loop, EPOLL_CTL_ADD, eventFD, &setup) < 0)
-    //     throw std::runtime_error("Failed to add eventFD to epoll");
-
-    while (true)
+    while (signum == 0)
     {
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
@@ -82,15 +74,14 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
             if (errno == EINTR)
             {
                 wslog.writeToLogFile(INFO, "epoll_wait interrupted by signal", true);
-                continue;
+                if (signum != 0)
+                    break ;
+                else
+                    continue;
             }
             else
                 throw std::runtime_error("epoll_wait failed");
         }
-        // if (signum != 0)
-        // {
-        //     checkClosedClients(clients, loop, nChildren);
-        // }
         for (int i = 0; i < nReady; i++)
         {
             int fd = eventLog[i].data.fd;
@@ -145,12 +136,6 @@ void eventLoop(std::vector<ServerConfig> serverConfigs)
                     timerfd_settime(childTimerFD, 0, &timerValues, 0);
                 }
             }
-
-            // else if (fd == eventFD)
-            // {
-            //     std::cout << "EVENTFD RECEIVED\n";
-            //     checkClosedClients(clients, loop, nChildren);
-            // }
 
             else if (clients.find(fd) != clients.end())
             {
