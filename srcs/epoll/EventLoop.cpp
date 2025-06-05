@@ -608,6 +608,7 @@ void EventLoop::handleClientRecv(Client& client)
                 if (validateHeader(client.request) == false)
                 {
                     client.response.push_back(HTTPResponse(400, "Bad request"));
+                    client.rawReadData.clear();
                     client.state = SEND;
                     client.writeBuffer = client.response.back().toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);

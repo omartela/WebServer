@@ -59,7 +59,7 @@ class EventLoop
         void createErrorResponse(Client &client, int code, std::string msg, std::string logMsg);
         void handleClientRecv(Client& client);
         void handleClientSend(Client &client);
-        void checkChildrenStatus(int& children);
+        void checkChildrenStatus();
         void checkBody(Client &client);
         void handleCGI(Client& client);
         void checkChildrenStatus();

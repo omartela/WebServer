@@ -126,8 +126,6 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
         close(writeCGIPipe[1]);
 		writeCGIPipe[1] = -1;
 	}
-		writeCGIPipe[1] = -1;
-	}
 }
 
 int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
