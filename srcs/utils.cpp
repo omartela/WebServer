@@ -36,7 +36,6 @@ bool validateHeader(HTTPRequest req)
     {
         bool transferEncoding = false;
         bool contentLength = false;
-
         auto it = req.headers.find("Transfer-Encoding");
         if (it != req.headers.end())
         {
@@ -44,7 +43,6 @@ bool validateHeader(HTTPRequest req)
             if (it->second != "chunked")
                 return false;
         }
-
         it = req.headers.find("Content-Length");
         if (it != req.headers.end())
             contentLength = true;

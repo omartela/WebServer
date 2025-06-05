@@ -11,8 +11,7 @@ SRC = srcs/main.cpp\
 	srcs/HTTP/HTTPResponse.cpp\
 	srcs/HTTP/RequestHandler.cpp\
 	srcs/epoll/Client.cpp\
-	srcs/epoll/eventLoop.cpp\
-	srcs/epoll/timeout.cpp
+	srcs/epoll/EventLoop.cpp
 OBJ_DIR = objs
 OBJ = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP = $(OBJ:.o=.d)

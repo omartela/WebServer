@@ -39,6 +39,7 @@ class EventLoop
         int nChildren;
         int childTimerFD;
         int loop;
+        int status;
         bool timerOn;
         std::map<int, ServerConfig> servers;
         std::map<int, Client> clients;
@@ -46,6 +47,8 @@ class EventLoop
         struct epoll_event setup;
         std::vector<epoll_event> eventLog;
         struct itimerspec timerValues;
+        pid_t pid;
+        std::string checkConnection;
         // int loop = epoll_create1(0);
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
@@ -54,5 +57,11 @@ class EventLoop
         void checkTimeouts();//int timerFd, std::map<int, Client>& clients, int& children, int loop);
         void closeClient(int fd);//Client& client, std::map<int, Client>& clients, int& children, int loop);
         void createErrorResponse(Client &client, int code, std::string msg, std::string logMsg);
+        void handleClientRecv(Client& client, int loop);
+        void handleClientSend(Client &client, int loop);
+        void checkChildrenStatus(int timerFd, std::map<int, Client>& clients, int loop, int& children);
+        void checkBody(Client &client, int loop);
+        void handleCGI(Client& client, int loop);
+        void checkChildrenStatus();
         ~EventLoop();
 };

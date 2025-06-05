@@ -111,7 +111,6 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
 }
 
 int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
-int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 {
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);

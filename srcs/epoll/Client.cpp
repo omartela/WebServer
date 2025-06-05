@@ -1,5 +1,21 @@
 #include "Client.hpp"
 
+static int findOldestClient(std::map<int, Client>& clients)
+{
+    int oldestClient = 0;
+    std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
+
+    for (auto it : clients)
+    {
+        if (it.second.timestamp < oldestTimestamp)
+        {
+            oldestClient = it.second.fd;
+            oldestTimestamp = it.second.timestamp;
+        }
+    }
+    return oldestClient;
+}
+
 Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server)
 {
     this->state = IDLE;
@@ -30,22 +46,6 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
     }
     serverInfo = server;
     timestamp = std::chrono::steady_clock::now();
-}
-
-static int findOldestClient(std::map<int, Client>& clients)
-{
-    int oldestClient = 0;
-    std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
-
-    for (auto it : clients)
-    {
-        if (it.second.timestamp < oldestTimestamp)
-        {
-            oldestClient = it.second.fd;
-            oldestTimestamp = it.second.timestamp;
-        }
-    }
-    return oldestClient;
 }
 
 Client::~Client() {
