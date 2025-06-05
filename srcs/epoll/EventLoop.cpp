@@ -658,8 +658,33 @@ void EventLoop::handleClientSend(Client &client)
         client.writeBuffer = client.response.front().toString();
     }
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
-    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+    //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
+    {
+        if (client.CGI.FileOpen == false)
+        {
+            client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
+            if (client.CGI.readCGIPipe[1] != -1)
+                client.CGI.FileOpen = true;
+        }
+        char buffer[65536];
+        ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+        client.writeBuffer.append(buffer, bytesread);
+        if (bytesread == -1)
+        {
+            wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
+            client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+            return;
+        }
+        else if (bytesread == 0)
+        {
+            close(client.CGI.readCGIPipe[1]);
+            client.CGI.readCGIPipe[1] = -1;
+        }
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
+    }
+    else
+        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
