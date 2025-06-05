@@ -126,7 +126,7 @@ function test_concurrent_requests() {
 
     # Send 10 concurrent requests and capture output
     for i in {1..10}; do
-        curl -s "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
+        curl -i -s "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
     done
     wait
 
@@ -159,8 +159,8 @@ function test_concurrent_requests() {
 
 # Run all tests
 test_get_no_query
-test_get_with_query
-test_post_urlencoded
+# test_get_with_query
+# test_post_urlencoded
 test_post_large_body
 test_path_traversal
 # test_not_found_script

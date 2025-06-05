@@ -1,5 +1,21 @@
 #include "EventLoop.hpp"
 
+void print_fd_flags(int fd) {
+    int fd_flags = fcntl(fd, F_GETFD);
+    int fl_flags = fcntl(fd, F_GETFL);
+
+    std::cout << "FD " << fd << " F_GETFD: " << fd_flags;
+    if (fd_flags & FD_CLOEXEC) std::cout << " (FD_CLOEXEC)";
+    std::cout << std::endl;
+
+    std::cout << "FD " << fd << " F_GETFL: " << fl_flags;
+    if (fl_flags & O_NONBLOCK) std::cout << " (O_NONBLOCK)";
+    if ((fl_flags & O_ACCMODE) == O_RDONLY) std::cout << " (O_RDONLY)";
+    if ((fl_flags & O_ACCMODE) == O_WRONLY) std::cout << " (O_WRONLY)";
+    if ((fl_flags & O_ACCMODE) == O_RDWR)   std::cout << " (O_RDWR)";
+    std::cout << std::endl;
+}
+
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
@@ -42,17 +58,18 @@ static int initServerSocket(ServerConfig server)
 
 static void toggleEpollEvents(int fd, int loop, uint32_t events)
 {
-    struct epoll_event ev;
+    struct epoll_event ev {};
     ev.data.fd = fd;
     ev.events = events;
     if (epoll_ctl(loop, EPOLL_CTL_MOD, fd, &ev) < 0)
         throw std::runtime_error("epoll_ctl MOD failed " + std::to_string(errno));
 }
 
-EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues { }
+EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues {}
 {
     signal(SIGPIPE, handleSignals);
     signal(SIGINT, handleSignals);
+    struct epoll_event setup {};
     nChildren = 0;
     loop = epoll_create1(0);
     for (size_t i = 0; i < serverConfigs.size(); i++)
@@ -84,8 +101,10 @@ EventLoop::~EventLoop() {}
 
 void EventLoop::startLoop()
 {
+    
     while (signum == 0)
     {
+        // print_fd_flags(timerFD);
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
         if (nReady == -1)
         {
@@ -104,7 +123,8 @@ void EventLoop::startLoop()
         {
             int fd = eventLog[i].data.fd;
             if (servers.find(fd) != servers.end())
-            { 
+            {
+                struct epoll_event setup {};
                 Client newClient(loop, fd, clients, servers[fd]);
                 auto result =  clients.emplace(newClient.fd, std::move(newClient));
                 if (!result.second)
@@ -115,6 +135,7 @@ void EventLoop::startLoop()
                     throw std::runtime_error("newClient epoll_ctl ADD failed");
                 if (timerOn == false)
                     setTimerValues(1);
+                wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
             }
             else if (fd == timerFD)
             {
@@ -133,20 +154,22 @@ void EventLoop::startLoop()
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
+                    std::cout << "EPOLLIN\n";
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
-                    handleClientRecv(clients.at(fd), loop);
+                    handleClientRecv(clients.at(fd));
                 }
+                // if (clients.at(fd) .erase) continue;
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
-                    handleClientSend(clients.at(fd), loop);
+                    handleClientSend(clients.at(fd));
                 }
-                if (clients.at(fd).erase == true)
-                {
-                    wslog.writeToLogFile(INFO, "Erasing client FD" + std::to_string(fd) + " from clients map", true);
-                    clients.erase(fd);
-                    //continue ;
-                }
+                // if (clients.at(fd).erase == true)
+                // {
+                //     wslog.writeToLogFile(INFO, "Erasing client FD" + std::to_string(fd) + " from clients map", true);
+                //     clients.erase(fd);
+                //     //continue ;
+                // }
             }
         }
     }
@@ -178,7 +201,6 @@ void EventLoop::setTimerValues(int n)
     }
 }
 
-
 void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, int& children, int loop)
 {
     uint64_t tempBuffer;
@@ -197,7 +219,7 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
             createErrorResponse(client, 408, "Request Timeout", " timed out due to inactivity!");
             continue ;
         }
-        if ((client.state == READ_HEADER || client.state == READ_BODY) && elapsedTime > 0)
+        if (client.state == READ && elapsedTime > 0)
         {
             int dataReceived = client.rawReadData.size() - client.previousDataAmount;
             int dataRate = dataReceived / elapsedTime;
@@ -208,7 +230,7 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
                 continue ;
             }
         }
-        if ((client.state == READ_HEADER && client.rawReadData.size() > 8192) || (client.state == READ_BODY && client.rawReadData.size() > client.serverInfo.client_max_body_size))
+        if ((client.state == READ && client.headerString.size() > 8192) || (client.state == READ && (client.rawReadData.size() - client.headerString.size()) > client.serverInfo.client_max_body_size))
         {
             createErrorResponse(client, 413, "Entity too large", " disconnected, size too big!");
             continue ;
@@ -224,7 +246,7 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
                 continue ;
             }
         } 
-        if (client.state == READ_HEADER || client.state == READ_BODY)
+        if (client.state == READ)
             client.previousDataAmount = client.rawReadData.size();
         else if (client.state == SEND)
             client.previousDataAmount = client.writeBuffer.size();
@@ -254,16 +276,17 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
 void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clients, int loop, int& children)
 {
     uint64_t tempBuffer;
-    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+    ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
+     std::string errmsg = strerror(errno);
+        wslog.writeToLogFile(DEBUG, "after read: " + errmsg, true);
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("childTimerFd recv failed");
-    
     for (auto it = clients.begin(); it != clients.end(); ++it)
     {
         auto& client = it->second;
         if (nChildren > 0 && client.request.isCGI == true)
         {
-            handleCGI(client, loop);
+            handleClientRecv(client);
             continue ;
         }
     }
@@ -355,10 +378,13 @@ static bool validateChunkedBody(Client &client)
     return true;
 }
 
-void EventLoop::handleCGI(Client& client, int loop)
+void EventLoop::handleCGI(Client& client)
 {
     if (client.request.body.empty())
+    {
         close(client.CGI.writeCGIPipe[1]);
+        client.CGI.writeCGIPipe[1] = -1;
+    }
     if (!client.request.FileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
@@ -481,9 +507,9 @@ static void readChunkedBody(Client &client, int loop)
     client.rawReadData.clear();
 }
 
-void EventLoop::checkBody(Client &client, int loop)
+void EventLoop::checkBody(Client &client)
 {
-    if (!client.rawReadData.empty())
+    if (!client.rawReadData.empty() && client.request.method == "POST")
     {
         auto TE = client.request.headers.find("Transfer-Encoding");
         if (TE != client.request.headers.end() && TE->second == "chunked")
@@ -524,7 +550,7 @@ void EventLoop::checkBody(Client &client, int loop)
             wslog.writeToLogFile(INFO, "ChildTimer turned on", true);
         }
         nChildren++;
-        handleCGI(client, loop);
+        handleCGI(client);
         return ;
     }
     else
@@ -538,17 +564,17 @@ void EventLoop::checkBody(Client &client, int loop)
     }
 }
 
-void EventLoop::handleClientRecv(Client& client, int loop)
+void EventLoop::handleClientRecv(Client& client)
 {
     switch (client.state)
     {
         case IDLE:
         {
             wslog.writeToLogFile(INFO, "IN IDLE", true);
-            client.state = READ_HEADER;        
+            client.state = READ;        
             return ;
         }
-        case READ_HEADER:
+        case READ:
         {
             client.bytesRead = 0;
             char buffer[READ_BUFFER_SIZE];
@@ -559,16 +585,17 @@ void EventLoop::handleClientRecv(Client& client, int loop)
             {
                 if (client.bytesRead == 0)
                     wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), true);
-                client.erase = true;
+                // client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 {
                     std::cout << "errno = " << errno << std::endl;
-                    throw std::runtime_error("epoll_ctl DEL failed in READ_HEADER");
+                    throw std::runtime_error("epoll_ctl DEL failed in READ");
                 }
                 close(client.fd);
+                clients.erase(client.fd);
+                // client.fd = -1;
                 return ;
             }
-
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.rawReadData += temp;
@@ -588,46 +615,40 @@ void EventLoop::handleClientRecv(Client& client, int loop)
                 }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
-                client.state = READ_BODY;
-                return;
             }
+            checkBody(client);
             return ;
         }
-        case READ_BODY:
-        {
-            // wslog.writeToLogFile(INFO, "IN READ BODY", true);
-            client.bytesRead = 0;
-            char buffer2[READ_BUFFER_SIZE];
-            client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
-            if (client.bytesRead <= 0) //client disconnected
-            {
-                wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
-                client.erase = true;
-                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
-                close(client.fd);
-                return ;
-            }
-            if (client.request.headers.find("Content-Length") != client.request.headers.end())
-            {
-                buffer2[client.bytesRead] = '\0';
-                std::string temp(buffer2, client.bytesRead);
-                client.rawReadData += temp;
-            }
-            checkBody(client, loop);
-            return ;
-        }
+        // case READ_BODY:
+        // {
+        //     // wslog.writeToLogFile(INFO, "IN READ BODY", true);
+        //     client.bytesRead = 0;
+        //     char buffer2[READ_BUFFER_SIZE];
+        //     client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
+        //     if (client.bytesRead <= 0) //client disconnected
+        //     {
+        //         wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
+        //         client.erase = true;
+        //         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+        //             throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
+        //         close(client.fd);
+        //         return ;
+        //     }
+
+        //     checkBody(client, loop);
+        //     return ;
+        // }
         case HANDLE_CGI:
         {
             wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
-            return handleCGI(client, loop);
+            return handleCGI(client);
         }
         case SEND:
             return;
     }
 }
 
-void EventLoop::handleClientSend(Client &client, int loop)
+void EventLoop::handleClientSend(Client &client)
 {
     if (client.state != SEND)
         return ;
@@ -637,15 +658,16 @@ void EventLoop::handleClientSend(Client &client, int loop)
         client.writeBuffer = client.response.front().toString();
     }
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-    // wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+    wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
-        client.erase = true;
+        // client.erase = true;
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
         close(client.fd);
+        clients.erase(client.fd);
         return ; 
     }
     client.writeBuffer.erase(0, client.bytesWritten);
@@ -658,10 +680,11 @@ void EventLoop::handleClientSend(Client &client, int loop)
         {
             if (checkConnection == "close" || checkConnection == "Close")
             {
-                client.erase = true;
+                // client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
                 close(client.fd);
+                clients.erase(client.fd);
             }
             else
             {
@@ -676,6 +699,7 @@ void EventLoop::handleClientSend(Client &client, int loop)
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
             close(client.fd);
+            clients.erase(client.fd);
         }
         else
         {

@@ -23,8 +23,7 @@
 
 enum connectionStates {
     IDLE,
-    READ_HEADER,
-    READ_BODY,
+    READ,
     HANDLE_CGI,
     SEND
 };
