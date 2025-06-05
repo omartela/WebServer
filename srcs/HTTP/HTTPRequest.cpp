@@ -7,10 +7,34 @@
 #include <vector>
 #include <algorithm>
 
-HTTPRequest::HTTPRequest() {}
+HTTPRequest::HTTPRequest() 
+{
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
+}
 
 HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
 {
+    method = "";
+    path = "";
+    version = "";
+    file = "";
+    eMethod = INVALID;
+    pathInfo = "";
+    isCGI = false;
+    FileUsed = false;
+    FileIsOpen = false;
+    FileFd = -1;
+    query = "";
     parser(headers, server);
 }
 
@@ -84,9 +108,20 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
 
             value.erase(std::remove_if(value.begin(), value.end(), [](char c){ return (c == ' ' || c == '\n' || c == '\r' ||
                     c == '\t' || c == '\v' || c == '\f');}), value.end());
-            headers[key] = value;
+            auto result = headers.insert({key, value});
+            if (result.second == false)
+            {
+                key = "Duplicate";
+                value = "Key";
+                headers.insert({key, value});
+            }
         }
-        // this needs else?
+        else
+        {
+            std::string key = "Invalid";
+            std::string value = "Format";
+            headers.insert({key, value});
+        }
     }
     // In the path there should be the key of the location and it should be the longest key
     // For example you could have key "/" and "/directory/"

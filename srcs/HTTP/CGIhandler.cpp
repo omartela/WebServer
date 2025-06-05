@@ -1,10 +1,15 @@
 #include "CGIhandler.hpp"
 #include "utils.hpp"
+#include "utils.hpp"
 #include <limits.h>
 
 std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
-CGIHandler::CGIHandler() { }
+CGIHandler::CGIHandler() 
+{
+	writeCGIPipe[1] = -1;
+	writeCGIPipe[0] = -1;
+}
 
 int CGIHandler::getWritePipe() { return writeCGIPipe[1]; }
 
@@ -40,6 +45,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	for (size_t i = 0; i < envVariables.size(); i++)
 	{
 		envArray[i] = (char *)envVariables.at(i).c_str();
+		//wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
 		//wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
 	}
 	envArray[envVariables.size()] = NULL;
@@ -79,7 +85,11 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
 	// if (signum != 0)
     //     return ;
 	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
+	// if (signum != 0)
+    //     return ;
+	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
     char buffer[65536];
+    int n;
     int n;
     //output.clear();
 
@@ -90,6 +100,7 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     if (n > 0)
         output.append(buffer, n);
     wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
+	wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
 	wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
 
     //close(readFd);
@@ -103,12 +114,18 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
     //     return ;
 	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
+	// if (signum != 0)
+    //     return ;
+	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
+    int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);
     wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
     if (request.body.empty() == true)
 	{
         close(writeCGIPipe[1]);
+		writeCGIPipe[1] = -1;
+	}
 		writeCGIPipe[1] = -1;
 	}
 }
@@ -128,11 +145,21 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 			/// error
 			return -1;
 		}
+		tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+		FileOpen = true;
+		request.FileFd = open(request.tempFileName.c_str(), O_RDONLY, 0644);
+		if (request.FileFd == -1)
+		{
+			/// error
+			return -1;
+		}
 		writeCGIPipe[0] = request.FileFd;
 	}
     if (access(fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
+        return -403;
         return -403;
     }
     if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
@@ -140,6 +167,7 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
+        return -500;
         return -500;
     if (childPid == 0)
     {
@@ -149,7 +177,9 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 		{
 			close(writeCGIPipe[1]);
 			writeCGIPipe[1] = -1;
+			writeCGIPipe[1] = -1;
 			close(readCGIPipe[0]);
+			readCGIPipe[0] = -1;
 			readCGIPipe[0] = -1;
 		}
         execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
@@ -160,10 +190,21 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 	{
 		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
 		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
+		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
+		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
 		close(writeCGIPipe[0]);
+		writeCGIPipe[0] = -1;
 		writeCGIPipe[0] = -1;
 		close(readCGIPipe[1]);
 		readCGIPipe[1] = -1;
+		readCGIPipe[1] = -1;
+	}
+	if (!request.FileUsed)
+	{
+		int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
+		fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+		flags = fcntl(readCGIPipe[0], F_GETFL);
+		fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
 	}
 	if (!request.FileUsed)
 	{

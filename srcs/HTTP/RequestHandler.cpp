@@ -22,7 +22,7 @@
 void printRequest(const HTTPRequest &req)
 {
     std::cout << req.method << " " << req.path << std::endl;
-    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
+    for (auto it = req.headers.begin(); it != req.headers.end(); ++it) {
         std::cout << it->first << ": " << it->second << "\r\n";
     };
     std::cout <<"\r\n";
@@ -183,7 +183,7 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     // std::cout << "Key: {" << client.request.location << "}" << std::endl;
     if (client.request.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
-    std::map<std::string, std::string>::const_iterator its = client.request.headers.find("Content-Type");
+    auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
         HTTPResponse response(400, "Invalid headers");
@@ -397,7 +397,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(404, "Invalid file name");
     }
-    if (std::filesystem::is_directory(fullPath)  && fullPath.back() != '/')
+    if (std::filesystem::is_directory(fullPath) && fullPath.back() != '/')
         return redirectResponse(client.request.file);
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(405, "Method not allowed");
