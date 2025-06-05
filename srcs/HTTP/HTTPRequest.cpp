@@ -9,9 +9,9 @@
 
 HTTPRequest::HTTPRequest() {}
 
-HTTPRequest::HTTPRequest(std::string headers, ServerConfig server) 
-{ 
-    parser(headers, server); 
+HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
+{
+    parser(headers, server);
 }
 
 reqTypes getMethodEnum(const std::string& method)
@@ -22,9 +22,34 @@ reqTypes getMethodEnum(const std::string& method)
     return INVALID;
 }
 
+static std::string hexToAscii(std::string str)
+{
+    std::stringstream ss(str);
+    int value;
+    ss >> std::hex >> value;
+    return std::string(1, static_cast<char>(value));
+}
+
+static void decode(std::string& raw)
+{
+    for (size_t i = 0; i < raw.size(); i++)
+    {
+        if (raw[i] == '%')
+        {
+            std::string temp = raw.substr(i + 1,  2);
+            raw.erase(i, 3);
+            temp = hexToAscii(temp);
+            raw.insert(i, temp);
+        }
+    }
+}
+
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
+    wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
+    decode(raw);
+    wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, true);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -66,6 +91,12 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
     // In the path there should be the key of the location and it should be the longest key
     // For example you could have key "/" and "/directory/"
     // the matched one should be the longest so "/directory/"
+    size_t query_pos = path.find('?');
+    if (query_pos != std::string::npos)
+    {
+        query = path.substr(query_pos + 1);
+        path = path.substr(0, query_pos);
+    }
     std::vector<std::string> matches;
     for (auto it = server.routes.begin(); it != server.routes.end(); ++it)
     {
@@ -91,12 +122,15 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         {
             std::filesystem::path filePath = file;
             std::string ext = filePath.extension().string();
-            wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
-            wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
             if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
             {
                 wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
-                isCGI = true;
+                if (std::find(server.routes.at(location).cgi_methods.begin(), server.routes.at(location).cgi_methods.end(), method) != server.routes.at(location).cgi_methods.end())
+                    isCGI = true;
+                else
+                    wslog.writeToLogFile(INFO, "Method not allowed for CGI: " + method + " in location: " + location, true);
             }
         }
     }

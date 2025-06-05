@@ -33,6 +33,7 @@ struct Route
     bool autoindex;
     std::string index_file;
     std::vector<std::string> cgi_extension;
+    std::vector<std::string> cgi_methods;
     std::string upload_path;
     std::string cgiexecutable;
     size_t client_max_body_size;
@@ -71,6 +72,7 @@ class Parser
         void parseUploadPathDirective(const std::string& line, Route& route);
         void parseCgiExtensionDirective(const std::string& line, Route& route);
         void parseCgiExecutable(const std::string& line, Route& route);
+        void parseCgiMethodsDirective(const std::string& line, Route& route);
         // Validation functions
         bool validateServerDirective(const std::string& line);
         bool validateListenDirective(const std::string& line);
@@ -89,6 +91,7 @@ class Parser
         bool validateBrackets(const std::string& config_file);
         bool validateFile(const std::string& config_file);
         bool validateExtension(const std::string& filename, const std::string& expectedExt);
+        bool validateCgiMethodsDirective(const std::string& line);
     public:
         Parser(const std::string& config_file);
         Parser(const Parser& src) = delete; // Disable copy constructor

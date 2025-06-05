@@ -1,12 +1,22 @@
 #include "HTTPRequest.hpp"
+#include "utils.hpp"
 #include <filesystem>
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2)
+std::atomic<int> signum = 0;
+
+std::string join_paths(std::filesystem::path path1, std::filesystem::path path2) //rename joinPaths
 {
-    std::filesystem::path full = path1 / path2;
-    return full.string();
+    return path1 / path2;
 }
 
+void handleSignals(int signal) 
+{
+    if (signal == SIGPIPE)
+        signal = 0;
+    else if (signal == SIGINT)
+        signum = signal;
+    return ;
+}
 
 bool validateHeader(HTTPRequest req)
 {
@@ -26,7 +36,6 @@ bool validateHeader(HTTPRequest req)
     {
         bool transferEncoding = false;
         bool contentLength = false;
-
         auto it = req.headers.find("Transfer-Encoding");
         if (it != req.headers.end())
         {
@@ -34,7 +43,6 @@ bool validateHeader(HTTPRequest req)
             if (it->second != "chunked")
                 return false;
         }
-
         it = req.headers.find("Content-Length");
         if (it != req.headers.end())
             contentLength = true;

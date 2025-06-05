@@ -1,13 +1,51 @@
 #include "Client.hpp"
 
-Client::Client()
+static int findOldestClient(std::map<int, Client>& clients)
 {
-    this->fd = -1;
+    int oldestClient = 0;
+    std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
+
+    for (auto it : clients)
+    {
+        if (it.second.timestamp < oldestTimestamp)
+        {
+            oldestClient = it.second.fd;
+            oldestTimestamp = it.second.timestamp;
+        }
+    }
+    return oldestClient;
+}
+
+Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server)
+{
     this->state = IDLE;
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->previousDataAmount = 0;
     this->erase = false;
+    struct sockaddr_in clientAddress;
+    socklen_t clientLen = sizeof(clientAddress);
+    fd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+    if (fd < 0)
+    {
+        if (errno == EMFILE) //max fds reached
+        {
+            int oldFd = findOldestClient(clients);
+            if (oldFd != 0)
+            {
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
+                    throw std::runtime_error("oldFd epoll_ctl DEL failed");
+                close(oldFd);
+                if (clients.find(oldFd) != clients.end())
+                    clients.at(oldFd).reset();
+                fd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
+            }
+        }
+        else
+            throw std::runtime_error("accepting new client failed");
+    }
+    serverInfo = server;
+    timestamp = std::chrono::steady_clock::now();
 }
 
 Client::~Client() {

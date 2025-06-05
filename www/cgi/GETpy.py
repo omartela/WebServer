@@ -1,5 +1,7 @@
-import cgi
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+import cgi
 # Output the headers
 print("Content-Type: text/html", end="")  # Content-Type header
 print("\r\n\r\n", end="")  # Blank line indicating the end of headers
