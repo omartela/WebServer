@@ -16,7 +16,7 @@ void handleSignals(int signal)
     if (signal == SIGPIPE)
         signal = 0;
     else if (signal == SIGINT)
-        signum = signal;
+        signum = signal; 
     return ;
 }
 
@@ -26,13 +26,30 @@ bool validateHeader(HTTPRequest req)
     if (req.method.empty() || req.path.empty() || req.version.empty())
         return false;
 
-    // if HTTP/1.1 must have host header
+    //if HTTP/1.1 must have host header
     if (req.version == "HTTP/1.1")
     {
         auto it = req.headers.find("Host");
         if (it == req.headers.end())
             return false;
     }
+
+    //check if there were headers without colons
+    auto it = req.headers.find("Invalid");
+    if (it != req.headers.end())
+    {
+        if (it->second == "Format")
+            return false;
+    }
+
+    //check if a key appears many times in the headers
+    it = req.headers.find("Duplicate");
+    if (it != req.headers.end())
+    {
+        if (it->second == "Key")
+            return false;
+    }
+
     //if method is POST, check if transfer-encoding exist. if so, it must be chunked and content-length must not exist
     if (req.method == "POST")
     {
