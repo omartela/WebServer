@@ -1,21 +1,5 @@
 #include "EventLoop.hpp"
 
-void print_fd_flags(int fd) {
-    int fd_flags = fcntl(fd, F_GETFD);
-    int fl_flags = fcntl(fd, F_GETFL);
-
-    std::cout << "FD " << fd << " F_GETFD: " << fd_flags;
-    if (fd_flags & FD_CLOEXEC) std::cout << " (FD_CLOEXEC)";
-    std::cout << std::endl;
-
-    std::cout << "FD " << fd << " F_GETFL: " << fl_flags;
-    if (fl_flags & O_NONBLOCK) std::cout << " (O_NONBLOCK)";
-    if ((fl_flags & O_ACCMODE) == O_RDONLY) std::cout << " (O_RDONLY)";
-    if ((fl_flags & O_ACCMODE) == O_WRONLY) std::cout << " (O_WRONLY)";
-    if ((fl_flags & O_ACCMODE) == O_RDWR)   std::cout << " (O_RDWR)";
-    std::cout << std::endl;
-}
-
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
