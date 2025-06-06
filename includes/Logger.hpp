@@ -16,7 +16,6 @@
 #define ORANGE "\033[38;5;214m"
 #define RESET	"\033[0m"
 
-
 enum LoggerStatus
 {
 	INFO,

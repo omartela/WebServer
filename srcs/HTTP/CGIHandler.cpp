@@ -6,13 +6,19 @@ CGIHandler::CGIHandler()
 {
 	writeCGIPipe[1] = -1;
 	writeCGIPipe[0] = -1;
+	readCGIPipe[1] = -1;
+	readCGIPipe[0] = -1;
 }
 
 int CGIHandler::getWritePipe() { return writeCGIPipe[1]; }
 
-int CGIHandler::getReadPipe() {return readCGIPipe[0]; }
+int CGIHandler::getReadPipe() { return readCGIPipe[0]; }
 
 int CGIHandler::getChildPid() { return childPid; }
+
+// char* const* CGIHandler::getEnvArray() { return *envArray; }
+
+// char* const* CGIHandler::getExceveArgs() { return *exceveArgs; }
 
 void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 {
@@ -72,7 +78,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 			res.headers[line.substr(0, colon)] = line.substr(colon + 2);
 	}
 	res.headers["Content-Length"] = std::to_string(res.body.size());
-    //output.clear //?
+    //output.clear
 	return res;
 }
 
@@ -112,61 +118,83 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
 	}
 }
 
-int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
-{
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
-	if (request.FileUsed)
-	{
-		tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
-		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
-		FileOpen = true;
-		request.FileFd = open(request.tempFileName.c_str(), O_RDONLY, 0644);
-		if (request.FileFd == -1)
-		{
-			/// error
-			return -1;
-		}
-		writeCGIPipe[0] = request.FileFd;
-	}
-    if (access(fullPath.c_str(), X_OK) != 0)
-    {
-        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
-        return -403;
-    }
-    if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
-	{
-        return -500;
-	}	
-	wslog.writeToLogFile(ERROR, "Pipe FDs: writeCGIPipe[0] = " + std::to_string(writeCGIPipe[0]) +  ", writeCGIPipe[1] = " + std::to_string(writeCGIPipe[1]) + ", readCGIPipe[0] = " + std::to_string(readCGIPipe[0]) +  ", readCGIPipe[1] = " + std::to_string(readCGIPipe[1]), true);
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
-    childPid = fork();
-    if (childPid == -1)
-        return -500;
-    if (childPid == 0)
-    {
-        dup2(writeCGIPipe[0], STDIN_FILENO);
-        dup2(readCGIPipe[1], STDOUT_FILENO);
-		if (!request.FileUsed)
-		{
-			close(writeCGIPipe[1]);
-			writeCGIPipe[1] = -1;
-			close(readCGIPipe[0]);
-			readCGIPipe[0] = -1;
-		}
-        execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
-        //std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
-        _exit(1);
-    }
-	if (!request.FileUsed)
-	{
-		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
-		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
-		close(writeCGIPipe[0]);
-		writeCGIPipe[0] = -1;
-		close(readCGIPipe[1]);
-		readCGIPipe[1] = -1;
-	}
-	return 0;
-}
+// int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
+// {
+//     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+//     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + fullPath, true);
+// 	if (request.fileUsed)
+// 	{
+// 		tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+// 		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+// 		FileOpen = true;
+// 		request.fileFd = open(request.tempFileName.c_str(), O_RDONLY, 0644);
+// 		if (request.fileFd == -1)
+// 		{
+// 			/// error
+// 			return -1;
+// 		}
+// 		tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+// 		readCGIPipe[1] =  open(tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+// 		FileOpen = true;
+// 		request.fileFd = open(request.tempFileName.c_str(), O_RDONLY, 0644);
+// 		if (request.fileFd == -1)
+// 		{
+// 			/// error
+// 			return -1;
+// 		}
+// 		writeCGIPipe[0] = request.fileFd;
+// 	}
+//     if (access(fullPath.c_str(), X_OK) != 0)
+//     {
+//         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
+//         return -403;
+//     }
+//     if (!request.fileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
+// 	{
+//         return -500;
+// 	}
+//     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
+//     childPid = fork();
+//     if (childPid == -1)
+//         return -500;
+//     if (childPid == 0)
+//     {
+// 		closeFds();
+//         dup2(writeCGIPipe[0], STDIN_FILENO);
+//         dup2(readCGIPipe[1], STDOUT_FILENO);
+// 		if (!request.fileUsed)
+// 		{
+// 			close(writeCGIPipe[1]);
+// 			writeCGIPipe[1] = -1;
+// 			writeCGIPipe[1] = -1;
+// 			close(readCGIPipe[0]);
+// 			readCGIPipe[0] = -1;
+// 			readCGIPipe[0] = -1;
+// 		}
+//         execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
+//         //std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
+//         _exit(1);
+//     }
+// 	if (!request.fileUsed)
+// 	{
+// 		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
+// 		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
+// 		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(writeCGIPipe[0]), true);
+// 		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(readCGIPipe[1]), true);
+// 		close(writeCGIPipe[0]);
+// 		writeCGIPipe[0] = -1;
+// 		writeCGIPipe[0] = -1;
+// 		close(readCGIPipe[1]);
+// 		readCGIPipe[1] = -1;
+// 		readCGIPipe[1] = -1;
+// 	}
+// 	if (!request.fileUsed)
+// 	{
+// 		int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
+// 		fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+// 		flags = fcntl(readCGIPipe[0], F_GETFL);
+// 		fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+// 	}
+// 	return 0;
+// }
 

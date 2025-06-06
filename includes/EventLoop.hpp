@@ -62,5 +62,7 @@ class EventLoop
         void checkChildrenStatus();
         void checkBody(Client &client);
         void handleCGI(Client& client);
+        int  executeCGI(Client& client, ServerConfig server);
+        void closeFds();
         ~EventLoop();
 };
