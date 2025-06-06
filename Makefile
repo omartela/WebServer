@@ -7,7 +7,7 @@ SRC = srcs/main.cpp\
 	srcs/logger/Logger.cpp\
 	srcs/configparser/Parser.cpp\
 	srcs/HTTP/HTTPRequest.cpp\
-	srcs/HTTP/CGIhandler.cpp\
+	srcs/HTTP/CGIHandler.cpp\
 	srcs/HTTP/HTTPResponse.cpp\
 	srcs/HTTP/RequestHandler.cpp\
 	srcs/epoll/Client.cpp\

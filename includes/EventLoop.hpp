@@ -4,7 +4,7 @@
 #include "HTTPResponse.hpp"
 #include "Logger.hpp"
 #include "RequestHandler.hpp"
-#include "CGIhandler.hpp"
+#include "CGIHandler.hpp"
 #include "Logger.hpp"
 #include "Parser.hpp"
 #include "Client.hpp"
@@ -62,6 +62,5 @@ class EventLoop
         void checkChildrenStatus();
         void checkBody(Client &client);
         void handleCGI(Client& client);
-        void checkChildrenStatus();
         ~EventLoop();
 };

@@ -1,9 +1,6 @@
-#include "CGIhandler.hpp"
-#include "utils.hpp"
+#include "CGIHandler.hpp"
 #include "utils.hpp"
 #include <limits.h>
-
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
 CGIHandler::CGIHandler() 
 {
@@ -22,7 +19,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	std::string server_name = server.server_names.empty() ? "localhost"
 			: server.server_names.at(0);
 	char absPath[PATH_MAX];
-	std::string localPath = join_paths(server.routes.at(request.location).abspath, request.file);
+	std::string localPath = joinPaths(server.routes.at(request.location).abspath, request.file);
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
@@ -82,21 +79,9 @@ HTTPResponse CGIHandler::generateCGIResponse()
 
 void CGIHandler::collectCGIOutput(int childReadPipeFd)
 {
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
     char buffer[65536];
-    int n;
-    int n;
-    //output.clear();
 
-    // while ((n = read(readFd, buffer, sizeof(buffer)) > 0)
-    //     output.append(buffer, n);
-
-    n = read(childReadPipeFd, buffer, sizeof(buffer));
+    int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
         output.append(buffer, n);
     wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
@@ -108,15 +93,6 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)
 {
-    // write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
-    // close(writeCGIPipe[1]);
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
-    int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);
@@ -158,14 +134,12 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + fullPath, true);
         return -403;
-        return -403;
     }
     if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
         return -500;
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
-        return -500;
         return -500;
     if (childPid == 0)
     {

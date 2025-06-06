@@ -9,7 +9,7 @@
 #include <sys/timerfd.h>
 #include <fcntl.h>
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
+std::string joinPaths(std::filesystem::path path1, std::filesystem::path path2);
 
 class Client;
 
