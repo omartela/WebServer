@@ -4,6 +4,7 @@
 #include "Enums.hpp"
 #include "Client.hpp"
 #include "Parser.hpp"
+#include "utils.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -290,7 +291,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
         // wslog.writeToLogFile(DEBUG, "We are here", true);
-        fullPath = join_paths(fullPath, client.serverInfo.routes[client.request.location].index_file);
+        fullPath = joinPaths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
         // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
         if (!file.is_open())
@@ -377,7 +378,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         if (isspace(client.request.file[i]))
             return HTTPResponse(403, "Whitespace in filename");
     }
-    std::string fullPath = "." + join_paths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
+    std::string fullPath = "." + joinPaths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())

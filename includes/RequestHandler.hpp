@@ -4,8 +4,8 @@
 #include "HTTPResponse.hpp"
 #include "Parser.hpp"
 #include "Client.hpp"
+#include "utils.hpp"
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
 
 class RequestHandler
 {

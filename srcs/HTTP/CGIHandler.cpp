@@ -2,8 +2,6 @@
 #include "utils.hpp"
 #include <limits.h>
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
-
 CGIHandler::CGIHandler() 
 {
 	writeCGIPipe[1] = -1;
@@ -21,7 +19,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	std::string server_name = server.server_names.empty() ? "localhost"
 			: server.server_names.at(0);
 	char absPath[PATH_MAX];
-	std::string localPath = join_paths(server.routes.at(request.location).abspath, request.file);
+	std::string localPath = joinPaths(server.routes.at(request.location).abspath, request.file);
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
 	envVariables.clear();
@@ -87,10 +85,7 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     int n;
     //output.clear();
 
-    // while ((n = read(readFd, buffer, sizeof(buffer)) > 0)
-    //     output.append(buffer, n);
-
-    n = read(childReadPipeFd, buffer, sizeof(buffer));
+    int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
         output.append(buffer, n);
     wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);

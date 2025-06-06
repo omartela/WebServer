@@ -5,7 +5,7 @@
 
 std::atomic<int> signum = 0;
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2) //rename joinPaths
+std::string joinPaths(std::filesystem::path path1, std::filesystem::path path2)
 {
     return path1 / path2;
 }
