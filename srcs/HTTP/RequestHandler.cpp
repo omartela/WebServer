@@ -4,6 +4,7 @@
 #include "Enums.hpp"
 #include "Client.hpp"
 #include "Parser.hpp"
+#include "utils.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -22,7 +23,7 @@
 void printRequest(const HTTPRequest &req)
 {
     std::cout << req.method << " " << req.path << std::endl;
-    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
+    for (auto it = req.headers.begin(); it != req.headers.end(); ++it) {
         std::cout << it->first << ": " << it->second << "\r\n";
     };
     std::cout <<"\r\n";
@@ -183,7 +184,7 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     // std::cout << "Key: {" << client.request.location << "}" << std::endl;
     if (client.request.headers.count("Content-Type") == 0)
         return HTTPResponse(400, "Missing Content-Type");
-    std::map<std::string, std::string>::const_iterator its = client.request.headers.find("Content-Type");
+    auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
         HTTPResponse response(400, "Invalid headers");
@@ -290,7 +291,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
         // wslog.writeToLogFile(DEBUG, "We are here", true);
-        fullPath = join_paths(fullPath, client.serverInfo.routes[client.request.location].index_file);
+        fullPath = joinPaths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
         // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
         if (!file.is_open())
@@ -377,7 +378,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         if (isspace(client.request.file[i]))
             return HTTPResponse(403, "Whitespace in filename");
     }
-    std::string fullPath = "." + join_paths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
+    std::string fullPath = "." + joinPaths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
     wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);
     if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
@@ -397,7 +398,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(404, "Invalid file name");
     }
-    if (std::filesystem::is_directory(fullPath)  && fullPath.back() != '/')
+    if (std::filesystem::is_directory(fullPath) && fullPath.back() != '/')
         return redirectResponse(client.request.file);
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
         return HTTPResponse(405, "Method not allowed");

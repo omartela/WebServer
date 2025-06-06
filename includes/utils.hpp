@@ -4,7 +4,7 @@
 #include <csignal>
 #include <signal.h>
 
-std::string join_paths(std::filesystem::path path1, std::filesystem::path path2);
+std::string joinPaths(std::filesystem::path path1, std::filesystem::path path2);
 bool validateHeader(HTTPRequest req);
 void handleSignals(int signum);
 

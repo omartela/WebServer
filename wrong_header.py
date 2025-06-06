@@ -1,33 +1,21 @@
 #!/usr/bin/env python3
-
 import socket
 
-HOST = '127.0.0.2'
-PORT = 8004
-CGI_PATH = '/cgi/inf_test.py'
+HOST = '127.0.0.1'  # or your server's IP
+PORT = 8080        # change if needed
 
-# Create a large POST body (e.g. 1MB)
-BODY_SIZE = 1024 * 1024  # 1 MB
-body = "0" * BODY_SIZE
-
-# Construct raw HTTP POST request
-request = (
-    f"POST {CGI_PATH} HTTP/1.1\r\n"
-    f"Host: {HOST}\r\n"
-    f"Content-Length: {len(body)}\r\n"
-    f"Content-Type: text/plain\r\n"
-    f"Connection: close\r\n"
-    f"\r\n\r\n"
-    f"{body}"
-)
-
-
-def run():
-    print(f"📤 Sending {len(body) / 1024:.1f} KB body to CGI script...")
-    response_data = b""
+def send_request_and_read_response():
     with socket.create_connection((HOST, PORT)) as sock:
+        # Send basic HTTP request
+        request = (
+            "GET /cgi/big_response.py HTTP/1.1\r\n"
+            f"Host: {HOST}\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+        )
+        response_data = b""
         sock.sendall(request.encode())
-        sock.sendall(request.encode())
+
         total = 0
         while True:
             chunk = sock.recv(8192)
@@ -42,4 +30,4 @@ def run():
     print(response_data.decode(errors="replace"))
 
 if __name__ == "__main__":
-    run()
+    send_request_and_read_response()

@@ -4,7 +4,7 @@
 #include "HTTPResponse.hpp"
 #include "Logger.hpp"
 #include "RequestHandler.hpp"
-#include "CGIhandler.hpp"
+#include "CGIHandler.hpp"
 #include "Logger.hpp"
 #include "Parser.hpp"
 #include "Client.hpp"
@@ -59,9 +59,10 @@ class EventLoop
         void createErrorResponse(Client &client, int code, std::string msg, std::string logMsg);
         void handleClientRecv(Client& client);
         void handleClientSend(Client &client);
-        void checkChildrenStatus(int& children);
+        void checkChildrenStatus();
         void checkBody(Client &client);
         void handleCGI(Client& client);
-        void checkChildrenStatus();
+        int  executeCGI(Client& client, ServerConfig server);
+        void closeFds();
         ~EventLoop();
 };

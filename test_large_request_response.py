@@ -2,8 +2,8 @@
 
 import socket
 
-HOST = '127.0.0.1'
-PORT = 8001
+HOST = '127.0.0.2'
+PORT = 8004
 PATH = '/cgi/A_test'
 
 # Generate ~512KB body (large enough to not fit in one write)

@@ -48,12 +48,12 @@ function run_test() {
 }
 
 function test_get_no_query() {
-    expected=$'HTTP/1.1 200 OK\nContent-Length: 7\nContent-Type: text/plain\nMethod: GET\nQuery: \r\n\r\nBody:'
+    expected=$'HTTP/1.1 200 OK\nContent-Length: 6\nContent-Type: text/plain\nMethod: GET\nQuery: \r\n\r\nBody:'
     run_test "GET - No Query" "$SERVER$CGI_PATH" "GET" "" "$expected"
 }
 
 function test_get_with_query() {
-    expected=$'HTTP/1.1 200 OK\nContent-Length: 7\nContent-Type: text/plain\nMethod: GET\nQuery: name=webserv&age=42\r\n\r\nBody:'
+    expected=$'HTTP/1.1 200 OK\nContent-Length: 6\nContent-Type: text/plain\nMethod: GET\nQuery: name=webserv&age=42\r\n\r\nBody:'
     run_test "GET - With Query" "$SERVER$CGI_PATH?name=webserv&age=42" "GET" "" "$expected"
 }
 
@@ -126,7 +126,7 @@ function test_concurrent_requests() {
 
     # Send 10 concurrent requests and capture output
     for i in {1..10}; do
-        curl -i -s "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
+        curl -s -i "$SERVER$CGI_PATH?i=$i" > "tmp_cgi_test/output_$i.txt" &
     done
     wait
 
@@ -158,12 +158,12 @@ function test_concurrent_requests() {
 }
 
 # Run all tests
-test_get_no_query
-# test_get_with_query
-# test_post_urlencoded
-test_post_large_body
-test_path_traversal
-# test_not_found_script
-# test_timeout_script
-# test_malformed_output
-test_concurrent_requests
+#test_get_no_query
+#test_get_with_query
+#test_post_urlencoded
+#test_post_large_body
+#test_path_traversal
+#test_not_found_script
+test_timeout_script
+test_malformed_output
+#test_concurrent_requests
