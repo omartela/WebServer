@@ -136,7 +136,13 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
         return -403;
     }
     if (!request.FileUsed && (pipe(writeCGIPipe) == -1 || pipe(readCGIPipe) == -1))
+	{
+		close(writeCGIPipe[0]);
+		close(writeCGIPipe[1]);
+		close(readCGIPipe[0]);
+		close(readCGIPipe[1]);
         return -500;
+	}
     wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     childPid = fork();
     if (childPid == -1)
@@ -155,7 +161,7 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 			readCGIPipe[0] = -1;
 		}
         execve(server.routes[request.location].cgiexecutable.c_str(), exceveArgs, envArray);
-        std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
+        //std::cout << "I WILL NOT GET HERE IF CHILD SCRIPT WAS SUCCESSFUL\n";
         _exit(1);
     }
 	if (!request.FileUsed)
@@ -170,13 +176,6 @@ int CGIHandler::executeCGI(HTTPRequest& request, ServerConfig server)
 		close(readCGIPipe[1]);
 		readCGIPipe[1] = -1;
 		readCGIPipe[1] = -1;
-	}
-	if (!request.FileUsed)
-	{
-		int flags = fcntl(writeCGIPipe[1], F_GETFL); //save the previous flags if any
-		fcntl(writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
-		flags = fcntl(readCGIPipe[0], F_GETFL);
-		fcntl(readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
 	}
 	if (!request.FileUsed)
 	{

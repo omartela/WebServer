@@ -97,7 +97,16 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
         throw std::runtime_error("Failed to add childTimerFD to epoll");
 }
 
-EventLoop::~EventLoop() {}
+EventLoop::~EventLoop() 
+{
+    close(timerFD);
+    close(childTimerFD);
+    close(loop);
+    for (auto& server : servers)
+        close(server.first);
+    for (auto& client : clients)
+        close(client.first);
+}
 
 void EventLoop::startLoop()
 {
