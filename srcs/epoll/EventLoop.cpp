@@ -142,18 +142,11 @@ void EventLoop::startLoop()
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                 }
-                // if (clients.at(fd) .erase) continue;
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd));
                 }
-                // if (clients.at(fd).erase == true)
-                // {
-                //     wslog.writeToLogFile(INFO, "Erasing client FD" + std::to_string(fd) + " from clients map", true);
-                //     clients.erase(fd);
-                //     //continue ;
-                // }
             }
         }
     }
@@ -185,10 +178,10 @@ void EventLoop::setTimerValues(int n)
     }
 }
 
-void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, int& children, int loop)
+void EventLoop::checkTimeouts()
 {
     uint64_t tempBuffer;
-    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
+    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer));
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("timerfd recv failed");
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -299,16 +292,9 @@ static bool validateChunkedBody(Client &client)
     {
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
-        // Log the start (first 20 chars) and end (last 20 chars) of the buffer
-        size_t logLen = 20;
-        std::string start = str.substr(0, std::min(logLen, str.size()));
-        std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
-        wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
-        wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
         wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + std::to_string(client.chunkBuffer.size()), true);
         if (!isHexUnsignedLongLong(str))
         {
-            wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
         bytes = HexStrToUnsignedLongLong(str);
@@ -317,7 +303,6 @@ static bool validateChunkedBody(Client &client)
         {
             if (!std::isxdigit(str[i]))
             {
-                wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
                 return false;
             }
             i++;
@@ -328,13 +313,11 @@ static bool validateChunkedBody(Client &client)
                 return true;
             else
             {
-                wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
                 return false;
             }
         }
         if (str.size() > (i + 1) && (str[i + 1] != '\n'))
         {
-            wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
             return false;
         }
         str = str.substr(i + 2);

@@ -18,11 +18,9 @@ int main(int argc, char *argv[])
     try
     {
         Parser parser(argv[1]);
-        // parser.printServerConfigs();
         wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
         EventLoop loop(parser.getServerConfigs());
         loop.startLoop();
-        // eventLoop(parser.getServerConfigs());
         std::cout << "Exiting eventLoop\n";
     }
     catch (const std::invalid_argument& e)
