@@ -4,7 +4,7 @@ import socket
 
 HOST = '127.0.0.2'
 PORT = 8004
-CGI_PATH = '/cgi/big_echo.py'
+CGI_PATH = '/cgi/inf_test.py'
 
 # Create a large POST body (e.g. 1MB)
 BODY_SIZE = 1024 * 1024  # 1 MB

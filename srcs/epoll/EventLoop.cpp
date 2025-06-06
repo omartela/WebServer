@@ -260,11 +260,11 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
         nChildren--;
-    if (clients.at(fd).fd != -1)
-        close(clients.at(fd).fd);
-    clients.at(fd).fd = -1;
+    // if (clients.at(fd).fd != -1)
+    close(clients.at(fd).fd);
+    // clients.at(fd).fd = -1;
     clients.erase(clients.at(fd).fd);
-    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(clients.at(fd).fd) + " closed!", true);
+    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
 }
 
 void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clients, int loop, int& children)
@@ -735,9 +735,9 @@ void EventLoop::handleClientSend(Client &client)
     {
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
-        if (client.fd != -1)
-            close(client.fd);
-        client.fd = -1;
+        // if (client.fd != -1)
+        close(client.fd);
+        // client.fd = -1;
         clients.erase(client.fd);
         return ; 
     }
@@ -753,9 +753,9 @@ void EventLoop::handleClientSend(Client &client)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
-                if (client.fd != -1)
-                    close(client.fd);
-                client.fd = -1;
+                // if (client.fd != -1)
+                close(client.fd);
+                // client.fd = -1;
                 clients.erase(client.fd);
             }
             else
@@ -770,9 +770,9 @@ void EventLoop::handleClientSend(Client &client)
             client.erase = true;
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
-            if (client.fd != -1)
-                close(client.fd);
-            client.fd = -1;
+            // if (client.fd != -1)
+            close(client.fd);
+            // client.fd = -1;
             clients.erase(client.fd);
         }
         else
