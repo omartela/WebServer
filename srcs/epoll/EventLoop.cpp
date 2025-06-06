@@ -173,18 +173,12 @@ void EventLoop::startLoop()
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                 }
-                // if (clients.at(fd) .erase) continue;
+
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd));
                 }
-                // if (clients.at(fd).erase == true)
-                // {
-                //     wslog.writeToLogFile(INFO, "Erasing client FD" + std::to_string(fd) + " from clients map", true);
-                //     clients.erase(fd);
-                //     //continue ;
-                // }
             }
         }
     }
@@ -241,7 +235,7 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                createErrorResponse(client, 407, "Request Timeout", " disconnected, client sent data too slowly!");
+                createErrorResponse(client, 408, "Request Timeout", " disconnected, client sent data too slowly!");
                 continue ;
             }
         }

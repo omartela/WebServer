@@ -163,7 +163,7 @@ function test_concurrent_requests() {
 #test_post_urlencoded
 #test_post_large_body
 #test_path_traversal
-# test_not_found_script
-# test_timeout_script
-# test_malformed_output
-test_concurrent_requests
+#test_not_found_script
+test_timeout_script
+test_malformed_output
+#test_concurrent_requests

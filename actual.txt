@@ -1,8 +1,5 @@
-HTTP/1.1 200 OK
-Content-Length: 33
-Content-Type: application/x-www-form-urlencoded
-Method: POST
-Query: 
+HTTP/1.1 404 Invalid file
+Content-Length: 142
+Content-Type: text/html; charset=UTF-8
 
-Body:
-username=test&password=123
+<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered an error: Invalid file.</p></body></html>
