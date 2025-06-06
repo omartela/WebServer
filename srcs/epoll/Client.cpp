@@ -97,4 +97,5 @@ void Client::reset()
     this->bytesWritten = 0;
     this->erase = false;
     this->request = HTTPRequest();
+    this->CGI = CGIHandler();
 }
