@@ -16,9 +16,9 @@ HTTPRequest::HTTPRequest()
     eMethod = INVALID;
     pathInfo = "";
     isCGI = false;
-    FileUsed = false;
-    FileIsOpen = false;
-    FileFd = -1;
+    fileUsed = false;
+    fileIsOpen = false;
+    fileFd = -1;
     query = "";
 }
 
@@ -31,9 +31,9 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     eMethod = INVALID;
     pathInfo = "";
     isCGI = false;
-    FileUsed = false;
-    FileIsOpen = false;
-    FileFd = -1;
+    fileUsed = false;
+    fileIsOpen = false;
+    fileFd = -1;
     query = "";
     parser(headers, server);
 }
