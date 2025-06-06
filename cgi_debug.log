@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [2025-06-02 16:15:13] CGI script started
 [2025-06-02 16:15:13] Printed headers
 [2025-06-02 16:15:20] CGI script started
@@ -641,3 +642,5 @@
 >>>>>>> a45582a (leaks plugged, SIGINT calls signal handler)
 =======
 >>>>>>> a4be3c4 (Fixes many issues)
+=======
+>>>>>>> 54d454b (removed unused, commented out functions and variables)

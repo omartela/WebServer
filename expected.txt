@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 HTTP/1.1 403 Forbidden
 Content-Length: 139
 Content-Type: text/html; charset=UTF-8
@@ -17,3 +18,6 @@ Body:
 =======
 username=test&password=123
 >>>>>>> 00cd293 (Fixed issue that after closing the pipe fd:s were not set to -1. So when client opened with fd 12 the pipe fd might pooint to fd 12 and close it again..)
+=======
+502 Bad Gateway
+>>>>>>> 54d454b (removed unused, commented out functions and variables)

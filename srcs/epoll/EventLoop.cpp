@@ -218,7 +218,7 @@ void EventLoop::checkTimeouts()
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                createErrorResponse(client, 407, "Request Timeout", " disconnected, client sent data too slowly!");
+                createErrorResponse(client, 408, "Request Timeout", " disconnected, client sent data too slowly!");
                 continue ;
             }
         }
