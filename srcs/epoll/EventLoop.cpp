@@ -517,19 +517,26 @@ void EventLoop::checkBody(Client &client)
         auto CL = client.request.headers.find("Content-Length");
         if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
         {
-            client.request.body = client.rawReadData;
+            client.request.body = client.rawReadData.substr(0, stoul(CL->second));
             client.rawReadData = client.rawReadData.substr(client.request.body.size());
         }
         else
             return ;
+    }
+    if (client.rawReadData.empty() == false)
+    {
+        client.response.push_back(HTTPResponse(501, "Not implemented"));
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+
     }
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
-        if (checkMethods(client, loop) == false)
-            return ;
         int error = client.CGI.executeCGI(client.request, client.serverInfo);
         if (error < 0)
         {
@@ -652,11 +659,6 @@ void EventLoop::handleClientSend(Client &client)
 {
     if (client.state != SEND)
         return ;
-    if (client.rawReadData.empty() == false)
-    {
-        client.response.front() = HTTPResponse(501, "Not implemented");
-        client.writeBuffer = client.response.front().toString();
-    }
     wslog.writeToLogFile(INFO, "IN SEND", true);
     //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
