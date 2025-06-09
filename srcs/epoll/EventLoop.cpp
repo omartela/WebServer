@@ -152,6 +152,7 @@ void EventLoop::startLoop()
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
+                    std::cout << "EPOLLIN\n";
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                     
@@ -270,8 +271,6 @@ void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clien
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
-     std::string errmsg = strerror(errno);
-        wslog.writeToLogFile(DEBUG, "after read: " + errmsg, true);
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("childTimerFd recv failed");
     for (auto it = clients.begin(); it != clients.end(); ++it)
@@ -433,20 +432,30 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 
 void EventLoop::handleCGI(Client& client)
 {
+    int peek;
+    int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
+    if (connection == 0)
+    {
+        closeClient(client.fd);
+        return ;
+    }
+
     if (client.request.body.empty())
     {
         if (client.CGI.writeCGIPipe[1] != -1)
+        {
             close(client.CGI.writeCGIPipe[1]);
-        client.CGI.writeCGIPipe[1] = -1;
+            client.CGI.writeCGIPipe[1] = -1;
+        }
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
-        std::cout << "WRITING\n"; //REMOVE LATER
+        std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
     else if (client.request.fileUsed == false)
     {
-        std::cout << "READING\n"; //REMOVE LATER
+        std::cout << "READING FROM CHILD\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
     }
     pid = waitpid(client.CGI.getChildPid(), &status, WNOHANG);
