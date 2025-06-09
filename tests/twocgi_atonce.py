@@ -8,13 +8,12 @@ def send_chunked_request():
     # Send the HTTP request with chunked transfer encoding
     headers = "POST /directory/youpi.bla HTTP/1.1\r\n "
     headers += "Host: localhost\r\n"  # Update with your server's host if needed
-    headers += "Content-Length: 5"
+    headers += "Content-Length: 5\r\n"
     headers += "Content-Type: text/plain\r\n"  # Specify the content type here
     headers += "\r\n"  # End of headers
     headers += "abcde"
     
     client_socket.send(headers.encode())
-    time.sleep(60);
     client_socket.send(headers.encode())
 
     response = client_socket.recv(1024).decode()
