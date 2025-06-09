@@ -152,7 +152,7 @@ void EventLoop::startLoop()
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    std::cout << "EPOLLIN\n";
+                    //std::cout << "EPOLLIN\n";
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                     
@@ -224,7 +224,7 @@ void EventLoop::checkTimeouts()
         }
         if (client.state == READ && checkMaxSize(client) == false)
         {
-            createErrorResponse(client, 413, "Content Too Large", " disconnected, size too big!");
+            createErrorResponse(client, 413, "Payload Too Large", " disconnected, size too big!");
             continue ;
         }
         if (client.state == SEND && elapsedTime > 0) //make more comprehensive later
@@ -583,15 +583,24 @@ bool EventLoop::checkMaxSize(Client& client)
     size_t maxBodySize;
     auto ite = client.serverInfo.routes.find(client.request.location);
     if (ite != client.serverInfo.routes.end())
+    {
         maxBodySize = ite->second.client_max_body_size;
+        std::cout << "found max client body size = " << ite->second.client_max_body_size << " on index " << ite->first << std::endl;
+    }
     else
         return false;
 
     if (client.headerString.size() > DEFAULT_MAX_HEADER_SIZE)
+    {
+        wslog.writeToLogFile(DEBUG, "Request header too big", true);
         return false;
+    }
 
     if (client.request.body.size() > maxBodySize)
+    {
+        wslog.writeToLogFile(DEBUG, "Request body too big, max body size = " + std::to_string(maxBodySize) + ", while body size = " + std::to_string(client.request.body.size()), true);
         return false;
+    }
     
     return true ;
 }
@@ -616,7 +625,7 @@ void EventLoop::checkBody(Client& client)
 
     if (checkMaxSize(client) == false)
     {
-        client.response.push_back(HTTPResponse(413, "Content Too Large"));
+        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
         client.writeBuffer = client.response.back().body;
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);

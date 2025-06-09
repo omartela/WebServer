@@ -63,7 +63,7 @@ class Parser
         void parseListenDirective(const std::string& line, ServerConfig& server_config);
         void parseServerNameDirective(const std::string& line, ServerConfig& server_config);
         void parseClientMaxBodySizeDirective(const std::string& line, ServerConfig& server_config);
-        void parseClientMaxBodySizeDirective(const std::string& line, Route &route, ServerConfig& server_config);
+        void parseClientMaxBodySizeDirective(const std::string& line, Route &route);
         void parseErrorPageDirective(const std::string& line, ServerConfig& server_config);
         void parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config);
         void parseAbsPathDirective(const std::string& line, Route& route);
