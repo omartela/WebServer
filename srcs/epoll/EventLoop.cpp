@@ -583,10 +583,7 @@ bool EventLoop::checkMaxSize(Client& client)
     size_t maxBodySize;
     auto ite = client.serverInfo.routes.find(client.request.location);
     if (ite != client.serverInfo.routes.end())
-    {
         maxBodySize = ite->second.client_max_body_size;
-        std::cout << "found max client body size = " << ite->second.client_max_body_size << " on index " << ite->first << std::endl;
-    }
     else
         return false;
 
