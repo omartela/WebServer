@@ -81,7 +81,22 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
         throw std::runtime_error("Failed to add childTimerFD to epoll");
 }
 
-EventLoop::~EventLoop() {}
+void EventLoop::closeFds()
+{
+    close(timerFD);
+    close(childTimerFD);
+    close(loop);
+    for (auto& server : servers)
+        close(server.first);
+    for (auto& client : clients)
+        close(client.first);
+    wslog.~Logger();
+}
+
+EventLoop::~EventLoop() 
+{
+    closeFds();
+}
 
 void EventLoop::startLoop()
 {
@@ -203,7 +218,7 @@ void EventLoop::checkTimeouts()
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                createErrorResponse(client, 407, "Request Timeout", " disconnected, client sent data too slowly!");
+                createErrorResponse(client, 408, "Request Timeout", " disconnected, client sent data too slowly!");
                 continue ;
             }
         }
@@ -245,9 +260,11 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
         nChildren--;
+    // if (clients.at(fd).fd != -1)
     close(clients.at(fd).fd);
+    // clients.at(fd).fd = -1;
     clients.erase(clients.at(fd).fd);
-    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(clients.at(fd).fd) + " closed!", true);
+    wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
 }
 
 void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clients, int loop, int& children)
@@ -285,7 +302,6 @@ static long long unsigned HexStrToUnsignedLongLong(std::string str)
     return value;
 }
 
-
 static bool validateChunkedBody(Client &client)
 {
     while (client.chunkBuffer.empty() == false)
@@ -321,10 +337,10 @@ static bool validateChunkedBody(Client &client)
             return false;
         }
         str = str.substr(i + 2);
-        if (client.request.FileUsed == true && client.request.isCGI == true) 
+        if (client.request.fileUsed == true && client.request.isCGI == true) 
         {
             // Write existing body to file
-            write(client.request.FileFd, str.substr(0, bytes).data(), bytes);
+            write(client.request.fileFd, str.substr(0, bytes).data(), bytes);
         }
         else
             client.request.body += str.substr(0, bytes);
@@ -345,19 +361,86 @@ static bool validateChunkedBody(Client &client)
     return true;
 }
 
+int EventLoop::executeCGI(Client& client, ServerConfig server)
+{
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + client.CGI.fullPath, true);
+	if (client.request.fileUsed)
+	{
+		client.CGI.tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+		client.CGI.readCGIPipe[1] =  open(client.CGI.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+		client.CGI.fileOpen = true;
+		client.request.fileFd = open(client.request.tempFileName.c_str(), O_RDONLY | O_CLOEXEC, 0644);
+		if (client.request.fileFd == -1)
+		{
+			/// error
+			return -1;
+		}
+		client.CGI.writeCGIPipe[0] = client.request.fileFd;
+	}
+    if (access(client.CGI.fullPath.c_str(), X_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + client.CGI.fullPath, true);
+        return -403;
+    }
+    if (!client.request.fileUsed && (pipe2(client.CGI.writeCGIPipe, O_CLOEXEC) == -1 || pipe2(client.CGI.readCGIPipe, O_CLOEXEC) == -1))
+	{
+        return -500;
+	}
+    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
+    client.CGI.childPid = fork();
+    if (client.CGI.childPid == -1)
+        return -500;
+    if (client.CGI.childPid == 0)
+    {
+		closeFds();
+        dup2(client.CGI.writeCGIPipe[0], STDIN_FILENO);
+        dup2(client.CGI.readCGIPipe[1], STDOUT_FILENO);
+		if (!client.request.fileUsed)
+		{
+            if (client.CGI.writeCGIPipe[1] != -1)
+			    close(client.CGI.writeCGIPipe[1]);
+			client.CGI.writeCGIPipe[1] = -1;
+            if (client.CGI.readCGIPipe[0] != -1)
+			    close(client.CGI.readCGIPipe[0]);
+			client.CGI.readCGIPipe[0] = -1;
+		}
+        execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
+        _exit(1);
+    }
+	if (!client.request.fileUsed)
+	{
+		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(client.CGI.writeCGIPipe[0]), true);
+		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(client.CGI.readCGIPipe[1]), true);
+        if (client.CGI.writeCGIPipe[0] != -1)
+		    close(client.CGI.writeCGIPipe[0]);
+		client.CGI.writeCGIPipe[0] = -1;
+        if (client.CGI.readCGIPipe[1] != -1)
+		    close(client.CGI.readCGIPipe[1]);
+		client.CGI.readCGIPipe[1] = -1;
+
+		int flags = fcntl(client.CGI.writeCGIPipe[1], F_GETFL); //save the previous flags if any
+		fcntl(client.CGI.writeCGIPipe[1], F_SETFL, flags | O_NONBLOCK); //add non-blocking flag
+		flags = fcntl(client.CGI.readCGIPipe[0], F_GETFL);
+		fcntl(client.CGI.readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
+	}
+	return 0;
+}
+
 void EventLoop::handleCGI(Client& client)
 {
     if (client.request.body.empty())
     {
-        close(client.CGI.writeCGIPipe[1]);
+        if (client.CGI.writeCGIPipe[1] != -1)
+            close(client.CGI.writeCGIPipe[1]);
         client.CGI.writeCGIPipe[1] = -1;
     }
-    if (!client.request.FileUsed && client.request.body.empty() == false)
+    if (!client.request.fileUsed && client.request.body.empty() == false)
     {
         std::cout << "WRITING\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
-    else if (client.request.FileUsed == false)
+    else if (client.request.fileUsed == false)
     {
         std::cout << "READING\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
@@ -381,16 +464,24 @@ void EventLoop::handleCGI(Client& client)
             client.writeBuffer = client.response.back().body;
             return ;
         }
-        if (!client.request.FileUsed)
+        if (!client.request.fileUsed)
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
         client.response.push_back(client.CGI.generateCGIResponse());
         if (!client.CGI.tempFileName.empty())
         {
-            close(client.CGI.readCGIPipe[1]);
-            client.CGI.FileOpen = false;
+            if (client.CGI.readCGIPipe[1] != -1)
+                close(client.CGI.readCGIPipe[1]);
+            client.CGI.readCGIPipe[1] = -1;
+            client.CGI.fileOpen = false;
+        }
+        else
+        {
+            if (client.CGI.readCGIPipe[0] != -1)
+                close(client.CGI.readCGIPipe[0]);
+            client.CGI.readCGIPipe[0] = -1;
         }
         client.state = SEND;
-        if (!client.request.FileUsed)
+        if (!client.request.fileUsed)
             client.request.isCGI = false;
         client.writeBuffer = client.response.back().toString();
         return ;
@@ -414,16 +505,16 @@ static bool checkMethods(Client &client, int loop)
 static void readChunkedBody(Client &client, int loop)
 {
     client.chunkBuffer += client.rawReadData;
-    if (client.request.FileUsed == false && client.request.isCGI == true) // 1MB limit for chunked body
+    if (client.request.fileUsed == false && client.request.isCGI == true) // 1MB limit for chunked body
     {
         client.request.tempFileName = "/tmp/tempSaveFile " + std::to_string(std::time(NULL));
-        client.request.FileFd = open(client.request.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
-        if (client.request.FileFd == -1)
+        client.request.fileFd = open(client.request.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+        if (client.request.fileFd == -1)
             wslog.writeToLogFile(ERROR, "Opening temporary file for chunked request failed", true);
         else
         {
-            client.request.FileUsed = true;
-            client.request.FileIsOpen = true;
+            client.request.fileUsed = true;
+            client.request.fileIsOpen = true;
         }
     }
     if (client.chunkBuffer.find("0\r\n\r\n") != std::string::npos)
@@ -453,15 +544,15 @@ static void readChunkedBody(Client &client, int loop)
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
         }
-        if (client.request.FileUsed == true)
+        if (client.request.fileUsed == true)
         {
             struct stat st;
             if (stat(client.request.tempFileName.c_str(), &st) == 0)
                 client.request.headers["Content-Length"] = std::to_string(st.st_size);
             else
                 client.request.headers["Content-Length"] = "0";
-            if (client.request.FileIsOpen == false)
-                close(client.request.FileFd);
+            if (client.request.fileIsOpen == false && client.request.fileFd != -1)
+                close(client.request.fileFd);
         }
         if (client.request.isCGI == true)
             return ;
@@ -474,7 +565,7 @@ static void readChunkedBody(Client &client, int loop)
     client.rawReadData.clear();
 }
 
-void EventLoop::checkBody(Client &client)
+void EventLoop::checkBody(Client& client)
 {
     if (!client.rawReadData.empty() && client.request.method == "POST")
     {
@@ -504,7 +595,7 @@ void EventLoop::checkBody(Client &client)
         std::cout << "CGI IS TRUE\n";
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
-        int error = client.CGI.executeCGI(client.request, client.serverInfo);
+        int error = executeCGI(client, client.serverInfo);
         if (error < 0)
         {
             if (error == -500)
@@ -565,9 +656,10 @@ void EventLoop::handleClientRecv(Client& client)
                     std::cout << "errno = " << errno << std::endl;
                     throw std::runtime_error("epoll_ctl DEL failed in READ");
                 }
-                close(client.fd);
+                if (client.fd != -1)
+                    close(client.fd);
                 clients.erase(client.fd);
-                // client.fd = -1;
+                client.fd = -1;
                 return ;
             }
             buffer[client.bytesRead] = '\0';
@@ -582,6 +674,7 @@ void EventLoop::handleClientRecv(Client& client)
                 if (validateHeader(client.request) == false)
                 {
                     client.response.push_back(HTTPResponse(400, "Bad request"));
+                    client.rawReadData.clear();
                     client.state = SEND;
                     client.writeBuffer = client.response.back().toString();
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -611,11 +704,11 @@ void EventLoop::handleClientSend(Client &client)
     //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
     {
-        if (client.CGI.FileOpen == false)
+        if (client.CGI.fileOpen == false)
         {
             client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
             if (client.CGI.readCGIPipe[1] != -1)
-                client.CGI.FileOpen = true;
+                client.CGI.fileOpen = true;
         }
         char buffer[65536];
         ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
@@ -638,10 +731,11 @@ void EventLoop::handleClientSend(Client &client)
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
-        // client.erase = true;
         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
             throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
+        // if (client.fd != -1)
         close(client.fd);
+        // client.fd = -1;
         clients.erase(client.fd);
         return ; 
     }
@@ -655,10 +749,11 @@ void EventLoop::handleClientSend(Client &client)
         {
             if (checkConnection == "close" || checkConnection == "Close")
             {
-                // client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
+                // if (client.fd != -1)
                 close(client.fd);
+                // client.fd = -1;
                 clients.erase(client.fd);
             }
             else
@@ -673,7 +768,9 @@ void EventLoop::handleClientSend(Client &client)
             client.erase = true;
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
+            // if (client.fd != -1)
             close(client.fd);
+            // client.fd = -1;
             clients.erase(client.fd);
         }
         else
@@ -684,4 +781,3 @@ void EventLoop::handleClientSend(Client &client)
         }
     }
 }
-

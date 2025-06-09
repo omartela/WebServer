@@ -4,7 +4,7 @@
 #include "Enums.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPRequest.hpp"
-#include "CGIhandler.hpp"
+#include "CGIHandler.hpp"
 #include <netinet/in.h>
 #include <vector>
 #include <map>
@@ -40,7 +40,6 @@ class Client {
         size_t previousDataAmount;;
         std::string readBuffer;
         std::string writeBuffer;
-        //std::string CGIOutput;
         int bytesRead;
         int bytesWritten;
         bool erase;

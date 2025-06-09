@@ -48,7 +48,16 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
     timestamp = std::chrono::steady_clock::now();
 }
 
-Client::~Client() {
+Client::~Client()
+{
+    if (CGI.writeCGIPipe[0] != -1)
+        close(CGI.writeCGIPipe[0]);
+    if (CGI.writeCGIPipe[1] != -1)
+        close(CGI.writeCGIPipe[1]);
+    if (CGI.readCGIPipe[0] != -1)
+        close(CGI.readCGIPipe[0]);
+    if (CGI.readCGIPipe[1] != -1)
+        close(CGI.readCGIPipe[1]);
 }
 
 Client::Client(const Client& copy)
@@ -88,4 +97,5 @@ void Client::reset()
     this->bytesWritten = 0;
     this->erase = false;
     this->request = HTTPRequest();
+    this->CGI = CGIHandler();
 }
