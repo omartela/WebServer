@@ -1,21 +1,5 @@
 #include "EventLoop.hpp"
 
-void print_fd_flags(int fd) {
-    int fd_flags = fcntl(fd, F_GETFD);
-    int fl_flags = fcntl(fd, F_GETFL);
-
-    std::cout << "FD " << fd << " F_GETFD: " << fd_flags;
-    if (fd_flags & FD_CLOEXEC) std::cout << " (FD_CLOEXEC)";
-    std::cout << std::endl;
-
-    std::cout << "FD " << fd << " F_GETFL: " << fl_flags;
-    if (fl_flags & O_NONBLOCK) std::cout << " (O_NONBLOCK)";
-    if ((fl_flags & O_ACCMODE) == O_RDONLY) std::cout << " (O_RDONLY)";
-    if ((fl_flags & O_ACCMODE) == O_WRONLY) std::cout << " (O_WRONLY)";
-    if ((fl_flags & O_ACCMODE) == O_RDWR)   std::cout << " (O_RDWR)";
-    std::cout << std::endl;
-}
-
 static int initServerSocket(ServerConfig server)
 {
     int serverSocket = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
@@ -173,7 +157,6 @@ void EventLoop::startLoop()
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                 }
-
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
@@ -210,10 +193,10 @@ void EventLoop::setTimerValues(int n)
     }
 }
 
-void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, int& children, int loop)
+void EventLoop::checkTimeouts()
 {
     uint64_t tempBuffer;
-    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer)); //reading until timerfd event stops
+    ssize_t bytesRead = read(timerFD, &tempBuffer, sizeof(tempBuffer));
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("timerfd recv failed");
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -325,16 +308,9 @@ static bool validateChunkedBody(Client &client)
     {
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
-        // Log the start (first 20 chars) and end (last 20 chars) of the buffer
-        size_t logLen = 20;
-        std::string start = str.substr(0, std::min(logLen, str.size()));
-        std::string end = str.size() > logLen ? str.substr(str.size() - logLen) : str;
-        wslog.writeToLogFile(DEBUG, "chunkBuffer start: {" + start + "}", true);
-        wslog.writeToLogFile(DEBUG, "chunkBuffer end: {" + end + "}", true);
         wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + std::to_string(client.chunkBuffer.size()), true);
         if (!isHexUnsignedLongLong(str))
         {
-            wslog.writeToLogFile(DEBUG, "triggered here1 ", true);
             return false;
         }
         bytes = HexStrToUnsignedLongLong(str);
@@ -343,7 +319,6 @@ static bool validateChunkedBody(Client &client)
         {
             if (!std::isxdigit(str[i]))
             {
-                wslog.writeToLogFile(DEBUG, "triggered here2 ", true);
                 return false;
             }
             i++;
@@ -354,13 +329,11 @@ static bool validateChunkedBody(Client &client)
                 return true;
             else
             {
-                wslog.writeToLogFile(DEBUG, "triggered here3 ", true);
                 return false;
             }
         }
         if (str.size() > (i + 1) && (str[i + 1] != '\n'))
         {
-            wslog.writeToLogFile(DEBUG, "triggered here4 ", true);
             return false;
         }
         str = str.substr(i + 2);
@@ -602,19 +575,26 @@ void EventLoop::checkBody(Client& client)
         auto CL = client.request.headers.find("Content-Length");
         if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
         {
-            client.request.body = client.rawReadData;
+            client.request.body = client.rawReadData.substr(0, stoul(CL->second));
             client.rawReadData = client.rawReadData.substr(client.request.body.size());
         }
         else
             return ;
+    }
+    if (client.rawReadData.empty() == false)
+    {
+        client.response.push_back(HTTPResponse(501, "Not implemented"));
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+
     }
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
-        if (checkMethods(client, loop) == false)
-            return ;
         int error = executeCGI(client, client.serverInfo);
         if (error < 0)
         {
@@ -720,14 +700,34 @@ void EventLoop::handleClientSend(Client &client)
 {
     if (client.state != SEND)
         return ;
-    if (client.rawReadData.empty() == false)
-    {
-        client.response.front() = HTTPResponse(501, "Not implemented");
-        client.writeBuffer = client.response.front().toString();
-    }
     wslog.writeToLogFile(INFO, "IN SEND", true);
-    wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
-    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+    //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+    if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
+    {
+        if (client.CGI.fileOpen == false)
+        {
+            client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
+            if (client.CGI.readCGIPipe[1] != -1)
+                client.CGI.fileOpen = true;
+        }
+        char buffer[65536];
+        ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+        client.writeBuffer.append(buffer, bytesread);
+        if (bytesread == -1)
+        {
+            wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
+            client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+            return;
+        }
+        else if (bytesread == 0)
+        {
+            close(client.CGI.readCGIPipe[1]);
+            client.CGI.readCGIPipe[1] = -1;
+        }
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
+    }
+    else
+        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {
