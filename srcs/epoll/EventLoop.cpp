@@ -593,25 +593,6 @@ void EventLoop::handleClientRecv(Client& client)
             checkBody(client);
             return ;
         }
-        // case READ_BODY:
-        // {
-        //     // wslog.writeToLogFile(INFO, "IN READ BODY", true);
-        //     client.bytesRead = 0;
-        //     char buffer2[READ_BUFFER_SIZE];
-        //     client.bytesRead = recv(client.fd, buffer2, sizeof(buffer2) - 1, MSG_DONTWAIT);
-        //     if (client.bytesRead <= 0) //client disconnected
-        //     {
-        //         wslog.writeToLogFile(INFO, "ClientFD disconnected " + std::to_string(client.fd), true);
-        //         client.erase = true;
-        //         if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-        //             throw std::runtime_error("epoll_ctl DEL failed in READ_BODY1");
-        //         close(client.fd);
-        //         return ;
-        //     }
-
-        //     checkBody(client, loop);
-        //     return ;
-        // }
         case HANDLE_CGI:
         {
             wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
