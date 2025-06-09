@@ -1,8 +1,12 @@
 ----- Output from ./tests/testerconf/chunked_test.py -----
 Received response from server:
-HTTP/1.1 400 Bad request
-Content-Length: 145
-Content-Type: text/html; charset=UTF-8
+HTTP/1.1 200 OK
+Content-Length: 11
+Content-Type: text/plain
+Method: POST
+Query: 
 
-<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1><p>The server encountered an error: Bad request.</p></body></html>
+Body:
+Hello World
+
 ----- End of output for ./tests/testerconf/chunked_test.py -----

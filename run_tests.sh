@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directory containing test files
-TEST_DIR="./tests/testerconf"
+TEST_DIR="./tests/cgitest"
 
 # Optional: Set to true to show each test being run
 VERBOSE=true

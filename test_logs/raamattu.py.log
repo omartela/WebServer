@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
-import socket
-import time
-import textwrap
-import http.client
-
-# Load Genesis text (truncated example – in real use, load from a file or compress)
-GENESIS_TEXT = """1:1 In the beginning God created the heaven and the earth.
+----- Output from ./tests/cgitest/raamattu.py -----
+📥 Server response:
+200 OK
+Body:
+1:1 In the beginning God created the heaven and the earth.
 
 1:2 And the earth was without form, and void; and darkness was upon
 the face of the deep. And the Spirit of God moved upon the face of the
@@ -90,40 +87,5 @@ moveth, which the waters brought forth abundantly, after their kind,
 and every winged fowl after his kind: and God saw that it was good.
 
 1:22 And God blessed them, saying, Be fruitful, and multiply, and fill
-the waters in the seas, and let fowl multiply in the earth.
-"""
-
-def send_chunked_genesis(text, host='127.0.0.2', port=8004, path='/directory/test.py'):
-    # Connect to server
-    conn = http.client.HTTPConnection(host, port)
-
-    # Send HTTP headers with Transfer-Encoding: chunked
-    conn.putrequest("POST", path)
-    conn.putheader("Content-Type", "text/plain")
-    conn.putheader("Transfer-Encoding", "chunked")
-    conn.endheaders()
-
-    # Send the body in chunks (e.g. 200 bytes per chunk)
-    k = 200
-    chunks = [text[i:i+k] for i in range(0, len(text), k)]
-    for chunk in chunks:
-        data = chunk.encode("utf-8")
-        length = f"{len(data):X}\r\n".encode()  # Hex length + CRLF
-        conn.send(length)
-        conn.send(data + b"\r\n")
-        time.sleep(0.2)  # Optional: simulate streaming delay
-
-    # Final chunk
-    conn.send(b"0\r\n\r\n")
-
-    # Receive and print server response
-    response = conn.getresponse()
-    print("📥 Server response:")
-    print(response.status, response.reason)
-    print(response.length)
-    print(response.read().decode())
-    conn.close()
-
-if __name__ == "__main__":
-    send_chunked_genesis(GENESIS_TEXT)
-
+the waters in the seas, and let fowl multiply in the e
+----- End of output for ./tests/cgitest/raamattu.py -----

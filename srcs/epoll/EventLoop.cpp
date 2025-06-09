@@ -308,7 +308,6 @@ static bool validateChunkedBody(Client &client)
     {
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
-        wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + std::to_string(client.chunkBuffer.size()), true);
         if (!isHexUnsignedLongLong(str))
         {
             return false;
@@ -340,7 +339,12 @@ static bool validateChunkedBody(Client &client)
         if (client.request.fileUsed == true && client.request.isCGI == true) 
         {
             // Write existing body to file
-            write(client.request.fileFd, str.substr(0, bytes).data(), bytes);
+            wslog.writeToLogFile(DEBUG, str.substr(0, bytes).c_str(), true);
+            wslog.writeToLogFile(INFO, "BYTES WRITTEN " + std::to_string(bytes), true);
+            wslog.writeToLogFile(INFO, "STRING SIZE " + std::to_string(str.substr(0, bytes).size()), true);
+
+            client.chunkBodySize += write(client.request.fileFd, str.substr(0, bytes).c_str(), bytes);
+            wslog.writeToLogFile(INFO, std::to_string(client.chunkBodySize), true);
         }
         else
             client.request.body += str.substr(0, bytes);
@@ -356,7 +360,9 @@ static bool validateChunkedBody(Client &client)
         }
         else
             str = str.substr(2);
+        wslog.writeToLogFile(ERROR, "chunkbuffer before " + client.chunkBuffer, true);
         client.chunkBuffer.erase(0, i + 2 + bytes + 2);
+         wslog.writeToLogFile(ERROR, "chunkbuffer after " + client.chunkBuffer, true);
     }
     return true;
 }
@@ -520,7 +526,7 @@ static bool readChunkedBody(Client &client, int loop)
     }
     if (client.chunkBuffer.find("0\r\n\r\n") != std::string::npos)
     {
-         wslog.writeToLogFile(DEBUG, "RECEIVED LAST CHUNK", true);
+        wslog.writeToLogFile(DEBUG, "RECEIVED LAST CHUNK", true);
         std::size_t endPos = client.chunkBuffer.find("0\r\n\r\n");
         if (endPos != std::string::npos)
         {
@@ -549,11 +555,8 @@ static bool readChunkedBody(Client &client, int loop)
         wslog.writeToLogFile(DEBUG, "CHUNK VALIDATED", true);
         if (client.request.fileUsed == true)
         {
-            struct stat st;
-            if (stat(client.request.tempFileName.c_str(), &st) == 0)
-                client.request.headers["Content-Length"] = std::to_string(st.st_size);
-            else
-                client.request.headers["Content-Length"] = "0";
+            client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
+            wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
             if (client.request.fileIsOpen == false && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
@@ -572,7 +575,7 @@ static bool readChunkedBody(Client &client, int loop)
 void EventLoop::checkBody(Client& client)
 {
     wslog.writeToLogFile(DEBUG, "INSIDE CHECKBODY", true);
-    if (!client.rawReadData.empty() && client.request.method == "POST")
+    if (client.request.method == "POST")
     {
         auto TE = client.request.headers.find("Transfer-Encoding");
         if (TE != client.request.headers.end() && TE->second == "chunked")
@@ -694,7 +697,7 @@ void EventLoop::handleClientRecv(Client& client)
                         return ;
                     }
                     client.bytesRead = 0;
-                    wslog.writeToLogFile(DEBUG, "INSIDE CHECKBODY", true);
+                    wslog.writeToLogFile(DEBUG, "client.rawReadData " + client.rawReadData, true);
                     client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                 }
             }
@@ -743,7 +746,9 @@ void EventLoop::handleClientSend(Client &client)
             bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
             client.writeBuffer.append(buffer, bytesread);
             client.CGI.output = client.writeBuffer;
-            client.CGI.generateCGIResponse();
+            client.response.push_back(client.CGI.generateCGIResponse());
+            client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
+            client.writeBuffer = client.response.back().toString();
         }
         else
         {
@@ -762,10 +767,12 @@ void EventLoop::handleClientSend(Client &client)
             close(client.CGI.readCGIPipe[1]);
             client.CGI.readCGIPipe[1] = -1;
         }
+        wslog.writeToLogFile(DEBUG, "IN SEND writebuffer " + client.writeBuffer, true);
         client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
+        wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
     }
     else
-        client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
     wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
     if (client.bytesWritten <= 0)
     {

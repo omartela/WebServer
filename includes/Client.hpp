@@ -45,6 +45,7 @@ class Client {
         bool erase;
         size_t bytesSent;
         ServerConfig serverInfo;
+        size_t chunkBodySize;
 
         HTTPRequest                     request;
         std::vector<HTTPResponse>       response;
