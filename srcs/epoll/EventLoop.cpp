@@ -271,8 +271,8 @@ void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clien
 {
     uint64_t tempBuffer;
     ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
-     std::string errmsg = strerror(errno);
-        wslog.writeToLogFile(DEBUG, "after read: " + errmsg, true);
+    std::string errmsg = strerror(errno);
+    wslog.writeToLogFile(DEBUG, "after read: " + errmsg, true);
     if (bytesRead != sizeof(tempBuffer))
         throw std::runtime_error("childTimerFd recv failed");
     for (auto it = clients.begin(); it != clients.end(); ++it)
@@ -453,7 +453,6 @@ void EventLoop::handleCGI(Client& client)
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         nChildren--;
-        client.request.isCGI = false;
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         
@@ -461,12 +460,13 @@ void EventLoop::handleCGI(Client& client)
         {
             wslog.writeToLogFile(DEBUG, "Child failed!", true);
             client.response.push_back( HTTPResponse(500, "Internal Server Error"));
-            client.writeBuffer = client.response.back().body;
+            client.writeBuffer = client.response.back().toString();
             return ;
         }
         if (!client.request.fileUsed)
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-        client.response.push_back(client.CGI.generateCGIResponse());
+        else
+            client.response.push_back(client.CGI.generateCGIResponse());
         if (!client.CGI.tempFileName.empty())
         {
             if (client.CGI.readCGIPipe[1] != -1)
@@ -502,8 +502,9 @@ static bool checkMethods(Client &client, int loop)
         return true;
 }
 
-static void readChunkedBody(Client &client, int loop)
+static bool readChunkedBody(Client &client, int loop)
 {
+    wslog.writeToLogFile(DEBUG, "READ CHUNKEDBODY", true);
     client.chunkBuffer += client.rawReadData;
     if (client.request.fileUsed == false && client.request.isCGI == true) // 1MB limit for chunked body
     {
@@ -519,6 +520,7 @@ static void readChunkedBody(Client &client, int loop)
     }
     if (client.chunkBuffer.find("0\r\n\r\n") != std::string::npos)
     {
+         wslog.writeToLogFile(DEBUG, "RECEIVED LAST CHUNK", true);
         std::size_t endPos = client.chunkBuffer.find("0\r\n\r\n");
         if (endPos != std::string::npos)
         {
@@ -533,7 +535,7 @@ static void readChunkedBody(Client &client, int loop)
             if (client.request.isCGI == false)
             {
                 if (checkMethods(client, loop) == false)
-                    return ;
+                    return true;
             }
             else
             {
@@ -542,8 +544,9 @@ static void readChunkedBody(Client &client, int loop)
             }
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
-            return ;
+            return true;
         }
+        wslog.writeToLogFile(DEBUG, "CHUNK VALIDATED", true);
         if (client.request.fileUsed == true)
         {
             struct stat st;
@@ -555,31 +558,39 @@ static void readChunkedBody(Client &client, int loop)
                 close(client.request.fileFd);
         }
         if (client.request.isCGI == true)
-            return ;
+            return true;
         client.state = SEND;  // Kaikki chunkit luettu
         client.response.push_back(RequestHandler::handleRequest(client));
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return;
+        return true;
     }
     client.rawReadData.clear();
+    return false;
 }
 
 void EventLoop::checkBody(Client& client)
 {
+    wslog.writeToLogFile(DEBUG, "INSIDE CHECKBODY", true);
     if (!client.rawReadData.empty() && client.request.method == "POST")
     {
         auto TE = client.request.headers.find("Transfer-Encoding");
         if (TE != client.request.headers.end() && TE->second == "chunked")
-            return readChunkedBody(client, loop);
-        auto CL = client.request.headers.find("Content-Length");
-        if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
         {
-            client.request.body = client.rawReadData.substr(0, stoul(CL->second));
-            client.rawReadData = client.rawReadData.substr(client.request.body.size());
+            if (readChunkedBody(client, loop) == false)
+                return;
         }
         else
-            return ;
+        {
+            auto CL = client.request.headers.find("Content-Length");
+            if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
+            {
+                client.request.body = client.rawReadData.substr(0, stoul(CL->second));
+                client.rawReadData = client.rawReadData.substr(client.request.body.size());
+            }
+            else
+                return ;
+        }
     }
     if (client.rawReadData.empty() == false)
     {
@@ -665,23 +676,27 @@ void EventLoop::handleClientRecv(Client& client)
             buffer[client.bytesRead] = '\0';
             std::string temp(buffer, client.bytesRead);
             client.rawReadData += temp;
-            size_t headerEnd = client.rawReadData.find("\r\n\r\n");
-            if (headerEnd != std::string::npos)
+            if (client.headerString.empty() == true)
             {
-                client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
-                client.request = HTTPRequest(client.headerString, client.serverInfo);
-                if (validateHeader(client.request) == false)
+                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
+                if (headerEnd != std::string::npos)
                 {
-                    client.response.push_back(HTTPResponse(400, "Bad request"));
-                    client.rawReadData.clear();
-                    client.state = SEND;
-                    client.writeBuffer = client.response.back().toString();
-                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                    return ;
+                    client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                    // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
+                    client.request = HTTPRequest(client.headerString, client.serverInfo);
+                    if (validateHeader(client.request) == false)
+                    {
+                        client.response.push_back(HTTPResponse(400, "Bad request"));
+                        client.rawReadData.clear();
+                        client.state = SEND;
+                        client.writeBuffer = client.response.back().toString();
+                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                        return ;
+                    }
+                    client.bytesRead = 0;
+                    wslog.writeToLogFile(DEBUG, "INSIDE CHECKBODY", true);
+                    client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                 }
-                client.bytesRead = 0;
-                client.rawReadData = client.rawReadData.substr(headerEnd + 4);
             }
             checkBody(client);
             return ;
@@ -696,6 +711,19 @@ void EventLoop::handleClientRecv(Client& client)
     }
 }
 
+static bool checkBytesSent(Client &client)
+{
+     if (client.response.back().body.empty() == false)
+     {
+        if ((std::stoul(client.response.back().headers["Content-Length"]) + client.headerString.size() != client.bytesSent))
+            return false;
+     }
+     else
+        if (client.bytesSent != client.headerString.size())
+            return false;
+    return true;
+}
+
 void EventLoop::handleClientSend(Client &client)
 {
     if (client.state != SEND)
@@ -704,15 +732,25 @@ void EventLoop::handleClientSend(Client &client)
     //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
     {
+        client.writeBuffer.clear();
+        ssize_t bytesread = -1;
         if (client.CGI.fileOpen == false)
         {
             client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
             if (client.CGI.readCGIPipe[1] != -1)
                 client.CGI.fileOpen = true;
+            char buffer[65536];
+            bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+            client.writeBuffer.append(buffer, bytesread);
+            client.CGI.output = client.writeBuffer;
+            client.CGI.generateCGIResponse();
         }
-        char buffer[65536];
-        ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
-        client.writeBuffer.append(buffer, bytesread);
+        else
+        {
+            char buffer[65536];
+            bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+            client.writeBuffer.append(buffer, bytesread);
+        }
         if (bytesread == -1)
         {
             wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
@@ -739,9 +777,10 @@ void EventLoop::handleClientSend(Client &client)
         clients.erase(client.fd);
         return ; 
     }
+    client.bytesSent += client.bytesWritten;
     client.writeBuffer.erase(0, client.bytesWritten);
     // wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
-    if (client.writeBuffer.empty())
+    if (checkBytesSent(client))
     {
         if (client.request.headers.find("Connection") != client.request.headers.end())
             checkConnection = client.request.headers.at("Connection");
