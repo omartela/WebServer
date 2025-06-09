@@ -91,24 +91,21 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& rou
 {
     // Extract client_max_body_size from the line
     size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
-    if (pos != std::string::npos)
+    size_t end_pos = line.find(";", pos);
+    std::string size_str = line.substr(pos, end_pos - pos);
+    if (size_str.find("K") != std::string::npos)
     {
-        size_t end_pos = line.find(";", pos);
-        std::string size_str = line.substr(pos, end_pos - pos);
-        if (size_str.find("K") != std::string::npos)
-        {
-            size_str.erase(size_str.find("K"));
-            route.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
-        }
-        else if (size_str.find("M") != std::string::npos)
-        {
-            size_str.erase(size_str.find("M"));
-            route.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
-        }
-        else
-        {
-            route.client_max_body_size = std::stoul(size_str); // Assume bytes
-        }
+        size_str.erase(size_str.find("K"));
+        route.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
+    }
+    else if (size_str.find("M") != std::string::npos)
+    {
+        size_str.erase(size_str.find("M"));
+        route.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+    }
+    else
+    {
+        route.client_max_body_size = std::stoul(size_str); // Assume bytes
     }
     std::cout << "max body size for route " << route.abspath << " is " << route.client_max_body_size << std::endl; //!remove later
 }
@@ -265,13 +262,12 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         {
             parseCgiExecutable(line, route);
         }
-
-        if (line.find("client_max_body_size "))
+        else if (line.find("client_max_body_size "))
         {
             parseClientMaxBodySizeDirective(line, route);
         }
-        else
-            route.client_max_body_size = server_config.client_max_body_size;
+        // else
+        //     route.client_max_body_size = server_config.client_max_body_size;
             
     }
     server_config.routes[route.path] = route;
