@@ -321,8 +321,13 @@ static long long unsigned HexStrToUnsignedLongLong(std::string str)
 
 static bool validateChunkedBody(Client &client)
 {
+    std::chrono::steady_clock::time_point timeout = std::chrono::steady_clock::now() + std::chrono::seconds(TIMEOUT);
     while (client.chunkBuffer.empty() == false)
     {
+        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        if (now > timeout)
+            return false;
+
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
         // Log the start (first 20 chars) and end (last 20 chars) of the buffer
