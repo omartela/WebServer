@@ -61,30 +61,22 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, ServerConf
 {
     // Extract client_max_body_size from the line
     size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
-    if (pos == std::string::npos)
+    size_t end_pos = line.find(";", pos);
+    std::string size_str = line.substr(pos, end_pos - pos);
+    if (size_str.find("K") != std::string::npos)
     {
-        server_config.client_max_body_size = DEFAULT_MAX_BODY_SIZE;
+        size_str.erase(size_str.find("K"));
+        server_config.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
+    }
+    else if (size_str.find("M") != std::string::npos)
+    {
+        size_str.erase(size_str.find("M"));
+        server_config.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
     }
     else
     {
-        size_t end_pos = line.find(";", pos);
-        std::string size_str = line.substr(pos, end_pos - pos);
-        if (size_str.find("K") != std::string::npos)
-        {
-            size_str.erase(size_str.find("K"));
-            server_config.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
-        }
-        else if (size_str.find("M") != std::string::npos)
-        {
-            size_str.erase(size_str.find("M"));
-            server_config.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
-        }
-        else
-        {
-            server_config.client_max_body_size = std::stoul(size_str); // Assume bytes
-        }
+        server_config.client_max_body_size = std::stoul(size_str); // Assume bytes
     }
-    std::cout << "max body size for server is " << server_config.client_max_body_size << std::endl; //!remove later
 }
 
 void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& route)
@@ -107,9 +99,7 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& rou
     {
         route.client_max_body_size = std::stoul(size_str); // Assume bytes
     }
-    std::cout << "max body size for route " << route.abspath << " is " << route.client_max_body_size << std::endl; //!remove later
 }
-
 void Parser::parseErrorPageDirective(const std::string& line, ServerConfig& server_config)
 {
     // Extract error pages from the line
@@ -218,6 +208,7 @@ void Parser::parseCgiExecutable(const std::string&line, Route& route)
 void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
 {
     Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
+    int maxBodySizeSet = false;
     size_t pos = line.find("location ") + 9; // Skip "location /"
     size_t end_pos = line.find("{");
     line = line.substr(pos, end_pos - pos);
@@ -265,11 +256,11 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         else if (line.find("client_max_body_size "))
         {
             parseClientMaxBodySizeDirective(line, route);
+            maxBodySizeSet = true;
         }
-        // else
-        //     route.client_max_body_size = server_config.client_max_body_size;
-            
     }
+    if (maxBodySizeSet == false)
+        route.client_max_body_size = server_config.client_max_body_size;
     server_config.routes[route.path] = route;
 }
 
@@ -568,6 +559,7 @@ bool Parser::parseConfigFile(const std::string& config_file)
             continue;
         if (line.find("server {") != std::string::npos)
         {
+            bool maxBodySizeSet = false;
             ServerConfig server_config{};
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
@@ -580,10 +572,6 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 {
                    parseServerNameDirective(line, server_config);
                 }
-                else if (line.find("client_max_body_size ") != std::string::npos)
-                {
-                   parseClientMaxBodySizeDirective(line, server_config);
-                }
                 else if (line.find("error_page ") != std::string::npos)
                 {
                     parseErrorPageDirective(line, server_config);
@@ -592,7 +580,14 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 {
                    parseLocationDirective(file, line, server_config);
                 }
+                else if (line.find("client_max_body_size ") != std::string::npos)
+                {
+                    parseClientMaxBodySizeDirective(line, server_config);
+                    maxBodySizeSet = true;
+                }
             }
+            if (maxBodySizeSet == false)
+                server_config.client_max_body_size = DEFAULT_MAX_BODY_SIZE;
             server_configs.push_back(server_config);
         }
     }

@@ -52,6 +52,7 @@ class EventLoop
         // int loop = epoll_create1(0);
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
+        void setMissingMaxSizes(std::vector<ServerConfig> serverConfigs);
         void startLoop();
         void setTimerValues(int n);
         void checkTimeouts();//int timerFd, std::map<int, Client>& clients, int& children, int loop);
