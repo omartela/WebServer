@@ -682,8 +682,26 @@ void EventLoop::handleClientRecv(Client& client)
                     toggleEpollEvents(client.fd, loop, EPOLLOUT);
                     return ;
                 }
+                if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
+                {
+                    client.response.push_back(HTTPResponse(404, "Invalid location"));
+                    client.rawReadData.clear();
+                    client.state = SEND;
+                    client.writeBuffer = client.response.back().toString();
+                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                    return ;
+                }
                 client.bytesRead = 0;
                 client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                if (client.serverInfo.routes.at(client.request.location).redirect.status_code)
+                {
+                    client.response.push_back(HTTPResponse(client.serverInfo.routes.at(client.request.location).redirect.status_code, client.serverInfo.routes.at(client.request.location).redirect.target_url));
+                    client.rawReadData.clear();
+                    client.state = SEND;
+                    client.writeBuffer = client.response.back().toString();
+                    toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                    return ;
+                }
             }
             checkBody(client);
             return ;
