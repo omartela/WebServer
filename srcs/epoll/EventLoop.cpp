@@ -239,18 +239,9 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
                 continue ;
             }
         }
-        size_t maxBodySize;
-        auto ite = client.serverInfo.routes.find(client.request.location);
-        if (ite != client.serverInfo.routes.end())
-            maxBodySize = ite->second.client_max_body_size;
-        else
+        if (client.state == READ && checkMaxSize(client) == false)
         {
-            wslog.writeToLogFile(ERROR, "Request location and routes do not match", false);
-            createErrorResponse(client, 400, "Bad Request", "disconnected");
-        }
-        if (client.state == READ && ((client.headerString.size() > DEFAULT_MAX_HEADER_SIZE) || (client.rawReadData.size() - client.headerString.size()) > maxBodySize))
-        {
-            createErrorResponse(client, 413, "Entity too large", " disconnected, size too big!");
+            createErrorResponse(client, 413, "Content Too Large", " disconnected, size too big!");
             continue ;
         }
         if (client.state == SEND && elapsedTime > 0) //make more comprehensive later
@@ -601,6 +592,25 @@ static void readChunkedBody(Client &client, int loop)
     client.rawReadData.clear();
 }
 
+bool EventLoop::checkMaxSize(Client& client)
+{
+    size_t maxBodySize;
+    auto ite = client.serverInfo.routes.find(client.request.location);
+    if (ite != client.serverInfo.routes.end())
+        maxBodySize = ite->second.client_max_body_size;
+    else
+        return false;
+
+    if (client.headerString.size() > DEFAULT_MAX_HEADER_SIZE)
+        return false;
+
+    if (client.request.body.size() > maxBodySize)
+        return false;
+    
+    return true ;
+}
+
+
 void EventLoop::checkBody(Client& client)
 {
     if (!client.rawReadData.empty() && client.request.method == "POST")
@@ -617,6 +627,15 @@ void EventLoop::checkBody(Client& client)
         else
             return ;
     }
+
+    if (checkMaxSize(client) == false)
+    {
+        client.response.push_back(HTTPResponse(413, "Content Too Large"));
+        client.writeBuffer = client.response.back().body;
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+    }
+
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
