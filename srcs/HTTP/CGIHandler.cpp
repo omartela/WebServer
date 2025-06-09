@@ -1,6 +1,4 @@
-#include "CGIhandler.hpp"
-#include "utils.hpp"
-#include <limits.h>
+#include "CGIHandler.hpp"
 
 CGIHandler::CGIHandler() 
 {
@@ -83,12 +81,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 
 void CGIHandler::collectCGIOutput(int childReadPipeFd)
 {
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in collectCGIOutput = " << signum << std::endl;
     char buffer[65536];
-    int n;
-    //output.clear();
 
     int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
@@ -99,11 +92,6 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)
 {
-    // write(writeCGIPipe[1], client.request.body.c_str(), client.request.body.size());
-    // close(writeCGIPipe[1]);
-	// if (signum != 0)
-    //     return ;
-	//std::cout << "signum in writeBodyToChild = " << signum << std::endl;
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);

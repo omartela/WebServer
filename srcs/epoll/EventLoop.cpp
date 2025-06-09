@@ -724,11 +724,11 @@ void EventLoop::handleClientSend(Client &client)
     //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
     if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
     {
-        if (client.CGI.FileOpen == false)
+        if (client.CGI.fileOpen == false)
         {
             client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
             if (client.CGI.readCGIPipe[1] != -1)
-                client.CGI.FileOpen = true;
+                client.CGI.fileOpen = true;
         }
         char buffer[65536];
         ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);

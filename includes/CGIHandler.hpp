@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <sys/timerfd.h>
 #include <fcntl.h>
+#include "utils.hpp"
+#include <limits.h>
 
 std::string joinPaths(std::filesystem::path path1, std::filesystem::path path2);
 

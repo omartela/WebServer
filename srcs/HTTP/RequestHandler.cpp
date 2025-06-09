@@ -1,24 +1,5 @@
 
 #include "RequestHandler.hpp"
-#include "Logger.hpp"
-#include "Enums.hpp"
-#include "Client.hpp"
-#include "Parser.hpp"
-#include "utils.hpp"
-#include <fstream>
-#include <sstream>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
-#include <map>
-#include <vector>
-#include <cstdio>
-#include <iostream>
-#include <filesystem>
-#include <dirent.h>
-
 
 void printRequest(const HTTPRequest &req)
 {

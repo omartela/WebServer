@@ -1,7 +1,6 @@
 
 #include "HTTPResponse.hpp"
-#include <sstream>
-#include <unordered_map>
+
 
 HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg)
 {
