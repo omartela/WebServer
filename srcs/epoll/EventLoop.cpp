@@ -205,7 +205,7 @@ void EventLoop::setTimerValues(int n)
     {
         timerValues.it_value.tv_sec = 0;
         timerValues.it_interval.tv_sec = 0;
-        wslog.writeToLogFile(INFO, "no children left, not checking their status anymore", true);
+        wslog.writeToLogFile(INFO, "No children left, not checking their status anymore", true);
         timerfd_settime(childTimerFD, 0, &timerValues, 0);
     }
 }
@@ -239,7 +239,16 @@ void EventLoop::checkTimeouts()//int timerFd, std::map<int, Client>& clients, in
                 continue ;
             }
         }
-        if ((client.state == READ && client.headerString.size() > 8192) || (client.state == READ && (client.rawReadData.size() - client.headerString.size()) > client.serverInfo.client_max_body_size))
+        size_t maxBodySize;
+        auto ite = client.serverInfo.routes.find(client.request.location);
+        if (ite != client.serverInfo.routes.end())
+            maxBodySize = ite->second.client_max_body_size;
+        else
+        {
+            wslog.writeToLogFile(ERROR, "Request location and routes do not match", false);
+            createErrorResponse(client, 400, "Bad Request", "disconnected");
+        }
+        if (client.state == READ && ((client.headerString.size() > DEFAULT_MAX_HEADER_SIZE) || (client.rawReadData.size() - client.headerString.size()) > maxBodySize))
         {
             createErrorResponse(client, 413, "Entity too large", " disconnected, size too big!");
             continue ;

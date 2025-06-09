@@ -61,43 +61,57 @@ void Parser::parseClientMaxBodySizeDirective(const std::string& line, ServerConf
 {
     // Extract client_max_body_size from the line
     size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
-    size_t end_pos = line.find(";", pos);
-    std::string size_str = line.substr(pos, end_pos - pos);
-    if (size_str.find("K") != std::string::npos)
+    if (pos == std::string::npos)
     {
-        size_str.erase(size_str.find("K"));
-        server_config.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
-    }
-    else if (size_str.find("M") != std::string::npos)
-    {
-        size_str.erase(size_str.find("M"));
-        server_config.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+        server_config.client_max_body_size = DEFAULT_MAX_BODY_SIZE;
     }
     else
     {
-        server_config.client_max_body_size = std::stoul(size_str); // Assume bytes
+        size_t end_pos = line.find(";", pos);
+        std::string size_str = line.substr(pos, end_pos - pos);
+        if (size_str.find("K") != std::string::npos)
+        {
+            size_str.erase(size_str.find("K"));
+            server_config.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
+        }
+        else if (size_str.find("M") != std::string::npos)
+        {
+            size_str.erase(size_str.find("M"));
+            server_config.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+        }
+        else
+        {
+            server_config.client_max_body_size = std::stoul(size_str); // Assume bytes
+        }
     }
 }
 
-void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& route)
+void Parser::parseClientMaxBodySizeDirective(const std::string& line, Route& route, ServerConfig& server_config)
 {
     // Extract client_max_body_size from the line
     size_t pos = line.find("client_max_body_size ") + 21; // Skip "client_max_body_size "
-    size_t end_pos = line.find(";", pos);
-    std::string size_str = line.substr(pos, end_pos - pos);
-    if (size_str.find("K") != std::string::npos)
+    if (pos == std::string::npos)
     {
-        size_str.erase(size_str.find("K"));
-        route.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
-    }
-    else if (size_str.find("M") != std::string::npos)
-    {
-        size_str.erase(size_str.find("M"));
-        route.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+        route.client_max_body_size = server_config.client_max_body_size;
     }
     else
     {
-        route.client_max_body_size = std::stoul(size_str); // Assume bytes
+        size_t end_pos = line.find(";", pos);
+        std::string size_str = line.substr(pos, end_pos - pos);
+        if (size_str.find("K") != std::string::npos)
+        {
+            size_str.erase(size_str.find("K"));
+            route.client_max_body_size = std::stoul(size_str) * 1024; // Convert to bytes
+        }
+        else if (size_str.find("M") != std::string::npos)
+        {
+            size_str.erase(size_str.find("M"));
+            route.client_max_body_size = std::stoul(size_str) * 1024 * 1024; // Convert to bytes
+        }
+        else
+        {
+            route.client_max_body_size = std::stoul(size_str); // Assume bytes
+        }
     }
 }
 
@@ -255,7 +269,7 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         }
         else if (line.find("client_max_body_size "))
         {
-            parseClientMaxBodySizeDirective(line, route);
+            parseClientMaxBodySizeDirective(line, route, server_config);
         }
     }
     server_config.routes[route.path] = route;
