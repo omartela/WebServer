@@ -44,12 +44,10 @@ class EventLoop
         std::map<int, ServerConfig> servers;
         std::map<int, Client> clients;
         int serverSocket;
-        // struct epoll_event setup;
         std::vector<epoll_event> eventLog;
         struct itimerspec timerValues;
         pid_t pid;
         std::string checkConnection;
-        // int loop = epoll_create1(0);
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
         void setMissingMaxSizes(std::vector<ServerConfig> serverConfigs);

@@ -27,7 +27,6 @@ enum connectionStates {
     SEND
 };
 
-
 class Client {
     public:  //change all these to private? fix later
         int fd;
