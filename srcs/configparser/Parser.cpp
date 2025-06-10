@@ -408,7 +408,7 @@ bool Parser::validateAllowMethodsDirective(const std::string& line)
 
 bool Parser::validateReturnDirective(const std::string& line)
 {
-    std::regex return_regex(R"(^\s*return\s+(301|302|307|308)\s+\/\S+;$)");
+    std::regex return_regex(R"(^\s*return\s+(301|302) .+;$)");
     if (std::regex_match(line, return_regex))
         return true;
     else
