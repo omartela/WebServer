@@ -27,10 +27,10 @@
 #include <unistd.h>
 #include <vector>
 
-
 #define MAX_CONNECTIONS 1000
-#define TIMEOUT 60 //testing only, increase later to 60
+#define TIMEOUT 60
 #define CHILD_CHECK 1
+#define DEFAULT_MAX_HEADER_SIZE 8192
 
 class EventLoop
 {
@@ -52,6 +52,7 @@ class EventLoop
         // int loop = epoll_create1(0);
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
+        void setMissingMaxSizes(std::vector<ServerConfig> serverConfigs);
         void startLoop();
         void setTimerValues(int n);
         void checkTimeouts();//int timerFd, std::map<int, Client>& clients, int& children, int loop);
@@ -63,6 +64,7 @@ class EventLoop
         void checkBody(Client &client);
         void handleCGI(Client& client);
         int  executeCGI(Client& client, ServerConfig server);
+        bool checkMaxSize(Client& client);
         void closeFds();
         ~EventLoop();
 };
