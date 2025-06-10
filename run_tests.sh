@@ -27,6 +27,8 @@ run_test_file() {
         echo "----- Output from $file -----"
         "$file"
         echo "----- End of output for $file -----"
+        echo
+        echo
     } > "$log_file" 2>&1
 
     local status=$?

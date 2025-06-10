@@ -1,8 +1,0 @@
-HTTP/1.1 200 OK
-Content-Length: 7
-Content-Type: text/plain
-Method: GET
-Query: i=2
-
-Body:
-

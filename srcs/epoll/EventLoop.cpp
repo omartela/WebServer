@@ -376,6 +376,11 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 		}
 		client.CGI.writeCGIPipe[0] = client.request.fileFd;
 	}
+    if (access(client.CGI.fullPath.c_str(), F_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI file not found: " + client.CGI.fullPath, true);
+        return -404;
+    }
     if (access(client.CGI.fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + client.CGI.fullPath, true);
@@ -408,8 +413,6 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
     }
 	if (!client.request.fileUsed)
 	{
-		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(client.CGI.writeCGIPipe[0]), true);
-		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(client.CGI.readCGIPipe[1]), true);
         if (client.CGI.writeCGIPipe[0] != -1)
 		    close(client.CGI.writeCGIPipe[0]);
 		client.CGI.writeCGIPipe[0] = -1;
@@ -472,9 +475,11 @@ void EventLoop::handleCGI(Client& client)
             return ;
         }
         if (!client.request.fileUsed)
+        {
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-        else
             client.response.push_back(client.CGI.generateCGIResponse());
+            client.writeBuffer = client.response.back().toString();
+        }
         if (!client.CGI.tempFileName.empty())
         {
             if (client.CGI.readCGIPipe[1] != -1)
@@ -491,7 +496,6 @@ void EventLoop::handleCGI(Client& client)
         client.state = SEND;
         if (!client.request.fileUsed)
             client.request.isCGI = false;
-        client.writeBuffer = client.response.back().toString();
         return ;
     }
 }
@@ -627,7 +631,6 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-
     if (client.rawReadData.empty() == false)
     {
         client.response.push_back(HTTPResponse(501, "Not implemented"));
@@ -636,7 +639,6 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
@@ -649,7 +651,9 @@ void EventLoop::checkBody(Client& client)
                 client.response.push_back(HTTPResponse(500, "Internal Server Error"));
             else if (error == -403)
                 client.response.push_back(HTTPResponse(403, "Forbidden"));
-            client.writeBuffer = client.response.back().body;
+            else if (error == -404)
+                client.response.push_back(HTTPResponse(404, "Not Found"));
+            client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
@@ -674,6 +678,14 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
+}
+
+bool EventLoop::validateRequestMethod(Client& client)
+{
+    if (client.request.method == "POST" || client.request.method == "DELETE" || client.request.method == "GET")
+        return true;
+    else
+        return false;
 }
 
 void EventLoop::handleClientRecv(Client& client)
@@ -721,9 +733,13 @@ void EventLoop::handleClientRecv(Client& client)
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                         client.request = HTTPRequest(client.headerString, client.serverInfo);
-                        if (validateHeader(client.request) == false)
+                        if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
                         {
-                            client.response.push_back(HTTPResponse(400, "Bad request"));
+                            wslog.writeToLogFile(ERROR, "Validate request method is not valid", true);
+                            if (validateRequestMethod(client) == false)
+                                client.response.push_back(HTTPResponse(501, "Not implemented"));
+                            else
+                                client.response.push_back(HTTPResponse(400, "Bad request"));
                             client.rawReadData.clear();
                             client.state = SEND;
                             client.writeBuffer = client.response.back().toString();
@@ -813,8 +829,7 @@ void EventLoop::handleClientSend(Client &client)
                 close(client.CGI.readCGIPipe[1]);
                 client.CGI.readCGIPipe[1] = -1;
             }
-            wslog.writeToLogFile(DEBUG, "IN SEND writebuffer " + client.writeBuffer, true);
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
+            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
         }
         else

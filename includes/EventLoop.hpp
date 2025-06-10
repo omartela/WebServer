@@ -53,6 +53,7 @@ class EventLoop
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
         void setMissingMaxSizes(std::vector<ServerConfig> serverConfigs);
+        bool validateRequestMethod(Client &client);
         void startLoop();
         void setTimerValues(int n);
         void checkTimeouts();//int timerFd, std::map<int, Client>& clients, int& children, int loop);

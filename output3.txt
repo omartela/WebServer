@@ -1,3 +1,0 @@
-2025-06-09_15:56:20 [32mParsing config file successfully[0m
-2025-06-09_15:56:21 [32mepoll_wait interrupted by signal[0m
-Exiting eventLoop
