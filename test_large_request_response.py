@@ -7,7 +7,7 @@ PORT = 8004
 PATH = '/cgi/A_test'
 
 # Generate ~512KB body (large enough to not fit in one write)
-body = "A" * (512 * 1024)
+body = "A" * (1024 * 1024)
 request = (
     f"POST {PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"

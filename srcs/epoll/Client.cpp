@@ -2,6 +2,7 @@
 
 static int findOldestClient(std::map<int, Client>& clients)
 {
+    return clients.begin()->first;
     int oldestClient = 0;
     std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
 
@@ -31,6 +32,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
+            //int oldFd = clients.begin()->first;
             if (oldFd != 0)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)

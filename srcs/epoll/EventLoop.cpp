@@ -486,18 +486,18 @@ void EventLoop::handleCGI(Client& client)
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
-        std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
+        //std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
     else if (client.request.fileUsed == false)
     {
-        std::cout << "READING FROM CHILD\n"; //REMOVE LATER
+        //std::cout << "READING FROM CHILD\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
     }
     pid = waitpid(client.CGI.getChildPid(), &status, WNOHANG);
-    wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
-    wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
+    // wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
+    // wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
+    // wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     if (pid == client.CGI.getChildPid())
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
@@ -728,8 +728,8 @@ void EventLoop::handleClientRecv(Client& client)
             {
                 client.bytesRead = 0;
                 char buffer[READ_BUFFER_SIZE];
-                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-                // wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
+                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
+                //wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
                 if (client.bytesRead <= 0)
                 {
                     if (client.bytesRead == 0)
@@ -820,7 +820,7 @@ void EventLoop::handleClientSend(Client &client)
                 close(client.CGI.readCGIPipe[1]);
                 client.CGI.readCGIPipe[1] = -1;
             }
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT);
+            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
