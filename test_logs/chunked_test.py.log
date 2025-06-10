@@ -1,12 +1,7 @@
------ Output from ./tests/testerconf/chunked_test.py -----
-Received response from server:
-HTTP/1.1 200 OK
-Content-Length: 11
-Content-Type: text/plain
-Method: POST
-Query: 
-
-Body:
-Hello World
-
------ End of output for ./tests/testerconf/chunked_test.py -----
+----- Output from ./tests/cgitest/chunked_test.py -----
+Traceback (most recent call last):
+  File "/home/omartela/hive-projects/WebServer/./tests/cgitest/chunked_test.py", line 36, in <module>
+    send_chunked_request()
+  File "/home/omartela/hive-projects/WebServer/./tests/cgitest/chunked_test.py", line 29, in send_chunked_request
+    response = client_socket.recv(1024).decode()
+KeyboardInterrupt

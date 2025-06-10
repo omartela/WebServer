@@ -73,6 +73,7 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFD, &setup) < 0)
         throw std::runtime_error("Failed to add timerFd to epoll");
     timerOn = false;
+    wslog.writeToLogFile(INFO, "Creating Childtimer", true);
     childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (childTimerFD < 0)
         std::runtime_error("failed to create childTimerFD");
@@ -144,6 +145,7 @@ void EventLoop::startLoop()
             }
             else if (fd == childTimerFD)
             {
+                wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
                 checkChildrenStatus();
                 if (nChildren == 0)
                     setTimerValues(3);
@@ -341,31 +343,18 @@ static bool validateChunkedBody(Client &client)
         str = str.substr(i + 2);
         if (client.request.fileUsed == true && client.request.isCGI == true) 
         {
-            // Write existing body to file
-            wslog.writeToLogFile(DEBUG, str.substr(0, bytes).c_str(), true);
-            wslog.writeToLogFile(INFO, "BYTES WRITTEN " + std::to_string(bytes), true);
-            wslog.writeToLogFile(INFO, "STRING SIZE " + std::to_string(str.substr(0, bytes).size()), true);
-
             client.chunkBodySize += write(client.request.fileFd, str.substr(0, bytes).c_str(), bytes);
-            wslog.writeToLogFile(INFO, std::to_string(client.chunkBodySize), true);
         }
         else
             client.request.body += str.substr(0, bytes);
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
         {
-            wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-            wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-            wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-            wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
             return false;
         }
         else
             str = str.substr(2);
-        wslog.writeToLogFile(ERROR, "chunkbuffer before " + client.chunkBuffer, true);
         client.chunkBuffer.erase(0, i + 2 + bytes + 2);
-         wslog.writeToLogFile(ERROR, "chunkbuffer after " + client.chunkBuffer, true);
     }
     return true;
 }
@@ -523,7 +512,6 @@ static bool checkMethods(Client &client, int loop)
 
 static bool readChunkedBody(Client &client, int loop)
 {
-    wslog.writeToLogFile(DEBUG, "READ CHUNKEDBODY", true);
     client.chunkBuffer += client.rawReadData;
     if (client.request.fileUsed == false && client.request.isCGI == true) // 1MB limit for chunked body
     {
@@ -539,7 +527,6 @@ static bool readChunkedBody(Client &client, int loop)
     }
     if (client.chunkBuffer.find("0\r\n\r\n") != std::string::npos)
     {
-        wslog.writeToLogFile(DEBUG, "RECEIVED LAST CHUNK", true);
         std::size_t endPos = client.chunkBuffer.find("0\r\n\r\n");
         if (endPos != std::string::npos)
         {
@@ -565,7 +552,6 @@ static bool readChunkedBody(Client &client, int loop)
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return true;
         }
-        wslog.writeToLogFile(DEBUG, "CHUNK VALIDATED", true);
         if (client.request.fileUsed == true)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
@@ -612,7 +598,6 @@ bool EventLoop::checkMaxSize(Client& client)
 
 void EventLoop::checkBody(Client& client)
 {
-    wslog.writeToLogFile(DEBUG, "INSIDE CHECKBODY", true);
     if (client.request.method == "POST")
     {
         auto TE = client.request.headers.find("Transfer-Encoding");
@@ -748,9 +733,9 @@ void EventLoop::handleClientRecv(Client& client)
                         client.bytesRead = 0;
                         client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                     }
-                    checkBody(client);
-                    return ;
                 }
+                checkBody(client);
+                return ;
             }
             case HANDLE_CGI:
             {
