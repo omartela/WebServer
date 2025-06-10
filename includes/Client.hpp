@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 
 #define READ_BUFFER_SIZE 8192
-#define BODY_MEMORY_LIMIT 200
 
 enum connectionStates {
     IDLE,
@@ -27,7 +26,6 @@ enum connectionStates {
     HANDLE_CGI,
     SEND
 };
-
 
 class Client {
     public:  //change all these to private? fix later

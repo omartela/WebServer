@@ -42,7 +42,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
             }
         }
         else
-            throw std::runtime_error("accepting new client failed");
+            throw std::runtime_error("Accepting new client failed");
     }
     serverInfo = server;
     timestamp = std::chrono::steady_clock::now();

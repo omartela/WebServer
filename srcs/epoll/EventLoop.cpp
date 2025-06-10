@@ -58,13 +58,20 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     loop = epoll_create1(0);
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
-        serverSocket = initServerSocket(serverConfigs[i]);
-        serverConfigs[i].fd = serverSocket;
-        setup.data.fd = serverConfigs[i].fd;
-        setup.events = EPOLLIN;
-        if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
-            throw std::runtime_error("serverSocket epoll_ctl ADD failed");
-        servers[serverSocket] = serverConfigs[i];
+        try {
+            serverSocket = initServerSocket(serverConfigs[i]);
+            serverConfigs[i].fd = serverSocket;
+            setup.data.fd = serverConfigs[i].fd;
+            setup.events = EPOLLIN;
+            if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
+                throw std::runtime_error("serverSocket epoll_ctl ADD failed");
+            servers[serverSocket] = serverConfigs[i];
+        }
+        catch (const std::bad_alloc& e)
+        {
+            wslog.writeToLogFile(ERROR, "Failed to create server #" + std::to_string(i) + " due to bad alloc, continuing creating other servers", true);
+            continue ;
+        }
     }
     timerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFD < 0)
@@ -98,6 +105,22 @@ EventLoop::~EventLoop()
     closeFds();
 }
 
+static void handleErrorMessages(std::string errorMessage, std::map<int, Client>& clients, int newFd)
+{
+    if (errorMessage == "oldFd epoll_ctl DEL failed")
+        throw std::runtime_error("oldFd epoll_ctl DEL failed, closing the server");
+    else if (errorMessage == "Client insert failed or duplicate fd" || errorMessage == "Accepting new client failed")
+        wslog.writeToLogFile(ERROR, "Accepting a new client failed, continuing without connecting the client", true);
+    else if (errorMessage == "newClient epoll_ctl ADD failed")
+    {
+        close(clients.at(newFd).fd);
+        clients.erase(clients.at(newFd).fd);
+        for (auto&  client : clients)
+            std::cout << "client FD" << client.second.fd << " is here" << std::endl; //for debugging
+        wslog.writeToLogFile(INFO, "Client closed and removed, after failing to add FD into epoll, continuing", true);
+    }
+}
+
 void EventLoop::startLoop()
 {
     while (signum == 0)
@@ -120,20 +143,35 @@ void EventLoop::startLoop()
         for (int i = 0; i < nReady; i++)
         {
             int fd = eventLog[i].data.fd;
+            int newFd;
             if (servers.find(fd) != servers.end())
             {
-                struct epoll_event setup {};
-                Client newClient(loop, fd, clients, servers[fd]);
-                auto result =  clients.emplace(newClient.fd, std::move(newClient));
-                if (!result.second)
-                    throw std::runtime_error("Client insert failed or duplicate fd");
-                setup.data.fd = newClient.fd;
-                setup.events = EPOLLIN;
-                if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
-                    throw std::runtime_error("newClient epoll_ctl ADD failed");
-                if (timerOn == false)
-                    setTimerValues(1);
-                wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
+                try {
+                    struct epoll_event setup { };
+                    Client newClient(loop, fd, clients, servers[fd]);
+                    auto result =  clients.emplace(newClient.fd, std::move(newClient));
+                    if (!result.second)
+                        throw std::runtime_error("Client insert failed or duplicate fd");
+                    newFd = newClient.fd;
+                    setup.data.fd = newClient.fd;
+                    setup.events = EPOLLIN;
+                    if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
+                        throw std::runtime_error("newClient epoll_ctl ADD failed");
+                    if (timerOn == false)
+                        setTimerValues(1);
+                    wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
+                }
+                catch (const std::bad_alloc& e)
+                {
+                    wslog.writeToLogFile(ERROR, "Failed to add a client element into std::map due to bad alloc, continuing without connecting the client", true);
+                    continue ;
+                }
+                catch (const std::runtime_error& e)
+                {
+                    std::string errorMessage = e.what();
+                    handleErrorMessages(errorMessage, clients, newFd);
+                    continue ;
+                }
             }
             else if (fd == timerFD)
             {
@@ -146,7 +184,7 @@ void EventLoop::startLoop()
             {
                 checkChildrenStatus();
                 if (nChildren == 0)
-                    setTimerValues(3);
+                    setTimerValues(3); 
             }
             else if (clients.find(fd) != clients.end())
             {
@@ -260,9 +298,7 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
         nChildren--;
-    // if (clients.at(fd).fd != -1)
     close(clients.at(fd).fd);
-    // clients.at(fd).fd = -1;
     clients.erase(clients.at(fd).fd);
     wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
 }
@@ -679,8 +715,7 @@ void EventLoop::checkBody(Client& client)
 
 void EventLoop::handleClientRecv(Client& client)
 {
-    try 
-    {
+    try {
         switch (client.state)
         {
             case IDLE:
@@ -758,8 +793,7 @@ void EventLoop::handleClientRecv(Client& client)
 
 void EventLoop::handleClientSend(Client &client)
 {
-    try
-    {
+    try {
         if (client.state != SEND)
             return ;
         wslog.writeToLogFile(INFO, "IN SEND", true);
