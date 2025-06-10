@@ -564,12 +564,12 @@ void EventLoop::handleCGI(Client& client)
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
-        std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
+        //std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
     else if (client.request.fileUsed == false)
     {
-        std::cout << "READING FROM CHILD\n"; //REMOVE LATER
+        //std::cout << "READING FROM CHILD\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
     }
     pid = waitpid(client.CGI.getChildPid(), &status, WNOHANG);
@@ -829,8 +829,8 @@ void EventLoop::handleClientRecv(Client& client)
             {
                 client.bytesRead = 0;
                 char buffer[READ_BUFFER_SIZE];
-                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-                // wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
+                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
+                //wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
                 if (client.bytesRead <= 0)
                 {
                     if (client.bytesRead == 0)

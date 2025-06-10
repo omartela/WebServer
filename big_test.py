@@ -9,9 +9,9 @@ def send_request_and_read_response():
         # Send basic HTTP request
         response_data = b""
         request = (
-            "GET /cgi/inf_test.py HTTP/1.1\r\n"
+            "GET /cgi/no_inf_test.py HTTP/1.1\r\n"
             f"Host: {HOST}\r\n"
-            "Connection: close\r\n"
+            #"Connection: close\r\n"
             "\r\n"
         )
         sock.sendall(request.encode())
