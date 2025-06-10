@@ -120,7 +120,7 @@ def test_images_delete():
 
 def test_imagesREDIR():
     """
-    Test that GET /imagesREDIR/ returns a 307 redirect to /images/.
+    Test that GET /imagesREDIR/ returns a 301 redirect to /images/.
     """
     response = requests.get("http://127.0.0.1:8080/imagesREDIR/", allow_redirects=False)
     assert response.status_code == 307
