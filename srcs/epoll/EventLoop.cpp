@@ -639,6 +639,15 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
+    if (client.rawReadData.empty() == false)
+    {
+        client.response.push_back(HTTPResponse(501, "Not implemented"));
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
+
+    }
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
@@ -746,8 +755,26 @@ void EventLoop::handleClientRecv(Client& client)
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
+                        if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
+                        {
+                            client.response.push_back(HTTPResponse(404, "Invalid location"));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
                         client.bytesRead = 0;
                         client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                        if (client.serverInfo.routes.at(client.request.location).redirect.status_code)
+                        {
+                            client.response.push_back(HTTPResponse(client.serverInfo.routes.at(client.request.location).redirect.status_code, client.serverInfo.routes.at(client.request.location).redirect.target_url));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
                     }
                 }
                 checkBody(client);
@@ -835,6 +862,7 @@ void EventLoop::handleClientSend(Client &client)
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
