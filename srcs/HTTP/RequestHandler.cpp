@@ -348,7 +348,9 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
 {
-    if (fullPath.find("..") != std::string::npos || fullPath.find("/uploads/") == std::string::npos)
+    // I think this /uploads/ can not be hardcoded the user can design the directory structure how he wants
+    /// we need to think something for this. I think the allowedMethods checks is just enough.
+    if (fullPath.find("..") != std::string::npos)
         return HTTPResponse(403, "Forbidden");
     if (access(fullPath.c_str(), F_OK) != 0)
         return HTTPResponse(404, "Not Found");
