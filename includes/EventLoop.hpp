@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <vector>
 
-#define MAX_CONNECTIONS 1000
+#define MAX_CONNECTIONS 1024
 #define TIMEOUT 60
 #define CHILD_CHECK 1
 #define DEFAULT_MAX_HEADER_SIZE 8192

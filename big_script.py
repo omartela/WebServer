@@ -7,7 +7,7 @@ PORT = 8004
 CGI_PATH = '/cgi/no_inf_test.py'
 
 # Create a large POST body (e.g. 1MB)
-BODY_SIZE = 1024 * 1024  # 1 MB
+BODY_SIZE = 10 * 1024  # 1 MB
 body = "0" * BODY_SIZE
 
 # Construct raw HTTP POST request

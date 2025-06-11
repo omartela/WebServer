@@ -1,8 +1,8 @@
 #include "Client.hpp"
 
-static int findOldestClient(std::map<int, Client>& clients)
+static int findOldestClient(std::map<int, Client>& clients) // maybe streamline this function to be more efficient, even at the loss of accuracy
 {
-    return clients.begin()->first;
+    //return 0; //!REMOVE LATER
     int oldestClient = 0;
     std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
 
@@ -32,14 +32,23 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
-            //int oldFd = clients.begin()->first;
+            std::cout << "--------------------------------------------CLOSING CLIENT FD" << oldFd << " PREMATURELY!--------------------------------------------" << std::endl;
             if (oldFd != 0)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
                 close(oldFd);
+                if (clients.at(oldFd).request.isCGI == true)
+                {
+                    int readPipe = clients.at(oldFd).CGI.getReadPipe();
+                    int writePipe = clients.at(oldFd).CGI.getWritePipe();
+                    if (readPipe != -1)
+                        close(readPipe);
+                    if (writePipe != -1)
+                        close(writePipe);
+                }
                 if (clients.find(oldFd) != clients.end())
-                    clients.at(oldFd).reset();
+                    clients.erase(oldFd);
                 fd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
             }
         }
