@@ -41,12 +41,14 @@ class Client {
         int bytesRead;
         int bytesWritten;
         bool erase;
+        size_t bytesSent;
         ServerConfig serverInfo;
+        size_t chunkBodySize;
 
         HTTPRequest                     request;
         std::vector<HTTPResponse>       response;
         CGIHandler                      CGI;
-        std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
+        std::string chunkBuffer;
         
         int childTimerFd;
 

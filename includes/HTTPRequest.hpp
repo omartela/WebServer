@@ -3,8 +3,13 @@
 
 #include "Enums.hpp"
 #include "Parser.hpp"
+#include "Logger.hpp"
 #include <string>
 #include <map>
+#include <sstream>
+#include <iostream>
+#include <vector>
+#include <algorithm>
 
 class HTTPRequest
 {

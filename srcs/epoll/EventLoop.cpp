@@ -80,6 +80,7 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     if (epoll_ctl(loop, EPOLL_CTL_ADD, timerFD, &setup) < 0)
         throw std::runtime_error("Failed to add timerFd to epoll");
     timerOn = false;
+    wslog.writeToLogFile(INFO, "Creating Childtimer", true);
     childTimerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (childTimerFD < 0)
         std::runtime_error("failed to create childTimerFD");
@@ -182,6 +183,7 @@ void EventLoop::startLoop()
             }
             else if (fd == childTimerFD)
             {
+                wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
                 checkChildrenStatus();
                 if (nChildren == 0)
                     setTimerValues(3); 
@@ -347,7 +349,6 @@ static bool validateChunkedBody(Client &client)
 
         long long unsigned bytes;
         std::string str = client.chunkBuffer;
-        wslog.writeToLogFile(DEBUG, "size of chunkbuffer " + std::to_string(client.chunkBuffer.size()), true);
         if (!isHexUnsignedLongLong(str))
         {
             return false;
@@ -378,19 +379,13 @@ static bool validateChunkedBody(Client &client)
         str = str.substr(i + 2);
         if (client.request.fileUsed == true && client.request.isCGI == true) 
         {
-            // Write existing body to file
-            write(client.request.fileFd, str.substr(0, bytes).data(), bytes);
+            client.chunkBodySize += write(client.request.fileFd, str.substr(0, bytes).c_str(), bytes);
         }
         else
             client.request.body += str.substr(0, bytes);
         str = str.substr(bytes);
         if (str.substr(0, 2) != "\r\n")
         {
-            wslog.writeToLogFile(DEBUG, "str.substr(0, 2) = {" + str.substr(0, 2) + "}", true);
-            wslog.writeToLogFile(DEBUG, "counter = " + std::to_string(i), true);
-            wslog.writeToLogFile(DEBUG, "bytes = " + std::to_string(bytes), true);
-            //wslog.writeToLogFile(DEBUG, "str = {" + str + "}", true);
-            wslog.writeToLogFile(DEBUG, "triggered here5 ", true);
             return false;
         }
         else
@@ -417,6 +412,11 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 		}
 		client.CGI.writeCGIPipe[0] = client.request.fileFd;
 	}
+    if (access(client.CGI.fullPath.c_str(), F_OK) != 0)
+    {
+        wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI file not found: " + client.CGI.fullPath, true);
+        return -404;
+    }
     if (access(client.CGI.fullPath.c_str(), X_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "CGIHandler::executeCGI access to cgi script forbidden: " + client.CGI.fullPath, true);
@@ -449,8 +449,6 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
     }
 	if (!client.request.fileUsed)
 	{
-		wslog.writeToLogFile(ERROR, "Closing writeCGIPipe[0] FD = " + std::to_string(client.CGI.writeCGIPipe[0]), true);
-		wslog.writeToLogFile(ERROR, "Closing readCGIPipe[1] FD = " + std::to_string(client.CGI.readCGIPipe[1]), true);
         if (client.CGI.writeCGIPipe[0] != -1)
 		    close(client.CGI.writeCGIPipe[0]);
 		client.CGI.writeCGIPipe[0] = -1;
@@ -502,7 +500,6 @@ void EventLoop::handleCGI(Client& client)
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         nChildren--;
-        client.request.isCGI = false;
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         
@@ -510,12 +507,15 @@ void EventLoop::handleCGI(Client& client)
         {
             wslog.writeToLogFile(DEBUG, "Child failed!", true);
             client.response.push_back( HTTPResponse(500, "Internal Server Error"));
-            client.writeBuffer = client.response.back().body;
+            client.writeBuffer = client.response.back().toString();
             return ;
         }
         if (!client.request.fileUsed)
+        {
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-        client.response.push_back(client.CGI.generateCGIResponse());
+            client.response.push_back(client.CGI.generateCGIResponse());
+            client.writeBuffer = client.response.back().toString();
+        }
         if (!client.CGI.tempFileName.empty())
         {
             if (client.CGI.readCGIPipe[1] != -1)
@@ -532,7 +532,6 @@ void EventLoop::handleCGI(Client& client)
         client.state = SEND;
         if (!client.request.fileUsed)
             client.request.isCGI = false;
-        client.writeBuffer = client.response.back().toString();
         return ;
     }
 }
@@ -551,7 +550,7 @@ static bool checkMethods(Client &client, int loop)
         return true;
 }
 
-static void readChunkedBody(Client &client, int loop)
+static bool readChunkedBody(Client &client, int loop)
 {
     client.chunkBuffer += client.rawReadData;
     if (client.request.fileUsed == false && client.request.isCGI == true) // 1MB limit for chunked body
@@ -582,7 +581,7 @@ static void readChunkedBody(Client &client, int loop)
             if (client.request.isCGI == false)
             {
                 if (checkMethods(client, loop) == false)
-                    return ;
+                    return true;
             }
             else
             {
@@ -591,27 +590,25 @@ static void readChunkedBody(Client &client, int loop)
             }
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
-            return ;
+            return true;
         }
         if (client.request.fileUsed == true)
         {
-            struct stat st;
-            if (stat(client.request.tempFileName.c_str(), &st) == 0)
-                client.request.headers["Content-Length"] = std::to_string(st.st_size);
-            else
-                client.request.headers["Content-Length"] = "0";
+            client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
+            wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
             if (client.request.fileIsOpen == false && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
         if (client.request.isCGI == true)
-            return ;
+            return true;
         client.state = SEND;  // Kaikki chunkit luettu
         client.response.push_back(RequestHandler::handleRequest(client));
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return;
+        return true;
     }
     client.rawReadData.clear();
+    return false;
 }
 
 bool EventLoop::checkMaxSize(Client& client)
@@ -641,19 +638,25 @@ bool EventLoop::checkMaxSize(Client& client)
 
 void EventLoop::checkBody(Client& client)
 {
-    if (!client.rawReadData.empty() && client.request.method == "POST")
+    if (client.request.method == "POST")
     {
         auto TE = client.request.headers.find("Transfer-Encoding");
         if (TE != client.request.headers.end() && TE->second == "chunked")
-            return readChunkedBody(client, loop);
-        auto CL = client.request.headers.find("Content-Length");
-        if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
         {
-            client.request.body = client.rawReadData.substr(0, stoul(CL->second));
-            client.rawReadData = client.rawReadData.substr(client.request.body.size());
+            if (readChunkedBody(client, loop) == false)
+                return;
         }
         else
-            return ;
+        {
+            auto CL = client.request.headers.find("Content-Length");
+            if (CL != client.request.headers.end() && client.rawReadData.size() >= stoul(CL->second)) //or end of chunks?
+            {
+                client.request.body = client.rawReadData.substr(0, stoul(CL->second));
+                client.rawReadData = client.rawReadData.substr(client.request.body.size());
+            }
+            else
+                return ;
+        }
     }
 
     if (checkMaxSize(client) == false)
@@ -664,7 +667,6 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-
     if (client.rawReadData.empty() == false)
     {
         client.response.push_back(HTTPResponse(501, "Not implemented"));
@@ -673,7 +675,15 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
+    if (client.rawReadData.empty() == false)
+    {
+        client.response.push_back(HTTPResponse(501, "Not implemented"));
+        client.writeBuffer = client.response.back().toString();
+        client.state = SEND;
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
 
+    }
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
@@ -686,7 +696,9 @@ void EventLoop::checkBody(Client& client)
                 client.response.push_back(HTTPResponse(500, "Internal Server Error"));
             else if (error == -403)
                 client.response.push_back(HTTPResponse(403, "Forbidden"));
-            client.writeBuffer = client.response.back().body;
+            else if (error == -404)
+                client.response.push_back(HTTPResponse(404, "Not Found"));
+            client.writeBuffer = client.response.back().toString();
             client.state = SEND;
             toggleEpollEvents(client.fd, loop, EPOLLOUT);
             return ;
@@ -711,6 +723,14 @@ void EventLoop::checkBody(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
+}
+
+bool EventLoop::validateRequestMethod(Client& client)
+{
+    if (client.request.method == "POST" || client.request.method == "DELETE" || client.request.method == "GET")
+        return true;
+    else
+        return false;
 }
 
 void EventLoop::handleClientRecv(Client& client)
@@ -749,23 +769,48 @@ void EventLoop::handleClientRecv(Client& client)
                 buffer[client.bytesRead] = '\0';
                 std::string temp(buffer, client.bytesRead);
                 client.rawReadData += temp;
-                size_t headerEnd = client.rawReadData.find("\r\n\r\n");
-                if (headerEnd != std::string::npos)
+                if (client.headerString.empty() == true)
                 {
-                    client.headerString = client.rawReadData.substr(0, headerEnd + 4);
-                    // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
-                    client.request = HTTPRequest(client.headerString, client.serverInfo);
-                    if (validateHeader(client.request) == false)
+                    size_t headerEnd = client.rawReadData.find("\r\n\r\n");
+                    if (headerEnd != std::string::npos)
                     {
-                        client.response.push_back(HTTPResponse(400, "Bad request"));
-                        client.rawReadData.clear();
-                        client.state = SEND;
-                        client.writeBuffer = client.response.back().toString();
-                        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                        return ;
+                        client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                        // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
+                        client.request = HTTPRequest(client.headerString, client.serverInfo);
+                        if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
+                        {
+                            wslog.writeToLogFile(ERROR, "Validate request method is not valid", true);
+                            if (validateRequestMethod(client) == false)
+                                client.response.push_back(HTTPResponse(501, "Not implemented"));
+                            else
+                                client.response.push_back(HTTPResponse(400, "Bad request"));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
+                        if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
+                        {
+                            client.response.push_back(HTTPResponse(404, "Invalid location"));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
+                        client.bytesRead = 0;
+                        client.rawReadData = client.rawReadData.substr(headerEnd + 4);
+                        if (client.serverInfo.routes.at(client.request.location).redirect.status_code)
+                        {
+                            client.response.push_back(HTTPResponse(client.serverInfo.routes.at(client.request.location).redirect.status_code, client.serverInfo.routes.at(client.request.location).redirect.target_url));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
                     }
-                    client.bytesRead = 0;
-                    client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                 }
                 checkBody(client);
                 return ;
@@ -791,6 +836,32 @@ void EventLoop::handleClientRecv(Client& client)
     }
 }
 
+static bool checkBytesSent(Client &client)
+{
+     if (client.response.back().body.empty() == false)
+     {
+        if ((std::stoul(client.response.back().headers["Content-Length"]) + client.headerString.size() != client.bytesSent))
+            return false;
+     }
+     else
+        if (client.bytesSent != client.headerString.size())
+            return false;
+    return true;
+}
+
+static bool checkBytesSent(Client &client)
+{
+     if (client.response.back().body.empty() == false)
+     {
+        if ((std::stoul(client.response.back().headers["Content-Length"]) + client.headerString.size() != client.bytesSent))
+            return false;
+     }
+     else
+        if (client.bytesSent != client.headerString.size())
+            return false;
+    return true;
+}
+
 void EventLoop::handleClientSend(Client &client)
 {
     try {
@@ -800,15 +871,27 @@ void EventLoop::handleClientSend(Client &client)
         //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
         if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
         {
+            client.writeBuffer.clear();
+            ssize_t bytesread = -1;
             if (client.CGI.fileOpen == false)
             {
                 client.CGI.readCGIPipe[1] = open(client.CGI.tempFileName.c_str(), O_RDONLY);
                 if (client.CGI.readCGIPipe[1] != -1)
                     client.CGI.fileOpen = true;
+                char buffer[65536];
+                bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+                client.writeBuffer.append(buffer, bytesread);
+                client.CGI.output = client.writeBuffer;
+                client.response.push_back(client.CGI.generateCGIResponse());
+                client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
+                client.writeBuffer = client.response.back().toString();
             }
-            char buffer[65536];
-            ssize_t bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
-            client.writeBuffer.append(buffer, bytesread);
+            else
+            {
+                char buffer[65536];
+                bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
+                client.writeBuffer.append(buffer, bytesread);
+            }
             if (bytesread == -1)
             {
                 wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
@@ -821,21 +904,26 @@ void EventLoop::handleClientSend(Client &client)
                 client.CGI.readCGIPipe[1] = -1;
             }
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+            wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
         }
         else
-            client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
+            // if (client.fd != -1)
             close(client.fd);
+            // client.fd = -1;
             clients.erase(client.fd);
             return ; 
         }
+        client.bytesSent += client.bytesWritten;
         client.writeBuffer.erase(0, client.bytesWritten);
         // wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
-        if (client.writeBuffer.empty())
+        if (checkBytesSent(client))
         {
             if (client.request.headers.find("Connection") != client.request.headers.end())
                 checkConnection = client.request.headers.at("Connection");
@@ -845,7 +933,9 @@ void EventLoop::handleClientSend(Client &client)
                 {
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                         throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
+                    // if (client.fd != -1)
                     close(client.fd);
+                    // client.fd = -1;
                     clients.erase(client.fd);
                 }
                 else
@@ -860,7 +950,9 @@ void EventLoop::handleClientSend(Client &client)
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
+                // if (client.fd != -1)
                 close(client.fd);
+                // client.fd = -1;
                 clients.erase(client.fd);
             }
             else

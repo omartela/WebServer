@@ -1,5 +1,0 @@
-HTTP/1.1 404 Invalid file
-Content-Length: 142
-Content-Type: text/html; charset=UTF-8
-
-<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered an error: Invalid file.</p></body></html>
