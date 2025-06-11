@@ -560,6 +560,7 @@ static bool readChunkedBody(Client &client, int loop)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
             wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
+            client.chunkBodySize = 0;
             if (client.request.fileIsOpen == false && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
