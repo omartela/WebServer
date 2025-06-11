@@ -150,7 +150,7 @@ void EventLoop::startLoop()
                 try {
                     struct epoll_event setup { };
                     Client newClient(loop, fd, clients, servers[fd]);
-                    auto result =  clients.emplace(newClient.fd, std::move(newClient)); //this gives false boolean, if it doesnt overwrite
+                    auto result =  clients.emplace(newClient.fd, std::move(newClient));
                     if (!result.second)
                         throw std::runtime_error("Client insert failed or duplicate fd");
                     newFd = newClient.fd;
@@ -834,19 +834,6 @@ void EventLoop::handleClientRecv(Client& client)
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
     }
-}
-
-static bool checkBytesSent(Client &client)
-{
-     if (client.response.back().body.empty() == false)
-     {
-        if ((std::stoul(client.response.back().headers["Content-Length"]) + client.headerString.size() != client.bytesSent))
-            return false;
-     }
-     else
-        if (client.bytesSent != client.headerString.size())
-            return false;
-    return true;
 }
 
 static bool checkBytesSent(Client &client)
