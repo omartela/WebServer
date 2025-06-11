@@ -12,6 +12,7 @@ std::string joinPaths(std::filesystem::path path1, std::filesystem::path path2)
 
 void handleSignals(int signal) 
 {
+    wslog.writeToLogFile(ERROR, "Signal received: " + std::to_string(signal), true);
     if (signal == SIGPIPE)
         signal = 0;
     else if (signal == SIGINT)

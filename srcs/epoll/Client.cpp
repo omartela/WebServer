@@ -98,4 +98,6 @@ void Client::reset()
     this->erase = false;
     this->request = HTTPRequest();
     this->CGI = CGIHandler();
+    this->bytesSent = 0;
+    this->chunkBodySize = 0;
 }

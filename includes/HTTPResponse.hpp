@@ -2,6 +2,8 @@
 #pragma once
 #include <string>
 #include <map>
+#include <sstream>
+#include <unordered_map>
 
 class HTTPResponse
 {
@@ -16,6 +18,7 @@ class HTTPResponse
 
         // Functions
         int getStatusCode();
-        std::string getStatusMessage();;
+        std::string getStatusMessage();
+        void generateRedirectResponse(int code,const std::string& msg);
         void generateErrorResponse(int code, const std::string& msg);
 };

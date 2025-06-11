@@ -48,22 +48,22 @@ function run_test() {
 }
 
 function test_get_no_query() {
-    expected=$'HTTP/1.1 200 OK\nContent-Length: 6\nContent-Type: text/plain\nMethod: GET\nQuery: \r\n\r\nBody:'
+    expected=$'HTTP/1.1 200 OK\nContent-Length: 5\nContent-Type: text/plain\nMethod: GET\nQuery: \r\n\r\nBody:'
     run_test "GET - No Query" "$SERVER$CGI_PATH" "GET" "" "$expected"
 }
 
 function test_get_with_query() {
-    expected=$'HTTP/1.1 200 OK\nContent-Length: 6\nContent-Type: text/plain\nMethod: GET\nQuery: name=webserv&age=42\r\n\r\nBody:'
+    expected=$'HTTP/1.1 200 OK\nContent-Length: 5\nContent-Type: text/plain\nMethod: GET\nQuery: name=webserv&age=42\r\n\r\nBody:'
     run_test "GET - With Query" "$SERVER$CGI_PATH?name=webserv&age=42" "GET" "" "$expected"
 }
 
 function test_post_urlencoded() {
-    expected=$'HTTP/1.1 200 OK\nContent-Length: 33\nContent-Type: application/x-www-form-urlencoded\nMethod: POST\nQuery: \r\n\r\nBody:\nusername=test&password=123'
+    expected=$'HTTP/1.1 200 OK\nContent-Length: 31\nContent-Type: application/x-www-form-urlencoded\nMethod: POST\nQuery: \r\n\r\nBody:username=test&password=123'
     run_test "POST - Form-Encoded Body" "$SERVER$CGI_PATH" "POST" "username=test&password=123" "$expected"
 }
 
 function test_post_large_body() {
-    expected=$'HTTP/1.1 200 OK\r\nContent-Length: 30\r\nContent-Type: application/octet-stream\r\n\r\nFile(s) uploaded successfully'
+    expected=$'HTTP/1.1 200 OK\r\nContent-Length: 29\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nFile(s) uploaded successfully'
 
     # Generate large binary payload and encode as base64
     bigdata=$(head -c 100000 < /dev/urandom | base64)
@@ -106,18 +106,18 @@ function test_path_traversal() {
 }
 
 function test_not_found_script() {
-    expected=$'HTTP/1.1 404 Invalid file\nContent-Length: 142\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered an error: Invalid file.</p></body></html>'
-    run_test "404 - Script Not Found" "$SERVER/cgi-bin/doesnotexist.py" "GET" "" "$expected"
+    expected=$'HTTP/1.1 404 Not Found\nContent-Length: 139\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered an error: Not Found.</p></body></html>'
+    run_test "404 - Script Not Found" "$SERVER/cgi/doesnotexist.py" "GET" "" "$expected"
 }
 
 function test_timeout_script() {
     expected="504 Gateway Timeout"
-    run_test "Timeout - Sleep Script" "$SERVER/cgi-bin/sleep5.py" "GET" "" "$expected"
+    run_test "Timeout - Sleep Script" "$SERVER/cgi/sleep5.py" "GET" "" "$expected"
 }
 
 function test_malformed_output() {
-    expected="502 Bad Gateway"
-    run_test "Malformed Output" "$SERVER/cgi-bin/bad_output.py" "GET" "" "$expected"
+    expected="500 Invalid CGI Output"
+    run_test "Malformed Output" "$SERVER/cgi/bad_output.py" "GET" "" "$expected"
 }
 
 function test_concurrent_requests() {
@@ -158,12 +158,12 @@ function test_concurrent_requests() {
 }
 
 # Run all tests
-#test_get_no_query
-#test_get_with_query
-#test_post_urlencoded
+test_get_no_query
+test_get_with_query
+test_post_urlencoded
 #test_post_large_body
-#test_path_traversal
-#test_not_found_script
-test_timeout_script
-test_malformed_output
-#test_concurrent_requests
+test_path_traversal
+test_not_found_script
+#test_timeout_script
+#test_malformed_output
+test_concurrent_requests

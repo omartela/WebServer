@@ -1,9 +1,12 @@
 
 #include "HTTPResponse.hpp"
-#include <sstream>
-#include <unordered_map>
 
-HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg) { if (code >= 400) generateErrorResponse(code, msg);}
+
+HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg)
+{
+    if (code >= 300 && code <= 308) generateRedirectResponse(code, msg);
+    if (code >= 400) generateErrorResponse(code, msg);
+}
 
 std::string HTTPResponse::toString() const
 {
@@ -25,6 +28,25 @@ int HTTPResponse::getStatusCode()
 std::string HTTPResponse::getStatusMessage()
 {
     return stat_msg;
+}
+
+void HTTPResponse::generateRedirectResponse(int code,const std::string& newLocation)
+{
+    static std::unordered_map<int, std::string> statusMessages =
+    {
+    // {300, "Multiple Choices"},
+    {301, "Moved Permanently"},
+    {302, "Found"},
+    // {303, "See Other"},
+    // {304, "Not Modified"},
+    {307, "Temporary Redirect"},
+    {308, "Permanent Redirect"},
+    };
+    headers["Location"] = newLocation;
+    body = "<html><head><title>" + std::to_string(code) + " " + stat_msg + "</title></head>"
+           "<body><p>Redirecting to <a href=\"" + newLocation + "\">" + newLocation + "</a></p></body></html>";
+    headers["Content-Type"] = "text/html";
+    headers["Content-Length"] = std::to_string(body.size());
 }
 
 void HTTPResponse::generateErrorResponse(int code, const std::string& msg)

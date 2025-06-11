@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 
 #define READ_BUFFER_SIZE 8192
-#define BODY_MEMORY_LIMIT 200
 
 enum connectionStates {
     IDLE,
@@ -43,12 +42,14 @@ class Client {
         int bytesRead;
         int bytesWritten;
         bool erase;
+        size_t bytesSent;
         ServerConfig serverInfo;
+        size_t chunkBodySize;
 
         HTTPRequest                     request;
         std::vector<HTTPResponse>       response;
         CGIHandler                      CGI;
-        std::string chunkBuffer;     // Väliaikainen bufferi chunkin lukemista varten
+        std::string chunkBuffer;
         
         int childTimerFd;
 
