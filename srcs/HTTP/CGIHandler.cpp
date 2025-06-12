@@ -58,7 +58,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 {
 	// std::cout << "GENERATING CGI RESPONSE\n";
 	std::string::size_type end = output.find("\r\n\r\n");
-    wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
+    // wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
 	if (end == std::string::npos)
 		return HTTPResponse(500, "Invalid CGI output");
 	std::string headers = output.substr(0, end);
@@ -86,8 +86,8 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
         output.append(buffer, n);
-    wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
-	wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
+    // wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
+	// wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
 }
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)
@@ -95,7 +95,7 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);
-    wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
+    // wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
     if (request.body.empty() == true)
 	{
         close(writeCGIPipe[1]);

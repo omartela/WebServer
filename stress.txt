@@ -5,39 +5,144 @@ plugins: asyncio-1.0.0, anyio-4.9.0
 asyncio: mode=strict, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 1 item
 
-stress_test.py [Client 0 MPPOST] http://127.0.0.2:8004/images/test_stress.html
-[Client 1 ERROR] local variable 'filename' referenced before assignment
-[Client 2 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
-[Client 1 ERROR] local variable 'filename' referenced before assignment
-[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 0 POST] http://127.0.0.2:8004/cgi/formhandler.py
-[Client 1 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 2 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
-[Client 1 MPPOST] http://127.0.0.2:8004/upload/test_stress.html
-[Client 2 POST] http://127.0.0.2:8004/upload/formhandler.py
-[Client 1 CGI] http://127.0.0.2:8004/test_stress.html
-[Client 2 POST] http://127.0.0.2:8004/images/formhandler.py
-[Client 1 CGI] http://127.0.0.2:8004/cgi/test_stress.html
-[Client 2 CGI] http://127.0.0.2:8004/cgi/formhandler.py
-[Client 1 MPPOST] http://127.0.0.2:8004/images/test_stress.html
-[Client 1 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
-[Client 1 POST] http://127.0.0.2:8004/formhandler.py
-[Client 1 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 0 POST] http://127.0.0.2:8004/images/formhandler.py
-[Client 2 CGI] http://127.0.0.2:8004/cgi/formhandler.py
-[Client 0 GET] http://127.0.0.2:8004/index.html?client=test&q=value
-[Client 0 GET] http://127.0.0.2:8004/index.html?name=Alice&lang=Python
-[Client 0 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 0 POST] http://127.0.0.2:8004/formhandler.py
-[Client 0 CGI] http://127.0.0.2:8004/cgi/formhandler.py
-[Client 0 MPPOST] http://127.0.0.2:8004/cgi/test_stress.html
-[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 0 CGI] http://127.0.0.2:8004/cgi/test_stress.html
-[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
-[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
+stress_test.py 
+[C0-R0 MPPOST] http://127.0.0.2:8004/uploads/data.json
+[C1-R0 POST] http://127.0.0.2:8004/uploads/test.py
+[C2-R0 DELETE] http://127.0.0.2:8004/upload/test.txt
+[C2-R0 DELETE RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R0 ⚠️ EXPECTED ERROR] DELETE http://127.0.0.2:8004/upload/test.txt [404]
+[C0-R0 MPPOST RESPONSE] <html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1><p>The 
+[C0-R0 ❌] Method POST was blocked on /uploads/ but should be allowed!
+[C0-R0 🚫 CONFIG VIOLATION] MPPOST on /uploads/ returned 405
+[C0-R1 DELETE] http://127.0.0.2:8004/upload/test.txt
+[C1-R0 POST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R0 ❌ FAIL] POST http://127.0.0.2:8004/uploads/test.py [404]
+[C1-R0 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R1 DELETE RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R1 ⚠️ EXPECTED ERROR] DELETE http://127.0.0.2:8004/upload/test.txt [404]
+[C2-R1 MPPOST] http://127.0.0.2:8004/images/test_stress.html
+[C1-R1 MPPOST] http://127.0.0.2:8004/uploads/test_stress.html
+[C0-R2 CGI] http://127.0.0.2:8004/cgi/GET.py?id=2&name=Screen&lang=none&price=340.99
+[C2-R1 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R1 ❌ FAIL] MPPOST http://127.0.0.2:8004/images/test_stress.html [404]
+[C2-R1 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R1 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R1 ❌ FAIL] MPPOST http://127.0.0.2:8004/uploads/test_stress.html [404]
+[C1-R1 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R2 MPPOST] http://127.0.0.2:8004/images/data.json
+[C1-R2 MPPOST] http://127.0.0.2:8004/images/data.json
+[C2-R2 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R2 ❌ FAIL] MPPOST http://127.0.0.2:8004/images/data.json [404]
+[C2-R2 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R2 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R2 ❌ FAIL] MPPOST http://127.0.0.2:8004/images/data.json [404]
+[C1-R2 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R3 POST] http://127.0.0.2:8004/cgi/test.py
+[C1-R3 POST] http://127.0.0.2:8004/uploads/test.txt
+[C1-R3 POST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R3 ❌ FAIL] POST http://127.0.0.2:8004/uploads/test.txt [404]
+[C1-R3 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R4 MPPOST] http://127.0.0.2:8004/cgi/data.json
+[C1-R4 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R4 ❌ FAIL] MPPOST http://127.0.0.2:8004/cgi/data.json [404]
+[C1-R4 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R5 GET] http://127.0.0.2:8004/product.html?id=1&name=Keyboard&lang=en&price=49.99
+[C1-R5 GET RESPONSE] <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Product Page</title>
+  <
+[C1-R5 ✅ SUCCESS] GET http://127.0.0.2:8004/product.html?id=1&name=Keyboard&lang=en&price=49.99 [200]
+[C1-R6 POST] http://127.0.0.2:8004/uploads/test.py
+[C1-R6 POST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R6 ❌ FAIL] POST http://127.0.0.2:8004/uploads/test.py [404]
+[C1-R6 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R7 POST] http://127.0.0.2:8004/images/test.txt
+[C1-R7 POST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R7 ❌ FAIL] POST http://127.0.0.2:8004/images/test.txt [404]
+[C1-R7 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R8 POST] http://127.0.0.2:8004/cgi/formhandler.py
+[C2-R3 POST RESPONSE] Body:
+[C2-R3 ✅ SUCCESS] POST http://127.0.0.2:8004/cgi/test.py [200]
+[C1-R8 POST RESPONSE] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+[C1-R8 ❌ FAIL] POST http://127.0.0.2:8004/cgi/formhandler.py [500]
+[C1-R8 RESPONSE BODY] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+[C0-R2 CGI RESPONSE] <!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=
+[C0-R2 ✅ SUCCESS] CGI http://127.0.0.2:8004/cgi/GET.py?id=2&name=Screen&lang=none&price=340.99 [200]
+[C2-R4 MPPOST] http://127.0.0.2:8004/uploads/sample_image.jpg
+[C1-R9 GET] http://127.0.0.2:8004/uploads/?id=5&name=Souris&lang=fr&price=24.99
+[C0-R3 GET] http://127.0.0.2:8004/form.html?id=1&name=Keyboard&lang=en&price=49.99
+[C1-R9 GET RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C1-R9 ❌ FAIL] GET http://127.0.0.2:8004/uploads/?id=5&name=Souris&lang=fr&price=24.99 [404]
+[C1-R9 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R3 GET RESPONSE] <!DOCTYPE html>
+<html>
+<head><title>Product Search</title></head>
+<body>
+<h1>Product Search</h1>
 
-✅ Total success: 5
-❌ Total fail: 25
+<!
+[C0-R3 ✅ SUCCESS] GET http://127.0.0.2:8004/form.html?id=1&name=Keyboard&lang=en&price=49.99 [200]
+[C2-R4 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R4 ❌ FAIL] MPPOST http://127.0.0.2:8004/uploads/sample_image.jpg [404]
+[C2-R4 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R4 GET] http://127.0.0.2:8004/form.html?id=4&name=Mouse&lang=en&price=19.99
+[C2-R5 DELETE] http://127.0.0.2:8004/upload/test.txt
+[C0-R4 GET RESPONSE] <!DOCTYPE html>
+<html>
+<head><title>Product Search</title></head>
+<body>
+<h1>Product Search</h1>
+
+<!
+[C0-R4 ✅ SUCCESS] GET http://127.0.0.2:8004/form.html?id=4&name=Mouse&lang=en&price=19.99 [200]
+[C2-R5 DELETE RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R5 ⚠️ EXPECTED ERROR] DELETE http://127.0.0.2:8004/upload/test.txt [404]
+[C0-R5 GET] http://127.0.0.2:8004/product.html
+[C2-R6 DELETE] http://127.0.0.2:8004/upload/test.txt
+[C0-R5 GET RESPONSE] <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Product Page</title>
+  <
+[C0-R5 ✅ SUCCESS] GET http://127.0.0.2:8004/product.html [200]
+[C2-R6 DELETE RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R6 ⚠️ EXPECTED ERROR] DELETE http://127.0.0.2:8004/upload/test.txt [404]
+[C0-R6 DELETE] http://127.0.0.2:8004/upload/test.txt
+[C2-R7 CGI] http://127.0.0.2:8004/cgi/formhandler.py?id=4&name=Mouse&lang=en&price=19.99
+[C0-R6 DELETE RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R6 ⚠️ EXPECTED ERROR] DELETE http://127.0.0.2:8004/upload/test.txt [404]
+[C0-R7 CGI] http://127.0.0.2:8004/cgi/test.py?id=5&name=Souris&lang=fr&price=24.99
+[C0-R7 CGI RESPONSE] Body:
+[C0-R7 ✅ SUCCESS] CGI http://127.0.0.2:8004/cgi/test.py?id=5&name=Souris&lang=fr&price=24.99 [200]
+[C2-R7 CGI RESPONSE] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+[C2-R7 ❌ FAIL] CGI http://127.0.0.2:8004/cgi/formhandler.py?id=4&name=Mouse&lang=en&price=19.99 [500]
+[C2-R7 RESPONSE BODY] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+[C0-R8 GET] http://127.0.0.2:8004/formhandler.py
+[C2-R8 MPPOST] http://127.0.0.2:8004/cgi/sample_image.jpg
+[C0-R8 GET RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R8 ❌ FAIL] GET http://127.0.0.2:8004/formhandler.py [404]
+[C0-R8 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R8 MPPOST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R8 ❌ FAIL] MPPOST http://127.0.0.2:8004/cgi/sample_image.jpg [404]
+[C2-R8 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R9 POST] http://127.0.0.2:8004/uploads/test.txt
+[C2-R9 CGI] http://127.0.0.2:8004/cgi/formhandler.py
+[C0-R9 POST RESPONSE] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C0-R9 ❌ FAIL] POST http://127.0.0.2:8004/uploads/test.txt [404]
+[C0-R9 RESPONSE BODY] <html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The server encountered
+[C2-R9 CGI RESPONSE] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+[C2-R9 ❌ FAIL] CGI http://127.0.0.2:8004/cgi/formhandler.py [500]
+[C2-R9 RESPONSE BODY] <html><head><title>500 Internal Server Error</title></head><body><h1>500 Internal Server Error</h1><
+
+✅ Total success: 12
+❌ Total fail: 18
 .
 
-============================== 1 passed in 2.40s ===============================
+============================== 1 passed in 3.50s ===============================
