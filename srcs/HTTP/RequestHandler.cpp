@@ -412,6 +412,8 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         wslog.writeToLogFile(ERROR, "Invalid file name", true);
         return HTTPResponse(404, "Invalid file name");
     }
+    if (!validFile)
+        return HTTPResponse(404, "Invalid file");
     /// what if there is a directory and file with the same name...
     if (fullPath != "." && std::filesystem::is_regular_file(fullPath) == false && std::filesystem::is_directory(fullPath) && fullPath.back() != '/')
         return redirectResponse(client.request.file);
@@ -420,20 +422,11 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     switch (client.request.eMethod)
     {
         case GET:
-        {
-            if (validFile)
-                return handleGET(client, fullPath);
-            else
-                return HTTPResponse(404, "Invalid file");
-        }
+            return handleGET(client, fullPath);
         case POST:
-        {
             return handlePOST(client, fullPath);
-        }
         case DELETE:
-        {
             return handleDELETE(fullPath);
-        }
         default:
             return HTTPResponse(501, "Not Implemented");
     }

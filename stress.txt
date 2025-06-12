@@ -1,0 +1,43 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-8.4.0, pluggy-1.6.0
+rootdir: /home/nzharkev/Documents/42cursus/WebServer
+plugins: asyncio-1.0.0, anyio-4.9.0
+asyncio: mode=strict, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+stress_test.py [Client 0 MPPOST] http://127.0.0.2:8004/images/test_stress.html
+[Client 1 ERROR] local variable 'filename' referenced before assignment
+[Client 2 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
+[Client 1 ERROR] local variable 'filename' referenced before assignment
+[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 0 POST] http://127.0.0.2:8004/cgi/formhandler.py
+[Client 1 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 2 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
+[Client 1 MPPOST] http://127.0.0.2:8004/upload/test_stress.html
+[Client 2 POST] http://127.0.0.2:8004/upload/formhandler.py
+[Client 1 CGI] http://127.0.0.2:8004/test_stress.html
+[Client 2 POST] http://127.0.0.2:8004/images/formhandler.py
+[Client 1 CGI] http://127.0.0.2:8004/cgi/test_stress.html
+[Client 2 CGI] http://127.0.0.2:8004/cgi/formhandler.py
+[Client 1 MPPOST] http://127.0.0.2:8004/images/test_stress.html
+[Client 1 GET] http://127.0.0.2:8004/index.html?search=stress&type=html
+[Client 1 POST] http://127.0.0.2:8004/formhandler.py
+[Client 1 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 0 POST] http://127.0.0.2:8004/images/formhandler.py
+[Client 2 CGI] http://127.0.0.2:8004/cgi/formhandler.py
+[Client 0 GET] http://127.0.0.2:8004/index.html?client=test&q=value
+[Client 0 GET] http://127.0.0.2:8004/index.html?name=Alice&lang=Python
+[Client 0 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 0 POST] http://127.0.0.2:8004/formhandler.py
+[Client 0 CGI] http://127.0.0.2:8004/cgi/formhandler.py
+[Client 0 MPPOST] http://127.0.0.2:8004/cgi/test_stress.html
+[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 0 CGI] http://127.0.0.2:8004/cgi/test_stress.html
+[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
+[Client 2 DELETE] http://127.0.0.2:8004/uploads/index.html
+
+✅ Total success: 5
+❌ Total fail: 25
+.
+
+============================== 1 passed in 2.40s ===============================
