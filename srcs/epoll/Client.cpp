@@ -139,8 +139,8 @@ void Client::findCorrectHost(const std::string header, const std::vector<ServerC
                 }
             }
         }
+        this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
         return ;
-        //this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
     }
     else
         this->serverInfo = server[0]; //no 'Host' found in serverConfigs, likely a badly formatted request, will be caught in the validateHeader()
