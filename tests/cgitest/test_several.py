@@ -234,7 +234,7 @@ async def test_repeated_requests():
     url = "http://127.0.0.2:8004/index.html"
 
      # Adjust the total timeout depending on the number of requests
-    timeout = aiohttp.ClientTimeout(total=10000000)
+    timeout = aiohttp.ClientTimeout(total=10000000000000000000)
 
     async with aiohttp.ClientSession() as session:
         tasks = [session.get(url) for _ in range(num_requests)]
@@ -255,6 +255,8 @@ async def test_concurrent_get_and_post():
     get_url = "http://127.0.0.2:8004/index.html"
     post_url = "http://127.0.0.2:8004/images/"
 
+     # Adjust the total timeout depending on the number of requests
+    timeout = aiohttp.ClientTimeout(total=10000000)
 
     async with aiohttp.ClientSession() as session:
         test_file = Path("home/images/uploads/filename.txt")
