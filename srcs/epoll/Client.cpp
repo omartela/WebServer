@@ -119,10 +119,10 @@ void Client::findCorrectHost(const std::string header, const std::vector<ServerC
     if (hostPos != std::string::npos)
     {
         hostPos += 5;
-        while (hostPos < header.size() && std::isspace(header[hostPos]) != 0)
+        while (hostPos < header.size() && std::isspace(header[hostPos]))
             hostPos++;
         size_t hostStart = hostPos;
-        while (hostPos < header.size() && std::isspace(header[hostPos]) == 0)
+        while (hostPos < header.size() && !std::isspace(header[hostPos]))
             hostPos++;
         std::string hostName = header.substr(hostStart, hostPos - hostStart);
         if (hostName.empty() != false && std::isspace(hostName.back() == true))
@@ -139,7 +139,8 @@ void Client::findCorrectHost(const std::string header, const std::vector<ServerC
                 }
             }
         }
-        this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
+        return ;
+        //this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
     }
     else
         this->serverInfo = server[0]; //no 'Host' found in serverConfigs, likely a badly formatted request, will be caught in the validateHeader()
