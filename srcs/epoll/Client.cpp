@@ -16,7 +16,7 @@ static int findOldestClient(std::map<int, Client>& clients) // maybe streamline 
     return oldestClient;
 }
 
-Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server)
+Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server)
 {
     this->state = IDLE;
     this->bytesRead = 0;
@@ -54,7 +54,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
         else
             throw std::runtime_error("Accepting new client failed");
     }
-    serverInfo = server;
+    serverInfoAll = server;
     timestamp = std::chrono::steady_clock::now();
 }
 
@@ -88,6 +88,7 @@ Client& Client::operator=(const Client& copy)
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
+        this->serverInfoAll = copy.serverInfoAll;
         this->serverInfo = copy.serverInfo;
         this->request = copy.request;
     }
@@ -110,4 +111,36 @@ void Client::reset()
     this->CGI = CGIHandler();
     this->bytesSent = 0;
     this->chunkBodySize = 0;
+}
+
+void Client::findCorrectHost(const std::string header, const std::vector<ServerConfig>& server)
+{
+    size_t hostPos = header.find("Host:");
+    if (hostPos != std::string::npos)
+    {
+        hostPos += 5;
+        while (hostPos < header.size() && std::isspace(header[hostPos]) != 0)
+            hostPos++;
+        size_t hostStart = hostPos;
+        while (hostPos < header.size() && std::isspace(header[hostPos]) == 0)
+            hostPos++;
+        std::string hostName = header.substr(hostStart, hostPos - hostStart);
+        if (hostName.empty() != false && std::isspace(hostName.back() == true))
+            hostName.pop_back();
+
+        for (const ServerConfig& serverConfig : server)
+        {
+            for (const std::string& serverString : serverConfig.server_names)
+            {
+                if (serverString == hostName)
+                {
+                    this->serverInfo = serverConfig; //match found, setting the singular serverInfo with the correct ServerConfig
+                    return ;
+                }
+            }
+        }
+        this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
+    }
+    else
+        this->serverInfo = server[0]; //no 'Host' found in serverConfigs, likely a badly formatted request, will be caught in the validateHeader()
 }

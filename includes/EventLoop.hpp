@@ -41,7 +41,8 @@ class EventLoop
         int loop;
         int status;
         bool timerOn;
-        std::map<int, ServerConfig> servers;
+        std::map<int, std::vector<ServerConfig>> servers;
+        //std::map<int, ServerConfig> servers;
         std::map<int, Client> clients;
         int serverSocket;
         std::vector<epoll_event> eventLog;

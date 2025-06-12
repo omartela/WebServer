@@ -42,6 +42,7 @@ class Client {
         int bytesWritten;
         bool erase;
         size_t bytesSent;
+        std::vector<ServerConfig> serverInfoAll;
         ServerConfig serverInfo;
         size_t chunkBodySize;
 
@@ -52,10 +53,11 @@ class Client {
         
         int childTimerFd;
 
-        Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server);
+        Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server);
         Client(const Client& copy);
         Client& operator=(const Client& copy);
         ~Client();
 
+        void findCorrectHost(const std::string headerString, const std::vector<ServerConfig>& serverInfoAll);
         void reset();
 };
