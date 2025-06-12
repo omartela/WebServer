@@ -49,7 +49,7 @@ static void toggleEpollEvents(int fd, int loop, uint32_t events)
         throw std::runtime_error("epoll_ctl MOD failed " + std::to_string(errno));
 }
 
-EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues {}
+EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues { }
 {
     signal(SIGPIPE, handleSignals);
     signal(SIGINT, handleSignals);
@@ -59,13 +59,28 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
         try {
-            serverSocket = initServerSocket(serverConfigs[i]);
-            serverConfigs[i].fd = serverSocket;
-            setup.data.fd = serverConfigs[i].fd;
-            setup.events = EPOLLIN;
-            if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
-                throw std::runtime_error("serverSocket epoll_ctl ADD failed");
-            servers[serverSocket] = serverConfigs[i];
+            bool hostFound = false;
+            for (auto ite = this->servers.begin(); ite != this->servers.end(); ite++)
+            {
+                ServerConfig server = ite->second.at(0);
+                if (serverConfigs.at(i).host == server.host && serverConfigs.at(i).port == server.port)
+                {
+                    ite->second.push_back(serverConfigs.at(i));
+                    hostFound = true;
+                    break ;
+                }
+            }
+            if (hostFound == false)
+            {
+                serverSocket = initServerSocket(serverConfigs[i]);
+                serverConfigs[i].fd = serverSocket;
+                setup.data.fd = serverConfigs[i].fd;
+                setup.events = EPOLLIN;
+                if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
+                    throw std::runtime_error("serverSocket epoll_ctl ADD failed");
+                servers[serverSocket].push_back(serverConfigs[i]);
+                //servers[serverSocket] = serverConfigs[i];
+            }
         }
         catch (const std::bad_alloc& e)
         {
@@ -149,6 +164,7 @@ void EventLoop::startLoop()
             {
                 try {
                     struct epoll_event setup { };
+                    //Client newClient(loop, fd, clients, servers[fd].front());
                     Client newClient(loop, fd, clients, servers[fd]);
                     auto result =  clients.emplace(newClient.fd, std::move(newClient));
                     if (!result.second)
@@ -856,6 +872,7 @@ void EventLoop::handleClientRecv(Client& client)
                     if (headerEnd != std::string::npos)
                     {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                        client.findCorrectHost(client.headerString, client.serverInfoAll);
                         // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                         client.request = HTTPRequest(client.headerString, client.serverInfo);
                         if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
