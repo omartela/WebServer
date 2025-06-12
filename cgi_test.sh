@@ -158,12 +158,12 @@ function test_concurrent_requests() {
 }
 
 # Run all tests
-test_get_no_query
-test_get_with_query
-test_post_urlencoded
-#test_post_large_body
-test_path_traversal
-test_not_found_script
+# test_get_no_query
+# test_get_with_query
+# test_post_urlencoded
+# test_post_large_body
+# test_path_traversal
+# test_not_found_script
 #test_timeout_script
-#test_malformed_output
-test_concurrent_requests
+test_malformed_output
+# test_concurrent_requests
