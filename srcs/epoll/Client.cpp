@@ -1,6 +1,6 @@
 #include "Client.hpp"
 
-static int findOldestClient(std::map<int, Client>& clients)
+static int findOldestClient(std::map<int, Client>& clients) // maybe streamline this function to be more efficient, even at the loss of accuracy
 {
     int oldestClient = 0;
     std::chrono::steady_clock::time_point oldestTimestamp = std::chrono::steady_clock::now();
@@ -16,7 +16,7 @@ static int findOldestClient(std::map<int, Client>& clients)
     return oldestClient;
 }
 
-Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, ServerConfig server)
+Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server)
 {
     this->state = IDLE;
     this->bytesRead = 0;
@@ -31,20 +31,30 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, Serve
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
+            std::cout << "--------------------------------------------CLOSING CLIENT FD" << oldFd << " PREMATURELY!--------------------------------------------" << std::endl;
             if (oldFd != 0)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
                 close(oldFd);
+                if (clients.at(oldFd).request.isCGI == true)
+                {
+                    int readPipe = clients.at(oldFd).CGI.getReadPipe();
+                    int writePipe = clients.at(oldFd).CGI.getWritePipe();
+                    if (readPipe != -1)
+                        close(readPipe);
+                    if (writePipe != -1)
+                        close(writePipe);
+                }
                 if (clients.find(oldFd) != clients.end())
-                    clients.at(oldFd).reset();
+                    clients.erase(oldFd);
                 fd = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddress), &clientLen);
             }
         }
         else
-            throw std::runtime_error("accepting new client failed");
+            throw std::runtime_error("Accepting new client failed");
     }
-    serverInfo = server;
+    serverInfoAll = server;
     timestamp = std::chrono::steady_clock::now();
 }
 
@@ -78,6 +88,7 @@ Client& Client::operator=(const Client& copy)
         this->writeBuffer = copy.writeBuffer;
         this->bytesRead = copy.bytesRead;
         this->bytesWritten = copy.bytesWritten;
+        this->serverInfoAll = copy.serverInfoAll;
         this->serverInfo = copy.serverInfo;
         this->request = copy.request;
     }
@@ -100,4 +111,37 @@ void Client::reset()
     this->CGI = CGIHandler();
     this->bytesSent = 0;
     this->chunkBodySize = 0;
+}
+
+void Client::findCorrectHost(const std::string header, const std::vector<ServerConfig>& server)
+{
+    size_t hostPos = header.find("Host:");
+    if (hostPos != std::string::npos)
+    {
+        hostPos += 5;
+        while (hostPos < header.size() && std::isspace(header[hostPos]))
+            hostPos++;
+        size_t hostStart = hostPos;
+        while (hostPos < header.size() && !std::isspace(header[hostPos]))
+            hostPos++;
+        std::string hostName = header.substr(hostStart, hostPos - hostStart);
+        if (hostName.empty() != false && std::isspace(hostName.back() == true))
+            hostName.pop_back();
+
+        for (const ServerConfig& serverConfig : server)
+        {
+            for (const std::string& serverString : serverConfig.server_names)
+            {
+                if (serverString == hostName)
+                {
+                    this->serverInfo = serverConfig; //match found, setting the singular serverInfo with the correct ServerConfig
+                    return ;
+                }
+            }
+        }
+        this->serverInfo = server[0]; //no matches found, just pass the first one. can be changed to 404 later?
+        return ;
+    }
+    else
+        this->serverInfo = server[0]; //no 'Host' found in serverConfigs, likely a badly formatted request, will be caught in the validateHeader()
 }

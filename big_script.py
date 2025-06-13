@@ -3,17 +3,18 @@
 import socket
 
 HOST = '127.0.0.2'
+HOST_NAME = 'dads.fi'
 PORT = 8004
-CGI_PATH = '/cgi/inf_test.py'
+CGI_PATH = '/cgi/no_inf_test.py'
 
 # Create a large POST body (e.g. 1MB)
-BODY_SIZE = 1024 * 1024  # 1 MB
+BODY_SIZE = 10 * 1024  # 1 MB
 body = "0" * BODY_SIZE
 
 # Construct raw HTTP POST request
 request = (
     f"POST {CGI_PATH} HTTP/1.1\r\n"
-    f"Host: {HOST}\r\n"
+    f"Host: {HOST_NAME}\r\n"
     f"Content-Length: {len(body)}\r\n"
     f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
@@ -21,12 +22,10 @@ request = (
     f"{body}"
 )
 
-
 def run():
     print(f"📤 Sending {len(body) / 1024:.1f} KB body to CGI script...")
     response_data = b""
     with socket.create_connection((HOST, PORT)) as sock:
-        sock.sendall(request.encode())
         sock.sendall(request.encode())
         total = 0
         while True:

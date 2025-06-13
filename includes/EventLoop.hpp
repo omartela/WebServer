@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <vector>
 
-#define MAX_CONNECTIONS 1000
+#define MAX_CONNECTIONS 1024
 #define TIMEOUT 60
 #define CHILD_CHECK 1
 #define DEFAULT_MAX_HEADER_SIZE 8192
@@ -41,18 +41,16 @@ class EventLoop
         int loop;
         int status;
         bool timerOn;
-        std::map<int, ServerConfig> servers;
+        std::map<int, std::vector<ServerConfig>> servers;
+        //std::map<int, ServerConfig> servers;
         std::map<int, Client> clients;
         int serverSocket;
-        // struct epoll_event setup;
         std::vector<epoll_event> eventLog;
         struct itimerspec timerValues;
         pid_t pid;
         std::string checkConnection;
-        // int loop = epoll_create1(0);
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
-        void setMissingMaxSizes(std::vector<ServerConfig> serverConfigs);
         bool validateRequestMethod(Client &client);
         void startLoop();
         void setTimerValues(int n);

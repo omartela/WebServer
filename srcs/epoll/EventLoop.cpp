@@ -49,7 +49,7 @@ static void toggleEpollEvents(int fd, int loop, uint32_t events)
         throw std::runtime_error("epoll_ctl MOD failed " + std::to_string(errno));
 }
 
-EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues {}
+EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CONNECTIONS), timerValues { }
 {
     signal(SIGPIPE, handleSignals);
     signal(SIGINT, handleSignals);
@@ -58,13 +58,35 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     loop = epoll_create1(0);
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
-        serverSocket = initServerSocket(serverConfigs[i]);
-        serverConfigs[i].fd = serverSocket;
-        setup.data.fd = serverConfigs[i].fd;
-        setup.events = EPOLLIN;
-        if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
-            throw std::runtime_error("serverSocket epoll_ctl ADD failed");
-        servers[serverSocket] = serverConfigs[i];
+        try {
+            bool hostFound = false;
+            for (auto ite = this->servers.begin(); ite != this->servers.end(); ite++)
+            {
+                ServerConfig server = ite->second.at(0);
+                if (serverConfigs.at(i).host == server.host && serverConfigs.at(i).port == server.port)
+                {
+                    ite->second.push_back(serverConfigs.at(i));
+                    hostFound = true;
+                    break ;
+                }
+            }
+            if (hostFound == false)
+            {
+                serverSocket = initServerSocket(serverConfigs[i]);
+                serverConfigs[i].fd = serverSocket;
+                setup.data.fd = serverConfigs[i].fd;
+                setup.events = EPOLLIN;
+                if (epoll_ctl(loop, EPOLL_CTL_ADD, serverSocket, &setup) < 0)
+                    throw std::runtime_error("serverSocket epoll_ctl ADD failed");
+                servers[serverSocket].push_back(serverConfigs[i]);
+                //servers[serverSocket] = serverConfigs[i];
+            }
+        }
+        catch (const std::bad_alloc& e)
+        {
+            wslog.writeToLogFile(ERROR, "Failed to create server #" + std::to_string(i) + " due to bad alloc, continuing creating other servers", true);
+            continue ;
+        }
     }
     timerFD = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFD < 0)
@@ -99,6 +121,22 @@ EventLoop::~EventLoop()
     closeFds();
 }
 
+static void handleErrorMessages(std::string errorMessage, std::map<int, Client>& clients, int newFd)
+{
+    if (errorMessage == "oldFd epoll_ctl DEL failed")
+        throw std::runtime_error("oldFd epoll_ctl DEL failed, closing the server");
+    else if (errorMessage == "Client insert failed or duplicate fd" || errorMessage == "Accepting new client failed")
+        wslog.writeToLogFile(ERROR, "Accepting a new client failed, continuing without connecting the client", true);
+    else if (errorMessage == "newClient epoll_ctl ADD failed")
+    {
+        close(clients.at(newFd).fd);
+        clients.erase(clients.at(newFd).fd);
+        for (auto&  client : clients)
+            std::cout << "client FD" << client.second.fd << " is here" << std::endl; //for debugging
+        wslog.writeToLogFile(INFO, "Client closed and removed, after failing to add FD into epoll, continuing", true);
+    }
+}
+
 void EventLoop::startLoop()
 {
     while (signum == 0)
@@ -121,20 +159,36 @@ void EventLoop::startLoop()
         for (int i = 0; i < nReady; i++)
         {
             int fd = eventLog[i].data.fd;
+            int newFd;
             if (servers.find(fd) != servers.end())
             {
-                struct epoll_event setup {};
-                Client newClient(loop, fd, clients, servers[fd]);
-                auto result =  clients.emplace(newClient.fd, std::move(newClient));
-                if (!result.second)
-                    throw std::runtime_error("Client insert failed or duplicate fd");
-                setup.data.fd = newClient.fd;
-                setup.events = EPOLLIN;
-                if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
-                    throw std::runtime_error("newClient epoll_ctl ADD failed");
-                if (timerOn == false)
-                    setTimerValues(1);
-                wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
+                try {
+                    struct epoll_event setup { };
+                    //Client newClient(loop, fd, clients, servers[fd].front());
+                    Client newClient(loop, fd, clients, servers[fd]);
+                    auto result =  clients.emplace(newClient.fd, std::move(newClient));
+                    if (!result.second)
+                        throw std::runtime_error("Client insert failed or duplicate fd");
+                    newFd = newClient.fd;
+                    setup.data.fd = newClient.fd;
+                    setup.events = EPOLLIN;
+                    if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
+                        throw std::runtime_error("newClient epoll_ctl ADD failed");
+                    if (timerOn == false)
+                        setTimerValues(1);
+                    wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
+                }
+                catch (const std::bad_alloc& e)
+                {
+                    wslog.writeToLogFile(ERROR, "Failed to add a client element into std::map due to bad alloc, continuing without connecting the client", true);
+                    continue ;
+                }
+                catch (const std::runtime_error& e)
+                {
+                    std::string errorMessage = e.what();
+                    handleErrorMessages(errorMessage, clients, newFd);
+                    continue ;
+                }
             }
             else if (fd == timerFD)
             {
@@ -148,7 +202,7 @@ void EventLoop::startLoop()
                 wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
                 checkChildrenStatus();
                 if (nChildren == 0)
-                    setTimerValues(3);
+                    setTimerValues(3); 
             }
             else if (clients.find(fd) != clients.end())
             {
@@ -262,9 +316,7 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
         nChildren--;
-    // if (clients.at(fd).fd != -1)
     close(clients.at(fd).fd);
-    // clients.at(fd).fd = -1;
     clients.erase(clients.at(fd).fd);
     wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
 }
@@ -448,18 +500,18 @@ void EventLoop::handleCGI(Client& client)
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
-        std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
+        //std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
         client.CGI.writeBodyToChild(client.request);
     }
     else if (client.request.fileUsed == false)
     {
-        std::cout << "READING FROM CHILD\n"; //REMOVE LATER
+        //std::cout << "READING FROM CHILD\n"; //REMOVE LATER
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
     }
     pid = waitpid(client.CGI.getChildPid(), &status, WNOHANG);
     wslog.writeToLogFile(DEBUG, "Handling CGI for client FD: " + std::to_string(client.fd), true);
-    wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
-    wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
+    // wslog.writeToLogFile(DEBUG, "client.childPid is: " + std::to_string(client.CGI.getChildPid()), true);
+    // wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     if (pid == client.CGI.getChildPid())
     {
         wslog.writeToLogFile(DEBUG, "CGI process finished", true);
@@ -700,22 +752,21 @@ bool EventLoop::validateRequestMethod(Client& client)
 
 void EventLoop::handleClientRecv(Client& client)
 {
-    try 
-    {
+    try {
         switch (client.state)
         {
             case IDLE:
             {
                 wslog.writeToLogFile(INFO, "IN IDLE", true);
-                client.state = READ;        
+                client.state = READ;
                 return ;
             }
             case READ:
             {
                 client.bytesRead = 0;
                 char buffer[READ_BUFFER_SIZE];
-                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-                // wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
+                client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
+                //wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), true);
                 if (client.bytesRead <= 0)
                 {
                     if (client.bytesRead == 0)
@@ -741,6 +792,7 @@ void EventLoop::handleClientRecv(Client& client)
                     if (headerEnd != std::string::npos)
                     {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
+                        client.findCorrectHost(client.headerString, client.serverInfoAll);
                         // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                         client.request = HTTPRequest(client.headerString, client.serverInfo);
                         if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
@@ -756,6 +808,15 @@ void EventLoop::handleClientRecv(Client& client)
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
+                        // if (client.serverInfo.server_names.empty() == true)
+                        // {
+                        //     client.response.push_back(HTTPResponse(404, "Host name not found"));
+                        //     client.rawReadData.clear();
+                        //     client.state = SEND;
+                        //     client.writeBuffer = client.response.back().toString();
+                        //     toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                        //     return ;
+                        // }
                         if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
                         {
                             client.response.push_back(HTTPResponse(404, "Invalid location"));
@@ -817,8 +878,7 @@ static bool checkBytesSent(Client &client)
 
 void EventLoop::handleClientSend(Client &client)
 {
-    try
-    {
+    try {
         if (client.state != SEND)
             return ;
         wslog.writeToLogFile(INFO, "IN SEND", true);
