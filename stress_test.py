@@ -30,11 +30,7 @@ sample_data = {
                ("sample_image.jpg", "image/jpeg", open("www/images/sample_image.jpg", "rb").read()),
                ("data.json", "application/json", '{"name": "Joel", "role": "tester", "valid": true}'),
               ],
-    "CGI": ["formhandler.py",
-            "GET.py",
-            "test.py",
-
-           ],
+    "CGI": ["formhandler.py", "GET.py", "test.py"],
     "DELETE": [("upload/test.txt", "text/html")],
     "GET": [("index.html", "text/html"),
             ("form.html", "text/html"),
@@ -116,33 +112,6 @@ async def fetch(session, method, url, **kwargs):
             return response.status, (await response.text())[:100]
     except Exception as e:
         return 0, str(e)
-
-def is_expected_error(action, url, status):
-    # Allow 404 on DELETE (file might not exist)
-    if action == "DELETE" and status == 404:
-        return True
-    # Allow 404 on GET to known missing resources
-    if action == "GET" and any(missing in url for missing in ["missing", "notfound"]):
-        return True
-    # Allow 405 if method is not allowed on some endpoints
-    if status == 405:
-        return True
-    # Accept 403 if access denied (optional)
-    if status == 403:
-        return True
-    return False
-
-def validate_config_behavior(id, path, method, status):
-    config = expected_config.get(path)
-    if not config:
-        return True  # unknown path, can't test
-    if method not in config["allowed_methods"] and status != 405:
-        print(f"[{id} ❌] Method {method} was allowed on {path} but shouldn't be!")
-        return False
-    if method in config["allowed_methods"] and status == 405:
-        print(f"[{id} ❌] Method {method} was blocked on {path} but should be allowed!")
-        return False
-    return True
 
 async def run_single_client(client_id, iterations=10, delay=0.1):
     counter = 0
