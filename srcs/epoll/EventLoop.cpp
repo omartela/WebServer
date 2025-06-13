@@ -593,6 +593,7 @@ void EventLoop::handleCGI(Client& client)
     }
 }
 
+
 static bool checkMethods(Client &client, int loop)
 {
     if (!RequestHandler::isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
