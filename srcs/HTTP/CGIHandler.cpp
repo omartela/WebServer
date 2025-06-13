@@ -90,7 +90,7 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
 	//wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
 }
 
-void CGIHandler::writeBodyToChild(HTTPRequest& request, std::vector<int>& usedFDs)
+void CGIHandler::writeBodyToChild(HTTPRequest& request)
 {
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
@@ -100,6 +100,5 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request, std::vector<int>& usedFD
 	{
         close(writeCGIPipe[1]);
 		writeCGIPipe[1] = -1;
-		usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), writeCGIPipe[1]), usedFDs.end());
 	}
 }

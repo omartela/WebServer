@@ -171,7 +171,7 @@ void EventLoop::startLoop()
         }
         for (int i = 0; i < nReady; i++)
         {
-            // wslog.writeToLogFile(ERROR, "FDs in use: " + std::to_string(usedFDs.size()), true); //!Remove later
+            // wslog.writeToLogFile(ERROR, "FDs in use: " + std::to_string(usedFDs.size()), true); //Remove later
             // std::cout << "| ";
             // for (int fd : usedFDs)
             //     std::cout << fd << " | ";
@@ -349,9 +349,7 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
     if (epoll_ctl(loop, EPOLL_CTL_DEL, fd, nullptr) < 0)
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
-    {
         nChildren--;
-    }
     close(clients.at(fd).fd);
     clients.erase(clients.at(fd).fd);
     wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
