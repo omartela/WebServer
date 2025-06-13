@@ -73,9 +73,9 @@ static void decode(std::string& raw)
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
-    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
+    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, DEBUG_LOGS);
     decode(raw);
-    // wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, true);
+    // wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, DEBUG_LOGS);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -93,7 +93,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         else
             file = path.substr(path.find_last_of("/") + 1);
     }
-    wslog.writeToLogFile(DEBUG, "File: " + file, true);
+    wslog.writeToLogFile(DEBUG, "File: " + file, DEBUG_LOGS);
     while (std::getline(stream, line))
     {
         if (line.back() == '\r')
@@ -152,22 +152,22 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         /// then file is /olalala/file.txt
         file = path.substr(0 + location.size());
     }
-    wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
+    wslog.writeToLogFile(DEBUG, "Parser location is: " + location, DEBUG_LOGS);
     if (server.routes.find(location) != server.routes.end())
     {
         if (!server.routes.at(location).cgiexecutable.empty())
         {
             std::filesystem::path filePath = file;
             std::string ext = filePath.extension().string();
-            //wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, true);
-            //wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), true);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, DEBUG_LOGS);
+            //wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), DEBUG_LOGS);
             if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
             {
-                wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, true);
+                wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, DEBUG_LOGS);
                 if (std::find(server.routes.at(location).cgi_methods.begin(), server.routes.at(location).cgi_methods.end(), method) != server.routes.at(location).cgi_methods.end())
                     isCGI = true;
                 else
-                    wslog.writeToLogFile(INFO, "Method not allowed for CGI: " + method + " in location: " + location, true);
+                    wslog.writeToLogFile(INFO, "Method not allowed for CGI: " + method + " in location: " + location, DEBUG_LOGS);
             }
         }
     }

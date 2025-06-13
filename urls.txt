@@ -1,0 +1,7 @@
+https://127.0.0.2:8004/
+https://127.0.0.2:8004/oldDir/
+https://127.0.0.2:8004/newDir/
+https://127.0.0.2:8004/images/
+https://127.0.0.2:8004/images/uploads/
+https://127.0.0.2:8004/cgi/
+https://127.0.0.2:8004/directory/
