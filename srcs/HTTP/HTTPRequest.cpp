@@ -150,6 +150,14 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         /// then file is /olalala/file.txt
         file = path.substr(0 + location.size());
     }
+    if (headers.find("Content-Type") != headers.end())
+    {
+        if (headers.at("Content-Type").find("multipart/form-data") != std::string::npos)
+        {
+            fileUsed = true;
+            multipart = true;   
+        }
+    }
     // wslog.writeToLogFile(DEBUG, "Parser location is: " + location, true);
     if (server.routes.find(location) != server.routes.end())
     {

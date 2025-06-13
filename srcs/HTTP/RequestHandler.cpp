@@ -12,12 +12,6 @@ void printRequest(const HTTPRequest &req)
 
 }
 
-static std::string getFileExtension(const std::string& path)
-{
-    size_t dot = path.find_last_of('.');
-    return (dot != std::string::npos) ? path.substr(dot) : "";
-}
-
 static std::string getMimeType(const std::string& ext)
 {
     static std::map<std::string, std::string> types = {
@@ -66,71 +60,73 @@ static std::string getMimeType(const std::string& ext)
     return types.count(ext) ? types[ext] : "application/octet-stream";
 }
 
-static std::string extractFilename(const std::string& path, int method)
-{
-    size_t start;
-    if (method)
-    {
-        start = path.find("filename=\"");
-        start += 10;
-        if (start == std::string::npos)
-            return "";
-        size_t end = path.find("\"", start);
-        return path.substr(start, end - start);
-    }
-    else
-    {
-        start = path.find_last_of('/');
-        if (start == std::string::npos)
-            return path;
-        return path.substr(start + 1);
-    }
-}
+// static std::string extractFilename(const std::string& path, int method)
+// {
+//     size_t start;
+//     if (method)
+//     {
+//         size_t start = path.find("filename=\"");
+//         if (start == std::string::npos)
+//             return "";
+//         start += 10;
+//         size_t end = path.find("\"", start);
+//         if (end == std::string::npos)
+//             return "";
+//         return path.substr(start, end - start);
+//     }
+//     else
+//     {
+//         start = path.find_last_of('/');
+//         if (start == std::string::npos)
+//             return path;
+//         return path.substr(start + 1);
+//     }
+// }
 
-static std::string extractContent(const std::string& part)
-{
-    size_t start = part.find("\r\n\r\n");
-    size_t offset = 4;
-    if (start == std::string::npos)
-    {
-        start = part.find("\n\n");
-        offset = 2;
-    }
-    if (start == std::string::npos)
-        return "";
-    size_t conStart = start + offset;
-    size_t conEnd = part.find_last_not_of("\r\n") + 1;
-    if (conEnd <= conStart)
-        return "";
-    return part.substr(conStart, conEnd - conStart);
-}
+// static std::string extractContent(const std::string& part)
+// {
+//     size_t start = part.find("\r\n\r\n");
+//     size_t offset = 4;
+//     if (start == std::string::npos)
+//     {
+//         start = part.find("\n\n");
+//         offset = 2;
+//     }
+//     if (start == std::string::npos)
+//         return "";
+//     size_t conStart = start + offset;
+//     size_t conEnd = part.find_last_not_of("\r\n") + 1;
+//     if (conEnd <= conStart)
+//         return "";
+//     return part.substr(conStart, conEnd - conStart);
+// }
 
-static std::vector<std::string> split(const std::string& s, const std::string& s2)
-{
-    std::vector<std::string> result;
-    size_t pos = 0;
-    while (true)
-    {
-        size_t start = s.find(s2, pos);
-        if (start == std::string::npos)
-            break;
-        start += s2.length();
-        while (start < s.size() && (s[start] == '-' || s[start] == '\r' || s[start] == '\n'))
-            start++;
-        size_t end = s.find(s2, start);
-        std::string part = (end == std::string::npos) ? s.substr(start) : s.substr(start, end - start);
-        while (!part.empty() && (part[0] == '\r' || part[0] == '\n'))
-            part.erase(0, 1);
-        while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
-            part.pop_back();
-        if (!part.empty())
-            result.push_back(part);
-        if (end == std::string::npos)
-            break;
-        pos = end;
-    }
-    return result;
-}
+// static std::vector<std::string> split(const std::string& s, const std::string& s2)
+// {
+//     std::vector<std::string> result;
+//     size_t pos = 0;
+//     while (true)
+//     {
+//         size_t start = s.find(s2, pos);
+//         if (start == std::string::npos)
+//             break;
+//         start += s2.length();
+//         while (start < s.size() && (s[start] == '-' || s[start] == '\r' || s[start] == '\n'))
+//             start++;
+//         size_t end = s.find(s2, start);
+//         std::string part = (end == std::string::npos) ? s.substr(start) : s.substr(start, end - start);
+//         while (!part.empty() && (part[0] == '\r' || part[0] == '\n'))
+//             part.erase(0, 1);
+//         while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
+//             part.pop_back();
+//         if (!part.empty())
+//             result.push_back(part);
+//         if (end == std::string::npos)
+//             break;
+//         pos = end;
+//     }
+//     return result;
+// }
 
 HTTPResponse generateSuccessResponse(std::string body, std::string type)
 {
@@ -199,11 +195,11 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
-        HTTPResponse response(400, "Invalid headers");
+        return HTTPResponse(400, "Invalid headers");
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-        HTTPResponse response(400, "No boundary");
+        return HTTPResponse (400, "No boundary");
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
@@ -215,6 +211,9 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         std::string& part = *it;
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
+        std::string disposition = part.substr(0, part.find("\r\n"));
+        if (disposition.find("filename=\"") == std::string::npos)
+            continue; 
         std::string file = extractFilename(part, 1);
         // wslog.writeToLogFile(INFO, "File: " + file, false);
         if (file.empty())
@@ -222,9 +221,10 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         std::string content = extractContent(part);
         std::string folder = client.serverInfo.routes[client.request.location].abspath;
         // wslog.writeToLogFile(INFO, "Folder: " + folder, false);
-        if (folder[0] == '/')
-            folder.erase(0, 1);
-        std::string path = folder + "/" + file;
+        std::string path = folder;
+        if (path.back() != '/')
+            path += "/";
+        path += file;
         lastPath = path;
         //wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
         std::ofstream out(path.c_str(), std::ios::binary);
@@ -238,14 +238,9 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     }
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
         return HTTPResponse(400, "File not uploaded");
-    // HTTPResponse res(200, "OK");
-    // res.body = "File(s) uploaded successfully\n";
     std::string ext = getFileExtension(client.request.path);
-    // res.headers["Content-Type"] = getMimeType(ext);
-    // res.headers["Content-Length"] = std::to_string(res.body.size());
     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
     return generateSuccessResponse("File(s) uploaded successfully\n", getMimeType(ext));
-    // return res;
 }
 
 HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)

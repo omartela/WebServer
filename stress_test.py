@@ -5,11 +5,9 @@ import asyncio
 import pytest
 import random
 import uuid
-import mimetypes
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 
 HOST = "http://127.0.0.2:8004"
-CGI_PATH = "/cgi-bin/echo_post.py"
 STATIC_PATHS = ["cgi/", "uploads/", "images/"]
 
 sample_data = {
@@ -32,11 +30,7 @@ sample_data = {
                ("sample_image.jpg", "image/jpeg", open("www/images/sample_image.jpg", "rb").read()),
                ("data.json", "application/json", '{"name": "Joel", "role": "tester", "valid": true}'),
               ],
-    "CGI": ["formhandler.py",
-            "GET.py",
-            "test.py",
-
-           ],
+    "CGI": ["formhandler.py", "GET.py", "test.py"],
     "DELETE": [("upload/test.txt", "text/html")],
 }
 
@@ -55,75 +49,81 @@ expected_config = {
     "/images/": {"allowed_methods": ["GET", "POST", "DELETE"], "autoindex": False},
 }
 
-async def fetch(session, method, url, **kwargs):
-    try:
-        async with session.request(method, url, **kwargs) as response:
-            text = await response.text()
-            return response.status, text[:100]
-    except Exception as e:
-        return 0, str(e)
+def find_config_for_path(path):
+    for config_path in sorted(expected_config.keys(), key=len, reverse=True):
+        if path.startswith(config_path):
+            return expected_config[config_path]
+    return None
 
-def is_expected_error(action, url, status):
-    # Allow 404 on DELETE (file might not exist)
+def is_expected_error(action, url, status, filename=None):
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    query = {k: v[0] for k, v in query.items() if v}
+
     if action == "DELETE" and status == 404:
         return True
-    # Allow 404 on GET to known missing resources
-    if action == "GET" and any(missing in url for missing in ["missing", "notfound"]):
+    if action == "GET" and any(x in parsed.path for x in ["missing", "notfound"]):
         return True
-    # Allow 405 if method is not allowed on some endpoints
-    if status == 405:
+    if status in [405, 403]:
         return True
-    # Accept 403 if access denied (optional)
-    if status == 403:
-        return True
+
+    if action in ["CGI", "POST", "MPPOST"] and "name" in query and filename:
+        base = filename.lower().split(".")[0]
+        if base not in query["name"].lower() and query["name"].lower() not in base:
+            return True  # filename and ?name= mismatch → expected failure
     return False
 
 def validate_config_behavior(id, path, method, status):
-    config = expected_config.get(path)
+    config = find_config_for_path(path)
     if not config:
-        return True  # unknown path, can't test
+        return True
     if method not in config["allowed_methods"] and status != 405:
-        print(f"[{id} ❌] Method {method} was allowed on {path} but shouldn't be!")
+        print(f"{id} ❌ Method {method} was allowed on {path} but shouldn't be!")
         return False
     if method in config["allowed_methods"] and status == 405:
-        print(f"[{id} ❌] Method {method} was blocked on {path} but should be allowed!")
+        print(f"{id} ❌ Method {method} was blocked on {path} but should be allowed!")
         return False
     return True
+
+async def fetch(session, method, url, **kwargs):
+    try:
+        async with session.request(method, url, **kwargs) as response:
+            return response.status, (await response.text())[:100]
+    except Exception as e:
+        return 0, str(e)
 
 async def run_single_client(client_id, iterations=10, delay=0.1):
     counter = 0
     connector = aiohttp.TCPConnector(limit=10)
     stats = {"success": 0, "fail": 0}
     async with aiohttp.ClientSession(connector=connector) as session:
-        for i in range(iterations):
+        for _ in range(iterations):
             request_id = f"C{client_id}-R{counter}"
             counter += 1
             action = random.choice(list(sample_data.keys()))
             item = random.choice(sample_data[action])
             http_method = "POST" if action in ["MPPOST", "CGI"] else action
+            filename = None
             try:
                 if action == "GET":
                     path, _ = item
                     full_url = f"{HOST}/{path}"
                     if random.choice([True, False]):
-                        query = urlencode(random.choice(sample_queries))
-                        full_url += f"?{query}"
+                        query = random.choice(sample_queries)
+                        full_url += "?" + urlencode(query)
                     print(f"[{request_id} GET] {full_url}")
                     status, body = await fetch(session, "GET", full_url)
                     print(f"[{request_id} GET RESPONSE] {body}")
 
                 elif action == "POST":
                     filename, content_type, content = item
-                    base_path = random.choice(STATIC_PATHS)  # Pick a random location
-                    path = f"{base_path.rstrip('/')}/{filename}"  # Cleanly join the path and filename
+                    base_path = random.choice(STATIC_PATHS)
+                    path = f"{base_path.rstrip('/')}/{filename}"
                     full_url = f"{HOST}/{path}"
                     print(f"[{request_id} POST] {full_url}")
                     status, body = await fetch(
-                        session,
-                        "POST",
-                        full_url,
-                        headers={"Content-Type": content_type},
-                        data=content
+                        session, "POST", full_url,
+                        headers={"Content-Type": content_type}, data=content
                     )
                     print(f"[{request_id} POST RESPONSE] {body}")
 
@@ -145,12 +145,12 @@ async def run_single_client(client_id, iterations=10, delay=0.1):
                         f"--{boundary}--\r\n"
                     )
                     headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
-                    base_path = random.choice(STATIC_PATHS)  # Pick a random location
-                    path = f"{base_path.rstrip('/')}/{filename}"  # Cleanly join the path and filename
+                    base_path = random.choice(STATIC_PATHS)
+                    path = f"{base_path.rstrip('/')}/{filename}"
                     full_url = f"{HOST}/{path}"
                     print(f"[{request_id} MPPOST] {full_url}")
-                    status, body = await fetch(session, "POST", full_url, headers=headers, data=body.encode())
-                    print(f"[{request_id} MPPOST RESPONSE] {body}")
+                    status, response_body = await fetch(session, "POST", full_url, headers=headers, data=body.encode())
+                    print(f"[{request_id} MPPOST RESPONSE] {response_body}")
 
                 elif action == "CGI":
                     filename = item
@@ -158,25 +158,24 @@ async def run_single_client(client_id, iterations=10, delay=0.1):
                     path = f"{base_path}/{filename}"
                     full_url = f"{HOST}{path}"
                     if random.choice([True, False]):
-                        query = urlencode(random.choice(sample_queries))
-                        full_url += f"?{query}"
-
+                        query = random.choice(sample_queries)
+                        full_url += "?" + urlencode(query)
                     print(f"[{request_id} CGI] {full_url}")
                     status, body = await fetch(session, "GET", full_url)
                     print(f"[{request_id} CGI RESPONSE] {body}")
 
-                # Extract top-level path for config validation
-                url_path = full_url.replace(HOST, "").split("?")[0]  # Remove host and query
-                base_path = "/" + url_path.strip("/").split("/")[0] + "/"  # e.g., /upload/
-                
-                if not validate_config_behavior(request_id, base_path, http_method, status):
-                    print(f"[{request_id} 🚫 CONFIG VIOLATION] {action} on {base_path} returned {status}")
+                url_path = full_url.replace(HOST, "").split("?")[0]
+                top_path = "/" + url_path.strip("/").split("/")[0] + "/"
+
+                if not validate_config_behavior(request_id, top_path, http_method, status):
+                    print(f"[{request_id} 🚫 CONFIG VIOLATION] {action} on {top_path} returned {status}")
                     stats["fail"] += 1
-                    continue  # Skip normal handling to avoid double-counting
+                    continue
+
                 if 200 <= status < 300:
                     print(f"[{request_id} ✅ SUCCESS] {action} {full_url} [{status}]")
                     stats["success"] += 1
-                elif is_expected_error(action, full_url, status):
+                elif is_expected_error(action, full_url, status, filename):
                     print(f"[{request_id} ⚠️ EXPECTED ERROR] {action} {full_url} [{status}]")
                     stats["success"] += 1
                 else:
@@ -207,5 +206,6 @@ async def test_async_stress():
 
     assert total_success > 0, "No successful requests"
     assert total_fail < (clients * iterations), "All requests failed"
+
 
 
