@@ -438,7 +438,7 @@ bool Parser::validateBrackets(const std::string& config_file)
     std::ifstream file(config_file);
     if (!file.is_open())
     {
-        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
+        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, DEBUG_LOGS);
         return false;
     }
     std::stack<char> bracket_stack;
@@ -455,7 +455,7 @@ bool Parser::validateBrackets(const std::string& config_file)
             {
                 if (bracket_stack.empty())
                 {
-                    wslog.writeToLogFile(ERROR, "Unmatched closing bracket '}' found.", true);
+                    wslog.writeToLogFile(ERROR, "Unmatched closing bracket '}' found.", DEBUG_LOGS);
                     file.close();
                     return false;
                 }
@@ -465,7 +465,7 @@ bool Parser::validateBrackets(const std::string& config_file)
     }
     if (!bracket_stack.empty())
     {
-        wslog.writeToLogFile(ERROR, "Unmatched opening bracket '{' found.", true);
+        wslog.writeToLogFile(ERROR, "Unmatched opening bracket '{' found.", DEBUG_LOGS);
         file.close();
         return false;
     }
@@ -498,8 +498,8 @@ bool Parser::validateFile(const std::string& config_file)
 {
     if (!validateExtension(config_file, extension))
     {
-        wslog.writeToLogFile(ERROR, "Error invalid extension in file: " + config_file, true);
-        wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", true);
+        wslog.writeToLogFile(ERROR, "Error invalid extension in file: " + config_file, DEBUG_LOGS);
+        wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", DEBUG_LOGS);
         return false;
     }
 
@@ -508,7 +508,7 @@ bool Parser::validateFile(const std::string& config_file)
     std::ifstream file(config_file);
     if (!file.is_open())
     {
-        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
+        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, DEBUG_LOGS);
         return false;
     }
     std::string line;
@@ -528,10 +528,10 @@ bool Parser::validateFile(const std::string& config_file)
         else
         {
             file.close();
-            wslog.writeToLogFile(ERROR, "Error invalid line", true);
-            wslog.writeToLogFile(ERROR, "Error failed to parse line: " + line, true);
-            wslog.writeToLogFile(ERROR, "Error file validation failed ", true);
-            wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", true);
+            wslog.writeToLogFile(ERROR, "Error invalid line", DEBUG_LOGS);
+            wslog.writeToLogFile(ERROR, "Error failed to parse line: " + line, DEBUG_LOGS);
+            wslog.writeToLogFile(ERROR, "Error file validation failed ", DEBUG_LOGS);
+            wslog.writeToLogFile(INFO, "Check configurationfiles/configurationfile_rules.conf for manual how to write the configuration file", DEBUG_LOGS);
             return false;
         }
     }
@@ -548,7 +548,7 @@ bool Parser::parseConfigFile(const std::string& config_file)
     std::ifstream file(config_file);
     if (!file.is_open())
     {
-        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, true);
+        wslog.writeToLogFile(ERROR, "Error opening config file: " + config_file, DEBUG_LOGS);
         return false;
     }
     std::string line;

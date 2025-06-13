@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #define DEFAULT_MAX_BODY_SIZE 1000000 //1MB
+#define DEBUG_LOGS true
 
 // Erilaisia redirect status koodeja ja käyttötarkoituksia
 /*

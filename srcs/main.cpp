@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     try
     {
         Parser parser(argv[1]);
-        wslog.writeToLogFile(INFO, "Parsing config file successfully", true);
+        wslog.writeToLogFile(INFO, "Parsing config file successfully", DEBUG_LOGS);
         EventLoop loop(parser.getServerConfigs());
         loop.startLoop();
         std::cout << "Exiting eventLoop\n";

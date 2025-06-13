@@ -287,7 +287,7 @@ HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 
 HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
 {
-    // wslog.writeToLogFile(INFO, "GET Path :" + fullPath, true);
+    // wslog.writeToLogFile(INFO, "GET Path :" + fullPath, DEBUG_LOGS);
     // if (fullPath.find("..") != std::string::npos)
     // {
     //     wslog.writeToLogFile(ERROR, "403 Forbidden", false);
@@ -302,10 +302,10 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     bool isDir = S_ISDIR(s.st_mode);
     if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
     {
-        // wslog.writeToLogFile(DEBUG, "We are here", true);
+        // wslog.writeToLogFile(DEBUG, "We are here", DEBUG_LOGS);
         fullPath = joinPaths(fullPath, client.serverInfo.routes[client.request.location].index_file);
         std::ifstream file(fullPath.c_str(), std::ios::binary);
-        // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, true);
+        // wslog.writeToLogFile(DEBUG, "fullpath after file is open " + fullPath, DEBUG_LOGS);
         if (!file.is_open())
         {
             wslog.writeToLogFile(ERROR, "404, Not Found", false);
@@ -314,7 +314,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         std::ostringstream content;
         content << file.rdbuf();
         file.close();
-        // wslog.writeToLogFile(DEBUG, "Content: " + content.str(), true);
+        // wslog.writeToLogFile(DEBUG, "Content: " + content.str(), DEBUG_LOGS);
         std::string ext = getFileExtension(fullPath);
         wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
         return generateSuccessResponse(content.str(), getMimeType(ext));
@@ -335,7 +335,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
-    // wslog.writeToLogFile(INFO, "Content: " + content.str(), true);
+    // wslog.writeToLogFile(INFO, "Content: " + content.str(), DEBUG_LOGS);
     std::string ext = getFileExtension(fullPath);
     wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
     return generateSuccessResponse(content.str(), getMimeType(ext));
@@ -393,8 +393,8 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
             return HTTPResponse(403, "Whitespace in filename");
     }
     std::string fullPath = "." + joinPaths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
-    wslog.writeToLogFile(DEBUG, "location is " + client.request.location, true);
-    wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, true);
+    wslog.writeToLogFile(DEBUG, "location is " + client.request.location, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, DEBUG_LOGS);
     // if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
     //     return HTTPResponse(404, "Invalid file name");
     if (fullPath.find("..") != std::string::npos)
@@ -409,7 +409,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     }
     catch(const std::exception& e)
     {
-        wslog.writeToLogFile(ERROR, "Invalid file name", true);
+        wslog.writeToLogFile(ERROR, "Invalid file name", DEBUG_LOGS);
         return HTTPResponse(404, "Invalid file name");
     }
     /// what if there is a directory and file with the same name...
