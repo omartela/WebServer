@@ -80,6 +80,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
                     throw std::runtime_error("serverSocket epoll_ctl ADD failed");
                 servers[serverSocket].push_back(serverConfigs[i]);
                 //servers[serverSocket] = serverConfigs[i];
+                wslog.writeToLogFile(INFO, "Created a server with FD" + std::to_string(serverSocket), true);
+                usedFDs.push_back(serverSocket);
             }
         }
         catch (const std::bad_alloc& e)
@@ -102,6 +104,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     setup.data.fd = childTimerFD;
     if (epoll_ctl(loop, EPOLL_CTL_ADD, childTimerFD, &setup) < 0)
         throw std::runtime_error("Failed to add childTimerFD to epoll");
+    usedFDs.push_back(timerFD);
+    usedFDs.push_back(childTimerFD);
 }
 
 void EventLoop::closeFds()
@@ -137,6 +141,15 @@ static void handleErrorMessages(std::string errorMessage, std::map<int, Client>&
     }
 }
 
+// static bool isFDOpen(int fd)
+// {
+//     int status =  fcntl(fd, F_GETFD);
+//     if (status == -1)
+//         return false;
+//     else
+//         return true;
+// }
+
 void EventLoop::startLoop()
 {
     while (signum == 0)
@@ -158,6 +171,24 @@ void EventLoop::startLoop()
         }
         for (int i = 0; i < nReady; i++)
         {
+            // wslog.writeToLogFile(ERROR, "FDs in use: " + std::to_string(usedFDs.size()), true); //!Remove later
+            // std::cout << "| ";
+            // for (int fd : usedFDs)
+            //     std::cout << fd << " | ";
+            // std::cout << std::endl;
+
+            // for (int testFd : usedFDs)
+            // {
+            //     std::cout << "FD" << testFd;
+            //     if (isFDOpen(testFd) == true)
+            //         std::cout << " is open" << std::endl;
+            //     else
+            //     {
+            //         std::cout << " is closed, removing from the list" << std::endl;
+            //         usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), testFd), usedFDs.end());
+            //     }
+            // }
+
             int fd = eventLog[i].data.fd;
             int newFd;
             if (servers.find(fd) != servers.end())
@@ -165,7 +196,7 @@ void EventLoop::startLoop()
                 try {
                     struct epoll_event setup { };
                     //Client newClient(loop, fd, clients, servers[fd].front());
-                    Client newClient(loop, fd, clients, servers[fd]);
+                    Client newClient(loop, fd, clients, servers[fd], usedFDs);
                     auto result =  clients.emplace(newClient.fd, std::move(newClient));
                     if (!result.second)
                         throw std::runtime_error("Client insert failed or duplicate fd");
@@ -177,6 +208,7 @@ void EventLoop::startLoop()
                     if (timerOn == false)
                         setTimerValues(1);
                     wslog.writeToLogFile(INFO, "Creating a new client FD" + std::to_string(newClient.fd), true);
+                    usedFDs.push_back(newFd);
                 }
                 catch (const std::bad_alloc& e)
                 {
@@ -200,6 +232,7 @@ void EventLoop::startLoop()
             else if (fd == childTimerFD)
             {
                 wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
+                wslog.writeToLogFile(INFO, "Number of children = " + std::to_string(this->nChildren), true);
                 checkChildrenStatus();
                 if (nChildren == 0)
                     setTimerValues(3); 
@@ -235,6 +268,7 @@ void EventLoop::setTimerValues(int n)
     else if (n == 2)
     {
         wslog.writeToLogFile(INFO, "No more clients connected, not checking timeouts anymore until new connections", true);
+        nChildren = 0;
         timerValues.it_value.tv_sec = 0;
         timerValues.it_interval.tv_sec = 0;
         timerfd_settime(timerFD, 0, &timerValues, 0); //stop timer
@@ -315,7 +349,9 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
     if (epoll_ctl(loop, EPOLL_CTL_DEL, fd, nullptr) < 0)
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
     if (clients.at(fd).request.isCGI == true)
+    {
         nChildren--;
+    }
     close(clients.at(fd).fd);
     clients.erase(clients.at(fd).fd);
     wslog.writeToLogFile(INFO, "Client FD" + std::to_string(fd) + " closed!", true);
@@ -323,6 +359,11 @@ void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clie
 
 void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clients, int loop, int& children)
 {
+    if (clients.empty() == true)
+    {
+        nChildren = 0;
+        setTimerValues(3);
+    }
     uint64_t tempBuffer;
     ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
     if (bytesRead != sizeof(tempBuffer))
@@ -451,6 +492,8 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 		closeFds();
         dup2(client.CGI.writeCGIPipe[0], STDIN_FILENO);
         dup2(client.CGI.readCGIPipe[1], STDOUT_FILENO);
+        usedFDs.push_back(client.CGI.writeCGIPipe[0]);
+        usedFDs.push_back(client.CGI.readCGIPipe[1]);
 		if (!client.request.fileUsed)
 		{
             if (client.CGI.writeCGIPipe[1] != -1)
@@ -477,6 +520,8 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 		flags = fcntl(client.CGI.readCGIPipe[0], F_GETFL);
 		fcntl(client.CGI.readCGIPipe[0], F_SETFL, flags | O_NONBLOCK);
 	}
+    usedFDs.push_back(client.CGI.writeCGIPipe[1]);
+    usedFDs.push_back(client.CGI.readCGIPipe[0]);
 	return 0;
 }
 
@@ -501,7 +546,7 @@ void EventLoop::handleCGI(Client& client)
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
         //std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
-        client.CGI.writeBodyToChild(client.request);
+        client.CGI.writeBodyToChild(client.request, usedFDs);
     }
     else if (client.request.fileUsed == false)
     {
@@ -702,7 +747,7 @@ void EventLoop::checkBody(Client& client)
     }
     if (client.request.isCGI == true)
     {
-        std::cout << "CGI IS TRUE\n";
+        //std::cout << "CGI IS TRUE\n";
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
         int error = executeCGI(client, client.serverInfo);
@@ -807,15 +852,15 @@ void EventLoop::handleClientRecv(Client& client)
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
-                        // if (client.serverInfo.server_names.empty() == true)
-                        // {
-                        //     client.response.push_back(HTTPResponse(404, "Host name not found"));
-                        //     client.rawReadData.clear();
-                        //     client.state = SEND;
-                        //     client.writeBuffer = client.response.back().toString();
-                        //     toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                        //     return ;
-                        // }
+                        if (client.serverInfo.server_names.empty() == true)
+                        {
+                            client.response.push_back(HTTPResponse(404, "Host name not found"));
+                            client.rawReadData.clear();
+                            client.state = SEND;
+                            client.writeBuffer = client.response.back().toString();
+                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
+                            return ;
+                        }
                         if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
                         {
                             client.response.push_back(HTTPResponse(404, "Invalid location"));
@@ -843,7 +888,7 @@ void EventLoop::handleClientRecv(Client& client)
             }
             case HANDLE_CGI:
             {
-                wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
+                //wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
                 return handleCGI(client);
             }
             case SEND:
@@ -917,12 +962,12 @@ void EventLoop::handleClientSend(Client &client)
                 client.CGI.readCGIPipe[1] = -1;
             }
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-            wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
+            //wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-        wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
+        //wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        //wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)

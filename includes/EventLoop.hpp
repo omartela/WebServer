@@ -49,6 +49,7 @@ class EventLoop
         struct itimerspec timerValues;
         pid_t pid;
         std::string checkConnection;
+        std::vector<int> usedFDs;
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
         bool validateRequestMethod(Client &client);

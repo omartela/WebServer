@@ -16,7 +16,7 @@ static int findOldestClient(std::map<int, Client>& clients) // maybe streamline 
     return oldestClient;
 }
 
-Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server)
+Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server, std::vector<int>& usedFDs)
 {
     this->state = IDLE;
     this->bytesRead = 0;
@@ -31,20 +31,27 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
-            std::cout << "--------------------------------------------CLOSING CLIENT FD" << oldFd << " PREMATURELY!--------------------------------------------" << std::endl;
+            std::cout << "---CLOSING CLIENT FD" << oldFd << " PREMATURELY!---" << std::endl;
             if (oldFd != 0)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
                     throw std::runtime_error("oldFd epoll_ctl DEL failed");
                 close(oldFd);
+                usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), oldFd), usedFDs.end());
                 if (clients.at(oldFd).request.isCGI == true)
                 {
                     int readPipe = clients.at(oldFd).CGI.getReadPipe();
                     int writePipe = clients.at(oldFd).CGI.getWritePipe();
                     if (readPipe != -1)
+                    {
                         close(readPipe);
+                        usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), readPipe), usedFDs.end());
+                    }
                     if (writePipe != -1)
+                    {
                         close(writePipe);
+                        usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), writePipe), usedFDs.end());
+                    }
                 }
                 if (clients.find(oldFd) != clients.end())
                     clients.erase(oldFd);

@@ -53,7 +53,7 @@ class Client {
         
         int childTimerFd;
 
-        Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server);
+        Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server, std::vector<int>& usedFDs);
         Client(const Client& copy);
         Client& operator=(const Client& copy);
         ~Client();
