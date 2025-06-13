@@ -1,6 +1,5 @@
 #pragma once
 
-// #include "timeout.hpp"
 #include "HTTPResponse.hpp"
 #include "Logger.hpp"
 #include "RequestHandler.hpp"
