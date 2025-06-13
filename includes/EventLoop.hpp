@@ -31,7 +31,7 @@
 #define TIMEOUT 60
 #define CHILD_CHECK 1
 #define DEFAULT_MAX_HEADER_SIZE 8192
-#define DEBUG_LOGS true
+#define DEBUG_LOGS false
 
 class EventLoop
 {
