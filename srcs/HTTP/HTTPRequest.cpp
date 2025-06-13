@@ -18,6 +18,7 @@ HTTPRequest::HTTPRequest()
     isCGI = false;
     fileUsed = false;
     fileIsOpen = false;
+    validHostName = true;
     fileFd = -1;
     query = "";
 }
@@ -33,6 +34,7 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     isCGI = false;
     fileUsed = false;
     fileIsOpen = false;
+    validHostName = true;
     fileFd = -1;
     query = "";
     parser(headers, server);
@@ -71,9 +73,9 @@ static void decode(std::string& raw)
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
-    wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
+    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, true);
     decode(raw);
-    wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, true);
+    // wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, true);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
