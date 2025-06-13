@@ -1,7 +1,7 @@
 ----- Output from ./tests/cgitest/chunked_test.py -----
 Received response from server:
 HTTP/1.1 200 OK
-Content-Length: 4702111234474983756
+Content-Length: 16
 Content-Type: text/plain
 Method: POST
 Query: 

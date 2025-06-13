@@ -337,7 +337,7 @@ async def test_single_post_upload():
 
 @pytest.mark.asyncio
 async def test_repeated_identical_post_upload():
-    post_url = "http://127.0.0.2:8004/upload"
+    post_url = "http://127.0.0.2:8004/upload/"
     filename = "testfile.txt"
     content = b"Test content for repeated upload\n"
 

@@ -901,7 +901,7 @@ void EventLoop::handleClientSend(Client &client)
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
                 client.response.push_back(client.CGI.generateCGIResponse());
-                client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
+                //client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
                 client.writeBuffer = client.response.back().toString();
             }
             else

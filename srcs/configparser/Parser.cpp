@@ -1,5 +1,6 @@
 #include "Parser.hpp"
 #include "Logger.hpp"
+#include <unordered_set>
 
 Parser::Parser(const std::string& config_file)
 {
@@ -205,8 +206,9 @@ void Parser::parseCgiExecutable(const std::string&line, Route& route)
     route.cgiexecutable = line.substr(pos, end_pos - pos);
 }
 
-void Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
+bool Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config)
 {
+    std::unordered_set<std::string> foundkeys;
     Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
     int maxBodySizeSet = false;
     size_t pos = line.find("location ") + 9; // Skip "location /"
@@ -219,42 +221,102 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
         trimLeadingAndTrailingSpaces(line);
         if (line.find("abspath ") != std::string::npos)
         {
-           parseAbsPathDirective(line, route);
+            parseAbsPathDirective(line, route);
+            auto result = foundkeys.insert("abspath");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple abspaths", true);
+                return false;
+            }
         }
         else if (line.find("index ") != std::string::npos && line.find("autoindex") == std::string::npos)
         {
             parseIndexDirective(line, route);
+            auto result = foundkeys.insert("index");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple index files", true);
+                return false;
+            }
         }
         else if (line.find("autoindex ") != std::string::npos)
         {
-           parseAutoIndexDirective(line, route);
+            auto result = foundkeys.insert("autoindex");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple autoindex", true);
+                return false;
+            }
+            parseAutoIndexDirective(line, route);
         }
         else if (line.find("cgi_methods ") != std::string::npos)
         {
+            auto result = foundkeys.insert("cgi_methods");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple cgimethods", true);
+                return false;
+            }
             parseCgiMethodsDirective(line, route);
         }
         else if (line.find("allow_methods ") != std::string::npos)
         {
-           parseAllowMethodsDirective(line, route);
+            auto result = foundkeys.insert("allow_methods");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple allow_methods", true);
+                return false;
+            }
+            parseAllowMethodsDirective(line, route);
         }
         else if (line.find("return ") != std::string::npos)
         {
+            auto result = foundkeys.insert("return ");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple return", true);
+                return false;
+            }
             parseReturnDirective(line, route);
         }
         else if (line.find("upload_path ") != std::string::npos)
         {
+            auto result = foundkeys.insert("upload_path");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple upload_path", true);
+                return false;
+            }
            parseUploadPathDirective(line, route);
         }
         else if (line.find("cgi_extension ") != std::string::npos)
         {
+            auto result = foundkeys.insert("cgi_extension");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple cgi_extension", true);
+                return false;
+            }
             parseCgiExtensionDirective(line, route);
         }
         else if (line.find("cgiexecutable ") != std::string::npos)
         {
+            auto result = foundkeys.insert("cgiexecutable");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple cgiexecutable", true);
+                return false;
+            }
             parseCgiExecutable(line, route);
         }
         else if (line.find("client_max_body_size "))
         {
+            auto result = foundkeys.insert("client_max_body_size");
+            if (result.second == false)
+            {
+                wslog.writeToLogFile(ERROR, "multiple client_max_body_size", true);
+                return false;
+            }
             parseClientMaxBodySizeDirective(line, route);
             maxBodySizeSet = true;
         }
@@ -262,6 +324,7 @@ void Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     if (maxBodySizeSet == false)
         route.client_max_body_size = server_config.client_max_body_size;
     server_config.routes[route.path] = route;
+    return true;
 }
 
 bool Parser::validateServerDirective(const std::string& line)
@@ -541,6 +604,7 @@ bool Parser::validateFile(const std::string& config_file)
 
 bool Parser::parseConfigFile(const std::string& config_file)
 {
+    std::unordered_set<std::string> foundkeys;
      // Validate file
      if (!validateFile(config_file))
         return false;
@@ -561,16 +625,33 @@ bool Parser::parseConfigFile(const std::string& config_file)
         {
             bool maxBodySizeSet = false;
             ServerConfig server_config{};
+            auto result = foundkeys.insert("server");
+            if (result.second == false)
+            {
+                return false;
+            }
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
                 trimLeadingAndTrailingSpaces(line);
                 if (line.find("listen ") != std::string::npos)
                 {
+                    auto result = foundkeys.insert("listen");
+                    if (result.second == false)
+                    {
+                        wslog.writeToLogFile(ERROR, "multiple listen", true);
+                        return false;
+                    }
                     parseListenDirective(line, server_config);
                 }
                 else if (line.find("server_name ") != std::string::npos)
                 {
-                   parseServerNameDirective(line, server_config);
+                    auto result = foundkeys.insert("server_name");
+                    if (result.second == false)
+                    {
+                        wslog.writeToLogFile(ERROR, "multiple server_name", true);
+                        return false;
+                    }
+                    parseServerNameDirective(line, server_config);
                 }
                 else if (line.find("error_page ") != std::string::npos)
                 {
@@ -578,10 +659,17 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 }
                 else if (line.find("location /") != std::string::npos)
                 {
-                   parseLocationDirective(file, line, server_config);
+                   if (parseLocationDirective(file, line, server_config) == false)
+                       return false;
                 }
                 else if (line.find("client_max_body_size ") != std::string::npos)
                 {
+                    auto result = foundkeys.insert("client_max_body_size ");
+                    if (result.second == false)
+                    {
+                        wslog.writeToLogFile(ERROR, "multiple client_max_body_size", true);
+                        return false;
+                    }
                     parseClientMaxBodySizeDirective(line, server_config);
                     maxBodySizeSet = true;
                 }
