@@ -199,11 +199,11 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
-        HTTPResponse response(400, "Invalid headers");
+        return HTTPResponse(400, "Invalid headers");
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
-        HTTPResponse response(400, "No boundary");
+        return HTTPResponse(400, "No boundary");
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);

@@ -357,13 +357,15 @@ static long long unsigned HexStrToUnsignedLongLong(std::string str)
 static bool validateChunkedBody(Client &client)
 {
     std::chrono::steady_clock::time_point timeout = std::chrono::steady_clock::now() + std::chrono::seconds(TIMEOUT);
+    client.chunkBodySize = 0;
     while (client.chunkBuffer.empty() == false)
     {
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
         if (now > timeout)
             return false;
 
-        long long unsigned bytes;
+        long long unsigned bytes = 0;
+        wslog.writeToLogFile(ERROR, "bytes to write = " + std::to_string(bytes), true);
         std::string str = client.chunkBuffer;
         if (!isHexUnsignedLongLong(str))
         {
@@ -395,7 +397,10 @@ static bool validateChunkedBody(Client &client)
         str = str.substr(i + 2);
         if (client.request.fileUsed == true && client.request.isCGI == true) 
         {
-            client.chunkBodySize += write(client.request.fileFd, str.substr(0, bytes).c_str(), bytes);
+            int byteswritten = write(client.request.fileFd, str.substr(0, bytes).c_str(), bytes);
+            if (byteswritten < 0)
+                wslog.writeToLogFile(ERROR, "WRITE FAILED IN CHUNK", true);
+            client.chunkBodySize += byteswritten;
         }
         else
             client.request.body += str.substr(0, bytes);
@@ -612,7 +617,6 @@ static bool readChunkedBody(Client &client, int loop)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
             wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
-            client.chunkBodySize = 0;
             if (client.request.fileIsOpen == false && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
@@ -922,8 +926,8 @@ void EventLoop::handleClientSend(Client &client)
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-        //wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-        //wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
+        wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)

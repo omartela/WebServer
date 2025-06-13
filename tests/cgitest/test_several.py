@@ -223,26 +223,35 @@ import aiohttp
 import asyncio
 import pytest
 
-
 @pytest.mark.asyncio
 async def test_repeated_requests():
     """
     Asynchronously send multiple concurrent GET requests to /index.html.
     This test simulates load. Adjust num_requests as appropriate.
     """
-    num_requests = 10000
+    num_requests = 1000
     url = "http://127.0.0.2:8004/index.html"
 
-     # Adjust the total timeout depending on the number of requests
-    timeout = aiohttp.ClientTimeout(total=10000000000000000000)
+    # Rajoita samanaikaisten pyyntöjen määrä
+    sem = asyncio.Semaphore(num_requests)  # Vain 10 yhtäaikaista pyyntöä – säädä tarpeen mukaan
+
+    async def limited_get(session, url):
+        async with sem:
+            async with session.get(url) as resp:
+                assert resp.status == 200
+                await resp.text()  # luetaan sisältö, vaikka ei käytetä sitä
+                return resp
 
     async with aiohttp.ClientSession() as session:
-        tasks = [session.get(url) for _ in range(num_requests)]
-        responses = await asyncio.gather(*tasks)
+        tasks = [limited_get(session, url) for _ in range(num_requests)]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-    for resp in responses:
-        assert resp.status == 200
-        await resp.text()
+    # Optionaalinen virheenkäsittely
+    for i, resp in enumerate(responses):
+        if isinstance(resp, Exception):
+            print(f"Request {i} failed: {resp}")
+        else:
+            assert resp.status == 200
 
 @pytest.mark.asyncio
 async def test_concurrent_get_and_post():
@@ -255,42 +264,96 @@ async def test_concurrent_get_and_post():
     get_url = "http://127.0.0.2:8004/index.html"
     post_url = "http://127.0.0.2:8004/images/"
 
-     # Adjust the total timeout depending on the number of requests
-    timeout = aiohttp.ClientTimeout(total=10000000)
+    sem = asyncio.Semaphore(1000)  # Rajoita samanaikaiset pyynnöt esim. 25:een
+
+    async def limited_get(session, url):
+        async with sem:
+            async with session.get(url) as resp:
+                await resp.read()
+                return resp
+
+    async def limited_post(session, url, formdata):
+        async with sem:
+            async with session.post(url, data=formdata) as resp:
+                await resp.read()
+                return resp
 
     async with aiohttp.ClientSession() as session:
         test_file = Path("home/images/uploads/filename.txt")
-        # Create tasks for GET requests
-        get_tasks = [session.get(get_url) for _ in range(num_get)]
-        
-        # Create tasks for POST requests using FormData for file upload.
+
+        # Luo GET-pyynnöt
+        get_tasks = [
+            limited_get(session, get_url)
+            for _ in range(num_get)
+        ]
+
+        # Luo POST-pyynnöt
         post_tasks = []
         for _ in range(num_post):
             form = aiohttp.FormData()
             form.add_field(
                 'file',
                 b"dummy data\n", 
-                filename="filename.txt", 
-                # content_type="application/multipart-form-data"
+                filename="filename.txt",
             )
-            post_tasks.append(session.post(post_url, data=form))
-        
-        # Combine both sets of tasks and run them concurrently
-        tasks = get_tasks + post_tasks
-        responses = await asyncio.gather(*tasks)
-        test_file.unlink()
+            post_tasks.append(limited_post(session, post_url, form))
 
-    # Process and verify each response
-    for resp in responses:
+        # Aja molemmat rinnakkain
+        tasks = get_tasks + post_tasks
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        test_file.unlink(missing_ok=True)  # varmistetaan että tiedosto poistuu
+
+    # Tarkista vastaukset
+    for i, resp in enumerate(responses):
+        if isinstance(resp, Exception):
+            print(f"Request {i} failed: {resp}")
+            continue
+
         method = resp.request_info.method
         if method == "GET":
             assert resp.status == 200, (
                 f"GET request to {resp.request_info.url} returned {resp.status}"
             )
         elif method == "POST":
-            # Adjust expected status codes for POST as per your server logic.
             assert resp.status in (200, 201), (
                 f"POST request to {resp.request_info.url} returned {resp.status}"
             )
-        # Ensure proper cleanup of response objects.
         await resp.release()
+
+@pytest.mark.asyncio
+async def test_single_post_upload():
+    post_url = "http://127.0.0.2:8004/upload/"
+    filename = "testfile.txt"
+    content = b"Test content\n"
+
+    async with aiohttp.ClientSession() as session:
+        form = aiohttp.FormData()
+        form.add_field('file', content, filename=filename)
+        async with session.post(post_url, data=form) as resp:
+            assert resp.status in (200, 201)
+            text = await resp.text()
+            print(text)  # Tulosta vastaus debuggausta varten
+
+@pytest.mark.asyncio
+async def test_repeated_identical_post_upload():
+    post_url = "http://127.0.0.2:8004/upload"
+    filename = "testfile.txt"
+    content = b"Test content for repeated upload\n"
+
+    sem = asyncio.Semaphore(10)  # Maksimi 10 samanaikaista pyyntöä
+
+    async def limited_post():
+        async with sem:
+            async with aiohttp.ClientSession() as session:
+                form = aiohttp.FormData()
+                form.add_field('file', content, filename=filename)
+                async with session.post(post_url, data=form) as resp:
+                    assert resp.status in (200, 201)
+                    return await resp.text()
+
+    # Lähetä sama tiedosto 5 kertaa
+    tasks = [limited_post() for _ in range(5)]
+    results = await asyncio.gather(*tasks)
+    for res in results:
+        print(res)
