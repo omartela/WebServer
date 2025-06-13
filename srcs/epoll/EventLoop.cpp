@@ -141,14 +141,6 @@ static void handleErrorMessages(std::string errorMessage, std::map<int, Client>&
     }
 }
 
-static bool isFDOpen(int fd)
-{
-    if (fcntl(fd, F_GETFD) == -1)
-        return false;
-    else
-        return true;
-}
-
 void EventLoop::startLoop()
 {
     while (signum == 0)
@@ -179,11 +171,13 @@ void EventLoop::startLoop()
             for (int testFd : usedFDs)
             {
                 //std::cout << "FD" << testFd;
-                if (isFDOpen(testFd) == false)
+                if (fcntl(testFd, F_GETFD) == -1) //checking if FD is closed
                 {
                     //std::cout << " is closed, removing from the list" << std::endl;
                     usedFDs.erase(std::remove(usedFDs.begin(), usedFDs.end(), testFd), usedFDs.end());
                 }
+                // else
+                    //std::cout << " is open << std::endl;
             }
 
             int fd = eventLog[i].data.fd;
