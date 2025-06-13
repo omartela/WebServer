@@ -196,7 +196,7 @@ void EventLoop::startLoop()
                 try {
                     struct epoll_event setup { };
                     //Client newClient(loop, fd, clients, servers[fd].front());
-                    Client newClient(loop, fd, clients, servers[fd], usedFDs);
+                    Client newClient(loop, fd, clients, servers[fd]);
                     auto result =  clients.emplace(newClient.fd, std::move(newClient));
                     if (!result.second)
                         throw std::runtime_error("Client insert failed or duplicate fd");
@@ -544,7 +544,7 @@ void EventLoop::handleCGI(Client& client)
     if (!client.request.fileUsed && client.request.body.empty() == false)
     {
         //std::cout << "WRITING TO CHILD\n"; //REMOVE LATER
-        client.CGI.writeBodyToChild(client.request, usedFDs);
+        client.CGI.writeBodyToChild(client.request);
     }
     else if (client.request.fileUsed == false)
     {
