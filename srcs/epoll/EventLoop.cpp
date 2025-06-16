@@ -989,17 +989,15 @@ static bool checkBytesSent(Client &client)
 {
     if (client.response.size() != 0)
     {
-        std::string responseheader;
-        int pos;
-        pos = client.response.back().toString().find("\r\n\r\n");
-        responseheader = client.response.back().toString().substr(0, pos + 4);
+        int pos = client.response.back().toString().find("\r\n\r\n");
+        std::string responseHeader = client.response.back().toString().substr(0, pos + 4);
         if (client.response.back().body.empty() == false)
         {
-            if ((std::stoul(client.response.back().headers["Content-Length"]) + responseheader.size() > client.bytesSent))
+            if ((std::stoul(client.response.back().headers["Content-Length"]) + responseHeader.size() > client.bytesSent))
                 return false;
         }
         else
-            if (client.bytesSent != responseheader.size())
+            if (client.bytesSent != responseHeader.size())
                 return false;
     }
     wslog.writeToLogFile(ERROR, "checkbytes is true", true);
@@ -1030,14 +1028,12 @@ void EventLoop::handleClientSend(Client &client)
                 auto TE = client.request.headers.find("Transfer-Encoding");
                 if (TE != client.request.headers.end() && TE->second == "chunked")
                 {
-                    std::string responseheader;
-                    int pos;
-                    pos = client.response.back().toString().find("\r\n\r\n");
-                    responseheader = client.response.back().toString().substr(0, pos + 4);
-                    //client.response.back().headers.at("Content-Length") = std::to_string(std::filesystem::file_size(client.CGI.tempFileName) - responseheader.size());
-                    wslog.writeToLogFile(ERROR, "response header size " + std::to_string(responseheader.size()), true);
+                    int pos = client.response.back().toString().find("\r\n\r\n");
+                    std::string responseHeader = client.response.back().toString().substr(0, pos + 4);
+                    //client.response.back().headers.at("Content-Length") = std::to_string(std::filesystem::file_size(client.CGI.tempFileName) - responseHeader.size());
+                    wslog.writeToLogFile(ERROR, "response header size " + std::to_string(responseHeader.size()), true);
                     wslog.writeToLogFile(ERROR, "content len " + client.response.back().headers.at("Content-Length"), true);
-                    wslog.writeToLogFile(ERROR, "response header " + responseheader, true);
+                    wslog.writeToLogFile(ERROR, "response header " + responseHeader, true);
                 }
                 client.writeBuffer = client.response.back().toString();
             }
