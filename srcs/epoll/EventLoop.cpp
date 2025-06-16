@@ -1000,7 +1000,7 @@ static bool checkBytesSent(Client &client)
             if (client.bytesSent != responseHeader.size())
                 return false;
     }
-    wslog.writeToLogFile(ERROR, "checkbytes is true", true);
+    wslog.writeToLogFile(ERROR, "checkbytes is true", DEBUG_LOGS);
     return true;
 }
 
