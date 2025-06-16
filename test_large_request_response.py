@@ -7,13 +7,15 @@ PORT = 8004
 PATH = '/cgi/A_test'
 
 # Generate ~512KB body (large enough to not fit in one write)
-body = "A" * (1024 * 1024)
+body = "A" * (1024 * 10)
 request = (
     f"POST {PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"
     f"Content-Length: {len(body)}\r\n"
     f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
+    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     f"\r\n"
     f"{body}"
 )

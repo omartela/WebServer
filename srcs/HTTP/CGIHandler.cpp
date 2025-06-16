@@ -74,7 +74,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 		if (colon != std::string::npos)
 			res.headers[line.substr(0, colon)] = line.substr(colon + 2);
 	}
-	res.headers["Content-Length"] = std::to_string(res.body.size());
+	//res.headers["Content-Length"] = std::to_string(res.body.size());
 	return res;
 }
 
