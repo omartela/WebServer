@@ -27,6 +27,7 @@ class CGIHandler
         int readCGIPipe[2]; //outPipe
         pid_t childPid;
         std::string fullPath;
+        std::string inputFilePath;
         std::string output;
         std::string tempFileName;
         bool fileOpen;

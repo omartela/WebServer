@@ -199,7 +199,7 @@ void EventLoop::startLoop()
             }
             else if (fd == childTimerFD)
             {
-                wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
+                // wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
                 checkChildrenStatus();
                 if (nChildren == 0)
                     setTimerValues(3); 
@@ -411,16 +411,96 @@ static bool validateChunkedBody(Client &client)
     return true;
 }
 
+void CGIMultipart(Client& client)
+{
+    wslog.writeToLogFile(INFO, "CGIMultipart", true);
+    if (client.request.headers.count("Content-Type") == 0)
+    {
+
+        client.response.push_back(HTTPResponse(400, "Missing Content-Type"));
+        return;
+    }
+    auto its = client.request.headers.find("Content-Type");
+    std::string ct = its->second;
+    if (its == client.request.headers.end())
+    {
+
+        client.response.push_back(HTTPResponse(400, "Invalid headers"));
+        return;
+    }
+    std::string boundary;
+    std::string::size_type pos = ct.find("boundary=");
+    if (pos == std::string::npos)
+    {
+
+        client.response.push_back(HTTPResponse (400, "No boundary"));
+        return;
+    }
+    boundary = ct.substr(pos + 9);
+    if (!boundary.empty() && boundary[0] == '"')
+        boundary = boundary.substr(1, boundary.find('"', 1) - 1);
+    std::string bound_mark = "--" + boundary;
+    std::vector<std::string> parts = split(client.request.body, bound_mark);
+    std::string lastPath;
+    for (std::vector<std::string>::iterator it = parts.begin(); it != parts.end(); ++it)
+    {
+        std::string& part = *it;
+        if (part.empty() || part == "--\r\n" || part == "--")
+            continue;
+        std::string disposition = part.substr(0, part.find("\r\n"));
+        if (disposition.find("filename=\"") == std::string::npos)
+            continue; 
+        std::string file = extractFilename(part, 1);
+        // wslog.writeToLogFile(INFO, "File: " + file, false);
+        if (file.empty())
+            continue;
+        std::string content = extractContent(part);
+        std::string folder = "./www/cgi/uploads/";
+        // wslog.writeToLogFile(INFO, "Folder: " + folder, false);
+        std::string path = folder;
+        if (path.back() != '/')
+            path += "/";
+        path += file;
+        lastPath = path;
+        //wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
+        std::ofstream out(path.c_str(), std::ios::binary);
+        if (!out.is_open())
+        {
+            wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
+            {
+
+                client.response.push_back(HTTPResponse(500, "Failed to open file for writing"));
+                return;
+            }
+        }
+        out.write(content.c_str(), content.size());
+        out.close();
+    }
+    if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
+    {
+
+        client.response.push_back(HTTPResponse(400, "File not uploaded"));
+        return;
+    }    
+    std::string ext = getFileExtension(client.request.path);
+    client.CGI.inputFilePath = lastPath;
+    client.request.multipart = true;
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
+}
+
 int EventLoop::executeCGI(Client& client, ServerConfig server)
 {
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + client.CGI.fullPath, true);
+    // wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI called", true);
+    // wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI fullPath is: " + client.CGI.fullPath, true);
 	if (client.request.fileUsed)
-	{
-		client.CGI.tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+	{  
+        client.CGI.tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
 		client.CGI.readCGIPipe[1] =  open(client.CGI.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
 		client.CGI.fileOpen = true;
-		client.request.fileFd = open(client.request.tempFileName.c_str(), O_RDONLY | O_CLOEXEC, 0644);
+        if (client.request.multipart)
+            client.request.fileFd = open(client.CGI.inputFilePath.c_str(), O_RDONLY | O_CLOEXEC, 0644);
+        else
+		    client.request.fileFd = open(client.request.tempFileName.c_str(), O_RDONLY | O_CLOEXEC, 0644);
 		if (client.request.fileFd == -1)
 		{
 			/// error
@@ -442,7 +522,7 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 	{
         return -500;
 	}
-    wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
+    // wslog.writeToLogFile(DEBUG, "CGIHandler::executeCGI pipes created", true);
     client.CGI.childPid = fork();
     if (client.CGI.childPid == -1)
         return -500;
@@ -514,14 +594,14 @@ void EventLoop::handleCGI(Client& client)
     // wslog.writeToLogFile(DEBUG, "waitpid returned: " + std::to_string(pid), true);
     if (pid == client.CGI.getChildPid())
     {
-        wslog.writeToLogFile(DEBUG, "CGI process finished", true);
+        // wslog.writeToLogFile(DEBUG, "CGI process finished", true);
         nChildren--;
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         
         if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
         {
-            wslog.writeToLogFile(DEBUG, "Child failed!", true);
+            // wslog.writeToLogFile(DEBUG, "Child failed!", true);
             client.response.push_back( HTTPResponse(500, "Internal Server Error"));
             client.writeBuffer = client.response.back().toString();
             return ;
@@ -611,7 +691,7 @@ static bool readChunkedBody(Client &client, int loop)
         if (client.request.fileUsed == true)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
-            wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
+            // wslog.writeToLogFile(DEBUG, "content len " + std::to_string(client.chunkBodySize), true);
             if (client.request.fileIsOpen == false && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
@@ -638,13 +718,13 @@ bool EventLoop::checkMaxSize(Client& client)
 
     if (client.headerString.size() > DEFAULT_MAX_HEADER_SIZE)
     {
-        wslog.writeToLogFile(DEBUG, "Request header too big", true);
+        // wslog.writeToLogFile(DEBUG, "Request header too big", true);
         return false;
     }
 
     if (client.request.body.size() > maxBodySize)
     {
-        wslog.writeToLogFile(DEBUG, "Request body too big, max body size = " + std::to_string(maxBodySize) + ", while body size = " + std::to_string(client.request.body.size()), true);
+        // wslog.writeToLogFile(DEBUG, "Request body too big, max body size = " + std::to_string(maxBodySize) + ", while body size = " + std::to_string(client.request.body.size()), true);
         return false;
     }
     
@@ -703,6 +783,8 @@ void EventLoop::checkBody(Client& client)
     if (client.request.isCGI == true)
     {
         std::cout << "CGI IS TRUE\n";
+        if (client.request.multipart)
+            CGIMultipart(client);
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
         int error = executeCGI(client, client.serverInfo);
@@ -732,7 +814,6 @@ void EventLoop::checkBody(Client& client)
     }
     else
     {
-        std::cout << "CGI IS FALSE\n";
         client.response.push_back(RequestHandler::handleRequest(client));
         client.writeBuffer = client.response.back().toString();
         client.state = SEND;
@@ -843,7 +924,7 @@ void EventLoop::handleClientRecv(Client& client)
             }
             case HANDLE_CGI:
             {
-                wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
+                // wslog.writeToLogFile(INFO, "IN HANDLE CGI", true);
                 return handleCGI(client);
             }
             case SEND:
@@ -880,8 +961,8 @@ void EventLoop::handleClientSend(Client &client)
     try {
         if (client.state != SEND)
             return ;
-        wslog.writeToLogFile(INFO, "IN SEND", true);
-        //wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
+        // wslog.writeToLogFile(INFO, "IN SEND", true);
+        wslog.writeToLogFile(INFO, "To be sent = " + client.writeBuffer + " to client FD" + std::to_string(client.fd), true);
         if (client.request.isCGI == true && client.CGI.tempFileName.empty() == false)
         {
             client.writeBuffer.clear();
@@ -896,7 +977,7 @@ void EventLoop::handleClientSend(Client &client)
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
                 client.response.push_back(client.CGI.generateCGIResponse());
-                client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
+                // client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
                 client.writeBuffer = client.response.back().toString();
             }
             else
@@ -917,12 +998,12 @@ void EventLoop::handleClientSend(Client &client)
                 client.CGI.readCGIPipe[1] = -1;
             }
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-            wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
+            // wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), true);
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-        wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
+        // wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        // wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)

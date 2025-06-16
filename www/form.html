@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>CGI Form Test</title>
-</head>
+<head><title>Product Search</title></head>
 <body>
-    <h1>Submit a GET or POST request</h1>
+<h1>Product Search</h1>
 
-    <form action="/cgi/formhandler.py" method="get">
-        <label>Name: <input type="text" name="name" /></label><br>
-        <label>Language: <input type="text" name="lang" /></label><br>
-        <input type="submit" value="Submit via GET" />
-    </form>
+<!-- SEARCH_RESULTS -->
 
-    <br><hr><br>
+<hr>
+<form action="/cgi-bin/formhandler.py" method="get">
+    <label>Name: <input type="text" name="name" /></label><br>
+    <label>Language: <input type="text" name="lang" /></label><br>
+    <input type="submit" value="Search via GET" />
+</form>
 
-    <form action="/cgi/formhandler.py" method="post">
-        <label>Name: <input type="text" name="name" /></label><br>
-        <label>Language: <input type="text" name="lang" /></label><br>
-        <input type="submit" value="Submit via POST" />
-    </form>
+<br>
+
+<form action="/cgi-bin/formhandler.py" method="post">
+    <label>Name: <input type="text" name="name" /></label><br>
+    <label>Language: <input type="text" name="lang" /></label><br>
+    <input type="submit" value="Search via POST" />
+</form>
 </body>
 </html>

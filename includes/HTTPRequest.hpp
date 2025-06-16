@@ -32,6 +32,7 @@ class HTTPRequest
         bool fileUsed;
         bool fileIsOpen;
         bool isCGI;
+        bool multipart;
         bool validHostName;
         HTTPRequest();
         HTTPRequest(std::string headers, ServerConfig server);
