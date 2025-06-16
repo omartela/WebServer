@@ -7,7 +7,7 @@ print(f"Query: {os.environ.get('QUERY_STRING', '')}")
 print(f"Query: {os.environ.get('QUERY_STRING', '')}")
 print(f"Content-Length: {os.environ.get('CONTENT_LENGTH')}")
 print(f"Content-Type: {os.environ.get('CONTENT_TYPE')}")
-print("\r\n\r\nBody:", end='')
+print("\r\n\r\n", end='')
 print(sys.stdin.read(), end='');
 print("\r\n\r\nBody:")
 with open("/tmp/cgi_was_run.txt", "a") as f:

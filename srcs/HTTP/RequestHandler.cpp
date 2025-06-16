@@ -60,74 +60,6 @@ static std::string getMimeType(const std::string& ext)
     return types.count(ext) ? types[ext] : "application/octet-stream";
 }
 
-// static std::string extractFilename(const std::string& path, int method)
-// {
-//     size_t start;
-//     if (method)
-//     {
-//         size_t start = path.find("filename=\"");
-//         if (start == std::string::npos)
-//             return "";
-//         start += 10;
-//         size_t end = path.find("\"", start);
-//         if (end == std::string::npos)
-//             return "";
-//         return path.substr(start, end - start);
-//     }
-//     else
-//     {
-//         start = path.find_last_of('/');
-//         if (start == std::string::npos)
-//             return path;
-//         return path.substr(start + 1);
-//     }
-// }
-
-// static std::string extractContent(const std::string& part)
-// {
-//     size_t start = part.find("\r\n\r\n");
-//     size_t offset = 4;
-//     if (start == std::string::npos)
-//     {
-//         start = part.find("\n\n");
-//         offset = 2;
-//     }
-//     if (start == std::string::npos)
-//         return "";
-//     size_t conStart = start + offset;
-//     size_t conEnd = part.find_last_not_of("\r\n") + 1;
-//     if (conEnd <= conStart)
-//         return "";
-//     return part.substr(conStart, conEnd - conStart);
-// }
-
-// static std::vector<std::string> split(const std::string& s, const std::string& s2)
-// {
-//     std::vector<std::string> result;
-//     size_t pos = 0;
-//     while (true)
-//     {
-//         size_t start = s.find(s2, pos);
-//         if (start == std::string::npos)
-//             break;
-//         start += s2.length();
-//         while (start < s.size() && (s[start] == '-' || s[start] == '\r' || s[start] == '\n'))
-//             start++;
-//         size_t end = s.find(s2, start);
-//         std::string part = (end == std::string::npos) ? s.substr(start) : s.substr(start, end - start);
-//         while (!part.empty() && (part[0] == '\r' || part[0] == '\n'))
-//             part.erase(0, 1);
-//         while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
-//             part.pop_back();
-//         if (!part.empty())
-//             result.push_back(part);
-//         if (end == std::string::npos)
-//             break;
-//         pos = end;
-//     }
-//     return result;
-// }
-
 HTTPResponse generateSuccessResponse(std::string body, std::string type)
 {
     HTTPResponse response(200, "OK");
@@ -206,16 +138,16 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
     std::string bound_mark = "--" + boundary;
     std::vector<std::string> parts = split(client.request.body, bound_mark);
     std::string lastPath;
-    for (std::vector<std::string>::iterator it = parts.begin(); it != parts.end(); ++it)
+    for (auto it = parts.begin(); it != parts.end(); ++it)
     {
         std::string& part = *it;
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
-        std::string disposition = part.substr(0, part.find("\r\n"));
+        /* std::string disposition = part.substr(0, part.find("\r\n"));
         if (disposition.find("filename=\"") == std::string::npos)
-            continue; 
+            continue;  */
         std::string file = extractFilename(part, 1);
-        // wslog.writeToLogFile(INFO, "File: " + file, false);
+        wslog.writeToLogFile(INFO, "File: " + file, false);
         if (file.empty())
             continue;
         std::string content = extractContent(part);
@@ -225,9 +157,9 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         if (path.back() != '/')
             path += "/";
         path += file;
-        lastPath = path;
-        //wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
-        std::ofstream out(path.c_str(), std::ios::binary);
+        lastPath = "." + path;
+        wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
+        std::ofstream out(lastPath.c_str(), std::ios::binary);
         if (!out.is_open())
         {
             wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
@@ -236,6 +168,7 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         out.write(content.c_str(), content.size());
         out.close();
     }
+    wslog.writeToLogFile(ERROR, "LastPath is " + lastPath, true);
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
         return HTTPResponse(400, "File not uploaded");
     std::string ext = getFileExtension(client.request.path);

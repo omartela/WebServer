@@ -120,7 +120,6 @@ def send_chunked_genesis(text, host='127.0.0.2', port=8004, path='/directory/tes
     response = conn.getresponse()
     print("📥 Server response:")
     print(response.status, response.reason)
-    print(response.length)
     print(response.read().decode())
     conn.close()
 

@@ -23,6 +23,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::
     this->bytesWritten = 0;
     this->bytesSent = 0;
     this->previousDataAmount = 0;
+    this->chunkBodySize = 0;
     this->erase = false;
     struct sockaddr_in clientAddress;
     socklen_t clientLen = sizeof(clientAddress);
@@ -108,6 +109,7 @@ void Client::reset()
     this->response.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->response.clear();
     this->erase = false;
     this->request = HTTPRequest();
     this->CGI = CGIHandler();
