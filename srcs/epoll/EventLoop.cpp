@@ -236,7 +236,6 @@ void EventLoop::startLoop()
             {
                 if (eventLog[i].events & EPOLLIN)
                 {
-                    //std::cout << "EPOLLIN\n";
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd));
                     
@@ -802,6 +801,7 @@ void EventLoop::checkBody(Client& client)
     if (checkMaxSize(client) == false)
     {
         client.response.push_back(HTTPResponse(413, "Payload Too Large"));
+        client.erase = true;
         client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -1068,10 +1068,9 @@ void EventLoop::handleClientSend(Client &client)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
-            wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+            wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd) + " because bytesWritten = " + std::to_string(client.bytesWritten), true);
             close(client.fd);
             clients.erase(client.fd);
-            wslog.writeToLogFile(DEBUG, "Closing client FD " + std::to_string(client.fd) + " because of bytesWritten = " + std::to_string(client.bytesWritten), true);
             return ; 
         }
         client.bytesSent += client.bytesWritten;
@@ -1089,10 +1088,9 @@ void EventLoop::handleClientSend(Client &client)
                 {
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                         throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
-                    wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+                    wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd) + " because of close header", true);
                     close(client.fd);
                     clients.erase(client.fd);
-                    wslog.writeToLogFile(DEBUG, "Closing client FD because of close header" + std::to_string(client.fd), true);
                 }
                 else
                 {
@@ -1103,13 +1101,19 @@ void EventLoop::handleClientSend(Client &client)
             }
             else if (client.request.version == "HTTP/1.0")
             {
-                client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
-                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd) + " because of http1.0", true);
                 close(client.fd);
                 clients.erase(client.fd);
-                wslog.writeToLogFile(DEBUG, "Closing client FD because of http1.1" + std::to_string(client.fd), true);
+            }
+            else if (client.erase == true)
+            {
+                if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
+                    throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::erase");
+                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd) + " because erase is true", true);
+                close(client.fd);
+                clients.erase(client.fd);
             }
             else
             {
