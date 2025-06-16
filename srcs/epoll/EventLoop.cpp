@@ -358,7 +358,7 @@ void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clien
     uint64_t tempBuffer;
     ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
     if (bytesRead != sizeof(tempBuffer))
-        throw std::runtime_error("childTimerFd recv failed");
+        wslog.writeToLogFile(DEBUG, "childTimerFd recv failed", true);
     for (auto it = clients.begin(); it != clients.end(); ++it)
     {
         auto& client = it->second;
@@ -834,7 +834,7 @@ void EventLoop::handleClientRecv(Client& client)
                     {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         client.findCorrectHost(client.headerString, client.serverInfoAll);
-                        // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, DEBUG_LOGS);
+                        wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                         client.request = HTTPRequest(client.headerString, client.serverInfo);
                         if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
                         {
@@ -906,19 +906,22 @@ void EventLoop::handleClientRecv(Client& client)
 
 static bool checkBytesSent(Client &client)
 {
-    std::string responseheader;
-    int pos;
-    pos = client.response.back().toString().find("\r\n\r\n");
-    responseheader = client.response.back().toString().substr(0, pos + 4);
-    if (client.response.back().body.empty() == false)
+    if (client.response.size() != 0)
     {
-        if ((std::stoul(client.response.back().headers["Content-Length"]) + responseheader.size() != client.bytesSent))
-            return false;
+        std::string responseheader;
+        int pos;
+        pos = client.response.back().toString().find("\r\n\r\n");
+        responseheader = client.response.back().toString().substr(0, pos + 4);
+        if (client.response.back().body.empty() == false)
+        {
+            if ((std::stoul(client.response.back().headers["Content-Length"]) + responseheader.size() > client.bytesSent))
+                return false;
+        }
+        else
+            if (client.bytesSent != responseheader.size())
+                return false;
     }
-    else
-        if (client.bytesSent != responseheader.size())
-            return false;
-
+    wslog.writeToLogFile(ERROR, "checkbytes is true", true);
     return true;
 }
 
@@ -943,7 +946,15 @@ void EventLoop::handleClientSend(Client &client)
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
                 client.response.push_back(client.CGI.generateCGIResponse());
-                //client.response.back().headers.at("Content-Length") = client.request.headers.at("Content-Length");
+                auto TE = client.request.headers.find("Transfer-Encoding");
+                if (TE != client.request.headers.end() && TE->second == "chunked")
+                {
+                    std::string responseheader;
+                    int pos;
+                    pos = client.response.back().toString().find("\r\n\r\n");
+                    responseheader = client.response.back().toString().substr(0, pos + 4);
+                    client.response.back().headers.at("Content-Length") = std::filesystem::file_size(client.CGI.tempFileName) - responseheader.size();
+                }
                 client.writeBuffer = client.response.back().toString();
             }
             else
@@ -975,7 +986,7 @@ void EventLoop::handleClientSend(Client &client)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
             close(client.fd);
             clients.erase(client.fd);
-            wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+            wslog.writeToLogFile(DEBUG, "Closing client FD " + std::to_string(client.fd) + " because of bytesWritten = " + std::to_string(client.bytesWritten), true);
             return ; 
         }
         client.bytesSent += client.bytesWritten;
@@ -983,6 +994,7 @@ void EventLoop::handleClientSend(Client &client)
         wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), DEBUG_LOGS);
         if (checkBytesSent(client) == true)
         {
+            client.response.pop_back();
             wslog.writeToLogFile(DEBUG, "Response sent", true);
             if (client.request.headers.find("Connection") != client.request.headers.end())
                 checkConnection = client.request.headers.at("Connection");
@@ -994,7 +1006,7 @@ void EventLoop::handleClientSend(Client &client)
                         throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
                     close(client.fd);
                     clients.erase(client.fd);
-                    wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+                    wslog.writeToLogFile(DEBUG, "Closing client FD because of close header" + std::to_string(client.fd), true);
                 }
                 else
                 {
@@ -1010,11 +1022,11 @@ void EventLoop::handleClientSend(Client &client)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
                 close(client.fd);
                 clients.erase(client.fd);
-                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
+                wslog.writeToLogFile(DEBUG, "Closing client FD because of http1.1" + std::to_string(client.fd), true);
             }
             else
             {
-                wslog.writeToLogFile(INFO, "Client reset", DEBUG_LOGS);
+                wslog.writeToLogFile(INFO, "Client reset", true);
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }

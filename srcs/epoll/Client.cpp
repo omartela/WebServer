@@ -107,6 +107,7 @@ void Client::reset()
     this->headerString.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->response.clear();
     this->erase = false;
     this->request = HTTPRequest();
     this->CGI = CGIHandler();
