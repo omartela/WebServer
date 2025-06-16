@@ -72,3 +72,77 @@ bool validateHeader(HTTPRequest req)
     }
     return true;
 }
+
+std::vector<std::string> split(const std::string& s, const std::string& s2)
+{
+    std::vector<std::string> result;
+    size_t pos = 0;
+    while (true)
+    {
+        size_t start = s.find(s2, pos);
+        if (start == std::string::npos)
+            break;
+        start += s2.length();
+        while (start < s.size() && (s[start] == '-' || s[start] == '\r' || s[start] == '\n'))
+            start++;
+        size_t end = s.find(s2, start);
+        std::string part = (end == std::string::npos) ? s.substr(start) : s.substr(start, end - start);
+        while (!part.empty() && (part[0] == '\r' || part[0] == '\n'))
+            part.erase(0, 1);
+        while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
+            part.pop_back();
+        if (!part.empty())
+            result.push_back(part);
+        if (end == std::string::npos)
+            break;
+        pos = end;
+    }
+    return result;
+}
+
+std::string extractFilename(const std::string& path, int method)
+{
+    size_t start;
+    if (method)
+    {
+        size_t start = path.find("filename=\"");
+        if (start == std::string::npos)
+            return "";
+        start += 10;
+        size_t end = path.find("\"", start);
+        if (end == std::string::npos)
+            return "";
+        return path.substr(start, end - start);
+    }
+    else
+    {
+        start = path.find_last_of('/');
+        if (start == std::string::npos)
+            return path;
+        return path.substr(start + 1);
+    }
+}
+
+std::string extractContent(const std::string& part)
+{
+    size_t start = part.find("\r\n\r\n");
+    size_t offset = 4;
+    if (start == std::string::npos)
+    {
+        start = part.find("\n\n");
+        offset = 2;
+    }
+    if (start == std::string::npos)
+        return "";
+    size_t conStart = start + offset;
+    size_t conEnd = part.find_last_not_of("\r\n") + 1;
+    if (conEnd <= conStart)
+        return "";
+    return part.substr(conStart, conEnd - conStart);
+}
+
+std::string getFileExtension(const std::string& path)
+{
+    size_t dot = path.find_last_of('.');
+    return (dot != std::string::npos) ? path.substr(dot) : "";
+}

@@ -57,7 +57,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 HTTPResponse CGIHandler::generateCGIResponse()
 {
 	std::string::size_type end = output.find("\r\n\r\n");
-    wslog.writeToLogFile(DEBUG, output.substr(0, 100), DEBUG_LOGS);
+    // wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
 	if (end == std::string::npos)
 		return HTTPResponse(500, "Invalid CGI output");
 	std::string headers = output.substr(0, end);
@@ -74,7 +74,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 		if (colon != std::string::npos)
 			res.headers[line.substr(0, colon)] = line.substr(colon + 2);
 	}
-	res.headers["Content-Length"] = std::to_string(res.body.size());
+	// res.headers["Content-Length"] = std::to_string(res.body.size());
 	return res;
 }
 
@@ -94,7 +94,7 @@ void CGIHandler::writeBodyToChild(HTTPRequest& request)
     int written = write(writeCGIPipe[1], request.body.c_str(), request.body.size());
     if (written > 0) 
         request.body = request.body.substr(written);
-    wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), DEBUG_LOGS);
+    // wslog.writeToLogFile(INFO, "Written to child pipe: " + std::to_string(written), true);
     if (request.body.empty() == true)
 	{
         close(writeCGIPipe[1]);

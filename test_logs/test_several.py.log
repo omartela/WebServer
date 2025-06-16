@@ -4,11 +4,11 @@ platform linux -- Python 3.10.12, pytest-8.4.0, pluggy-1.6.0
 rootdir: /home/omartela/hive-projects/WebServer
 plugins: asyncio-1.0.0
 asyncio: mode=strict, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 17 items
+collected 18 items
 
-tests/cgitest/test_several.py .................                          [100%]
+tests/cgitest/test_several.py ..................                         [100%]
 
-============================== 17 passed in 2.15s ==============================
+============================== 18 passed in 9.08s ==============================
 ----- End of output for ./tests/cgitest/test_several.py -----
 
 

@@ -1,12 +1,6 @@
 ----- Output from ./tests/cgitest/chunked_test.py -----
 Received response from server:
-HTTP/1.1 200 OK
-Content-Length: 16
-Content-Type: text/plain
-Method: POST
-Query: 
 
-Body:Hello World
 ----- End of output for ./tests/cgitest/chunked_test.py -----
 
 
