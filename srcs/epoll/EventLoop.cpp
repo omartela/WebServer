@@ -144,10 +144,13 @@ static void handleErrorMessages(std::string errorMessage, std::map<int, Client>&
 void EventLoop::startLoop()
 {
     wslog.writeToLogFile(INFO, "Webserver ready", true);
+    // int n = 0;
     while (signum == 0)
     {
         // print_fd_flags(timerFD);
         int nReady = epoll_wait(loop, eventLog.data(), MAX_CONNECTIONS, -1);
+        // std::cout << "iteration: " << n << std::endl;
+        // n++;
         if (nReady == -1)
         {
             if (errno == EINTR)
@@ -224,7 +227,7 @@ void EventLoop::startLoop()
             }
             else if (fd == childTimerFD)
             {
-                wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", DEBUG_LOGS);
+                wslog.writeToLogFile(INFO, "Calling checkChildrenStatus", true);
                 wslog.writeToLogFile(INFO, "Number of children = " + std::to_string(this->nChildren), DEBUG_LOGS);
                 checkChildrenStatus();
                 if (nChildren == 0)
@@ -358,7 +361,8 @@ void EventLoop::checkChildrenStatus()//int timerFd, std::map<int, Client>& clien
     uint64_t tempBuffer;
     ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer)); //reading until childtimerfd event stops
     if (bytesRead != sizeof(tempBuffer))
-        throw std::runtime_error("childTimerFd recv failed");
+        wslog.writeToLogFile(ERROR, "childTimerFd read failed", DEBUG_LOGS);
+    //throw std::runtime_error("childTimerFd read failed");
     for (auto it = clients.begin(); it != clients.end(); ++it)
     {
         auto& client = it->second;
@@ -806,7 +810,6 @@ void EventLoop::handleClientRecv(Client& client)
                 {
                     if (client.bytesRead == 0)
                         wslog.writeToLogFile(INFO, "Client disconnected FD" + std::to_string(client.fd), DEBUG_LOGS);
-                    // client.erase = true;
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     {
                         std::cout << "errno = " << errno << std::endl;
@@ -828,7 +831,7 @@ void EventLoop::handleClientRecv(Client& client)
                     {
                         client.headerString = client.rawReadData.substr(0, headerEnd + 4);
                         client.findCorrectHost(client.headerString, client.serverInfoAll);
-                        // wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, DEBUG_LOGS);
+                        wslog.writeToLogFile(DEBUG, "Header: " + client.headerString, true);
                         client.request = HTTPRequest(client.headerString, client.serverInfo);
                         if (validateHeader(client.request) == false || validateRequestMethod(client) == false)
                         {
@@ -900,19 +903,23 @@ void EventLoop::handleClientRecv(Client& client)
 
 static bool checkBytesSent(Client &client)
 {
-    std::string responseheader;
+    std::string responseHeader;
     int pos;
     pos = client.response.back().toString().find("\r\n\r\n");
-    responseheader = client.response.back().toString().substr(0, pos + 4);
+    responseHeader = client.response.back().toString().substr(0, pos + 4);
     if (client.response.back().body.empty() == false)
     {
-        if ((std::stoul(client.response.back().headers["Content-Length"]) + responseheader.size() != client.bytesSent))
+        // std::cout << "header size = " << responseHeader.size() << std::endl;
+        // std::cout << "body size = " << std::stoul(client.response.back().headers["Content-Length"]) << std::endl;
+        // std::cout << "bytes sent = " << client.bytesSent << std::endl;
+        if ((std::stoul(client.response.back().headers["Content-Length"]) + responseHeader.size() > client.bytesSent))
             return false;
     }
     else
-        if (client.bytesSent != responseheader.size())
+        if (client.bytesSent != responseHeader.size())
             return false;
 
+    //std::cout << "ALL BYTES SENT\n";
     return true;
 }
 
@@ -961,7 +968,7 @@ void EventLoop::handleClientSend(Client &client)
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
+        wslog.writeToLogFile(INFO, "Message sent: " + client.writeBuffer, DEBUG_LOGS);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
