@@ -1,6 +1,5 @@
 #pragma once
 
-// #include "timeout.hpp"
 #include "HTTPResponse.hpp"
 #include "Logger.hpp"
 #include "RequestHandler.hpp"
@@ -31,6 +30,7 @@
 #define TIMEOUT 60
 #define CHILD_CHECK 1
 #define DEFAULT_MAX_HEADER_SIZE 8192
+#define DEBUG_LOGS false
 
 class EventLoop
 {
@@ -49,6 +49,7 @@ class EventLoop
         struct itimerspec timerValues;
         pid_t pid;
         std::string checkConnection;
+        std::vector<int> usedFDs;
 
         EventLoop(std::vector<ServerConfig> serverConfigs);
         bool validateRequestMethod(Client &client);

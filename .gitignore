@@ -8,4 +8,5 @@ mime_type.py
 ubuntu_cgi_tester
 ubuntu_tester
 actual.txt
-expected.text
+expected.txt
+test_logs/

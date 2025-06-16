@@ -22,6 +22,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->previousDataAmount = 0;
+    this->chunkBodySize = 0;
     this->erase = false;
     struct sockaddr_in clientAddress;
     socklen_t clientLen = sizeof(clientAddress);
@@ -31,7 +32,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::
         if (errno == EMFILE) //max fds reached
         {
             int oldFd = findOldestClient(clients);
-            std::cout << "--------------------------------------------CLOSING CLIENT FD" << oldFd << " PREMATURELY!--------------------------------------------" << std::endl;
+            wslog.writeToLogFile(INFO, "---CLOSING CLIENT FD" + std::to_string(oldFd) + " PREMATURELY!---", DEBUG_LOGS);
             if (oldFd != 0)
             {
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, oldFd, nullptr) < 0)
@@ -106,6 +107,7 @@ void Client::reset()
     this->headerString.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->response.clear();
     this->erase = false;
     this->request = HTTPRequest();
     this->CGI = CGIHandler();

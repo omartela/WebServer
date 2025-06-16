@@ -46,7 +46,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	for (size_t i = 0; i < envVariables.size(); i++)
 	{
 		envArray[i] = (char *)envVariables.at(i).c_str();
-		//wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), true);
+		//wslog.writeToLogFile(DEBUG, "CGIHandler::setEnvValues envArray[" + std::to_string(i) + "] = " + envVariables.at(i), DEBUG_LOGS);
 	}
 	envArray[envVariables.size()] = NULL;
 	exceveArgs[0] = (char *)server.routes.at(request.location).cgiexecutable.c_str();
@@ -56,7 +56,6 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 
 HTTPResponse CGIHandler::generateCGIResponse()
 {
-	// std::cout << "GENERATING CGI RESPONSE\n";
 	std::string::size_type end = output.find("\r\n\r\n");
     // wslog.writeToLogFile(DEBUG, output.substr(0, 100), true);
 	if (end == std::string::npos)
@@ -75,7 +74,7 @@ HTTPResponse CGIHandler::generateCGIResponse()
 		if (colon != std::string::npos)
 			res.headers[line.substr(0, colon)] = line.substr(colon + 2);
 	}
-	res.headers["Content-Length"] = std::to_string(res.body.size());
+	// res.headers["Content-Length"] = std::to_string(res.body.size());
 	return res;
 }
 
@@ -86,8 +85,8 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
         output.append(buffer, n);
-    // wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", true);
-	// wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), true);
+    //wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", DEBUG_LOGS);
+	//wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), DEBUG_LOGS);
 }
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)

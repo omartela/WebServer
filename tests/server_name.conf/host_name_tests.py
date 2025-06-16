@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import socket
-import time
 
 HOST = '127.0.0.2'
 HOST_NAME = 'dads.com'
@@ -53,8 +52,6 @@ def run():
     print("\n🔽 Response:")
     print(response_data.decode(errors="replace"))
 
-    time.sleep(1)
-
     print("\n\n\n---2ND TEST with dads.fi---")
     response_data = b""
     with socket.create_connection((HOST, PORT)) as sock:
@@ -72,8 +69,6 @@ def run():
     print("\n🔽 Response:")
     print(response_data.decode(errors="replace"))
 
-    time.sleep(1)
-
     print("\n\n\n---3RD TEST with dads.hu---")
     response_data = b""
     with socket.create_connection((HOST, PORT)) as sock:
@@ -90,8 +85,6 @@ def run():
     print(f"\n✅ Final total received: {total / 1024:.1f} KB")
     print("\n🔽 Response:")
     print(response_data.decode(errors="replace"))
-
-    time.sleep(1)
 
     print("\n\n\n---4TH TEST with no host---")
     response_data = b""
