@@ -335,12 +335,12 @@ void EventLoop::createErrorResponse(Client &client, int code, std::string msg, s
 {
     client.response.push_back(HTTPResponse(code, msg));
     client.writeBuffer = client.response.back().toString();
-    client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+    client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
     wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + logMsg, DEBUG_LOGS);
     closeClient(client.fd);
 }
 
-void EventLoop::closeClient(int fd)//Client& client, std::map<int, Client>& clients, int& children, int loop)
+void EventLoop::closeClient(int fd)
 {
     if (epoll_ctl(loop, EPOLL_CTL_DEL, fd, nullptr) < 0)
         throw std::runtime_error("timeout epoll_ctl DEL failed in closeClient");
@@ -798,7 +798,7 @@ void EventLoop::checkBody(Client& client)
     if (checkMaxSize(client) == false)
     {
         client.response.push_back(HTTPResponse(413, "Payload Too Large"));
-        client.writeBuffer = client.response.back().body;
+        client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
@@ -984,10 +984,8 @@ void EventLoop::handleClientRecv(Client& client)
 
 static bool checkBytesSent(Client &client)
 {
-    std::string responseHeader;
-    int pos;
-    pos = client.response.back().toString().find("\r\n\r\n");
-    responseHeader = client.response.back().toString().substr(0, pos + 4);
+    int pos = client.response.back().toString().find("\r\n\r\n");
+    std::string responseHeader = client.response.back().toString().substr(0, pos + 4);
     if (client.response.back().body.empty() == false)
     {
         // std::cout << "header size = " << responseHeader.size() << std::endl;
@@ -1000,7 +998,7 @@ static bool checkBytesSent(Client &client)
         if (client.bytesSent != responseHeader.size())
             return false;
 
-    //std::cout << "ALL BYTES SENT\n";
+    // std::cout << "ALL BYTES SENT\n";
     return true;
 }
 
@@ -1049,14 +1047,14 @@ void EventLoop::handleClientSend(Client &client)
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
-        wslog.writeToLogFile(INFO, "Message sent: " + client.writeBuffer, DEBUG_LOGS);
+        wslog.writeToLogFile(INFO, "Message sent: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                 throw std::runtime_error("check connection epoll_ctl DEL failed in SEND");
+            wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
             close(client.fd);
             clients.erase(client.fd);
-            wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
             return ; 
         }
         client.bytesSent += client.bytesWritten;
@@ -1073,9 +1071,9 @@ void EventLoop::handleClientSend(Client &client)
                 {
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                         throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::close");
+                    wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
                     close(client.fd);
                     clients.erase(client.fd);
-                    wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
                 }
                 else
                 {
@@ -1089,9 +1087,9 @@ void EventLoop::handleClientSend(Client &client)
                 client.erase = true;
                 if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                     throw std::runtime_error("check connection epoll_ctl DEL failed in SEND::http");
+                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
                 close(client.fd);
                 clients.erase(client.fd);
-                wslog.writeToLogFile(DEBUG, "Closing client FD" + std::to_string(client.fd), true);
             }
             else
             {
