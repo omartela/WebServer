@@ -906,14 +906,19 @@ void EventLoop::handleClientRecv(Client& client)
 
 static bool checkBytesSent(Client &client)
 {
-     if (client.response.back().body.empty() == false)
-     {
-        if ((std::stoul(client.response.back().headers["Content-Length"]) + client.headerString.size() != client.bytesSent))
+    std::string responseheader;
+    int pos;
+    pos = client.response.back().toString().find("\r\n\r\n");
+    responseheader = client.response.back().toString().substr(0, pos + 4);
+    if (client.response.back().body.empty() == false)
+    {
+        if ((std::stoul(client.response.back().headers["Content-Length"]) + responseheader.size() != client.bytesSent))
             return false;
-     }
-     else
-        if (client.bytesSent != client.headerString.size())
+    }
+    else
+        if (client.bytesSent != responseheader.size())
             return false;
+
     return true;
 }
 
@@ -959,12 +964,11 @@ void EventLoop::handleClientSend(Client &client)
                 client.CGI.readCGIPipe[1] = -1;
             }
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-            //wslog.writeToLogFile(DEBUG, "Bytes SENT " + std::to_string(client.bytesWritten), DEBUG_LOGS);
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-        wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), DEBUG_LOGS);
-        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, DEBUG_LOGS);
+        wslog.writeToLogFile(INFO, "Bytes sent = " + std::to_string(client.bytesWritten), true);
+        wslog.writeToLogFile(INFO, "Message send: " + client.writeBuffer, true);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -977,7 +981,7 @@ void EventLoop::handleClientSend(Client &client)
         client.bytesSent += client.bytesWritten;
         client.writeBuffer.erase(0, client.bytesWritten);
         wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), DEBUG_LOGS);
-        if (checkBytesSent(client))
+        if (checkBytesSent(client) == true)
         {
             wslog.writeToLogFile(DEBUG, "Response sent", true);
             if (client.request.headers.find("Connection") != client.request.headers.end())
@@ -994,7 +998,7 @@ void EventLoop::handleClientSend(Client &client)
                 }
                 else
                 {
-                    // wslog.writeToLogFile(INFO, "Client reset", DEBUG_LOGS);
+                    wslog.writeToLogFile(INFO, "Client reset", DEBUG_LOGS);
                     client.reset();
                     toggleEpollEvents(client.fd, loop, EPOLLIN);
                 }
@@ -1010,7 +1014,7 @@ void EventLoop::handleClientSend(Client &client)
             }
             else
             {
-                // wslog.writeToLogFile(INFO, "Client reset", DEBUG_LOGS);
+                wslog.writeToLogFile(INFO, "Client reset", DEBUG_LOGS);
                 client.reset();
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
