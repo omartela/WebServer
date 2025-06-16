@@ -34,7 +34,6 @@ class HTTPRequest
         bool isCGI;
         bool multipart;
         bool validHostName;
-        bool multipart;
         HTTPRequest();
         HTTPRequest(std::string headers, ServerConfig server);
 };
