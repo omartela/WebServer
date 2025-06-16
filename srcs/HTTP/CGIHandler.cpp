@@ -85,8 +85,8 @@ void CGIHandler::collectCGIOutput(int childReadPipeFd)
     int n = read(childReadPipeFd, buffer, sizeof(buffer));
     if (n > 0)
         output.append(buffer, n);
-    //wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", DEBUG_LOGS);
-	//wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), DEBUG_LOGS);
+    wslog.writeToLogFile(INFO, "Collected " + std::to_string(n) + " bytes from the child process", DEBUG_LOGS);
+	wslog.writeToLogFile(INFO, "Size of output = " + std::to_string(output.length()), DEBUG_LOGS);
 }
 
 void CGIHandler::writeBodyToChild(HTTPRequest& request)
