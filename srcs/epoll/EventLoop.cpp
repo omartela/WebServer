@@ -191,7 +191,6 @@ void EventLoop::startLoop()
             {
                 try {
                     struct epoll_event setup { };
-                    //Client newClient(loop, fd, clients, servers[fd].front());
                     Client newClient(loop, fd, clients, servers[fd]);
                     auto result =  clients.emplace(newClient.fd, std::move(newClient));
                     if (!result.second)
@@ -885,6 +884,7 @@ void EventLoop::handleClientRecv(Client& client)
             case READ:
             {
                 client.bytesRead = 0;
+                client.bytesSent = 0;
                 char buffer[READ_BUFFER_SIZE];
                 client.bytesRead = recv(client.fd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
                 wslog.writeToLogFile(INFO, "Bytes read = " + std::to_string(client.bytesRead), DEBUG_LOGS);
@@ -897,10 +897,8 @@ void EventLoop::handleClientRecv(Client& client)
                         std::cout << "errno = " << errno << std::endl;
                         throw std::runtime_error("epoll_ctl DEL failed in READ");
                     }
-                    if (client.fd != -1)
-                        close(client.fd);
+                    close(client.fd);
                     clients.erase(client.fd);
-                    client.fd = -1;
                     return ;
                 }
                 buffer[client.bytesRead] = '\0';
@@ -1059,7 +1057,7 @@ void EventLoop::handleClientSend(Client &client)
         }
         client.bytesSent += client.bytesWritten;
         client.writeBuffer.erase(0, client.bytesWritten);
-        wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), DEBUG_LOGS);
+        wslog.writeToLogFile(INFO, "Remaining to send = " + std::to_string(client.writeBuffer.size()), true);
         if (checkBytesSent(client) == true)
         {
             wslog.writeToLogFile(DEBUG, "Response sent", true);
