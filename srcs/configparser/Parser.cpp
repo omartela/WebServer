@@ -133,7 +133,7 @@ void Parser::parseIndexDirective(const std::string& line, Route& route)
 
 void Parser::parseAutoIndexDirective(const std::string& line, Route& route)
 {
-    size_t pos = line.find("autoindex ");
+    size_t pos = line.find("autoindex ") + 10; //skip "autoindex "
     size_t end_pos = line.find(";");
     std::string onoff = line.substr(pos, end_pos - pos);
     if (onoff.compare("off") == 0)

@@ -202,24 +202,35 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         return HTTPResponse(404, "Not Found");
     }
     bool isDir = S_ISDIR(s.st_mode);
-    if (isDir && !client.serverInfo.routes[client.request.location].index_file.empty())
+    if (isDir == true)
     {
-        fullPath = joinPaths(fullPath, client.serverInfo.routes[client.request.location].index_file);
-        std::ifstream file(fullPath.c_str(), std::ios::binary);
-        if (!file.is_open())
+        if (!client.serverInfo.routes.at(client.request.location).index_file.empty())
         {
-            wslog.writeToLogFile(ERROR, "404, Not Found", false);
-            return HTTPResponse(404, "Not Found");
+            fullPath = joinPaths(fullPath, client.serverInfo.routes.at(client.request.location).index_file);
+            std::ifstream file(fullPath.c_str(), std::ios::binary);
+            if (!file.is_open())
+            {
+                wslog.writeToLogFile(ERROR, "404, Not Found", false);
+                return HTTPResponse(404, "Not Found");
+            }
+            std::ostringstream content;
+            content << file.rdbuf();
+            file.close();
+            std::string ext = getFileExtension(fullPath);
+            wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
+            return generateSuccessResponse(content.str(), getMimeType(ext));
         }
-        std::ostringstream content;
-        content << file.rdbuf();
-        file.close();
-        std::string ext = getFileExtension(fullPath);
-        wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
-        return generateSuccessResponse(content.str(), getMimeType(ext));
+        else
+        {
+            if (client.serverInfo.routes.at(client.request.location).autoindex)
+                return generateIndexListing(fullPath, client.request.location);
+            else
+            {
+                wslog.writeToLogFile(ERROR, "404, Not Found", false);
+                return HTTPResponse(404, "Not Found");
+            }
+        }
     }
-    if (isDir && !client.serverInfo.routes[client.request.location].autoindex && client.serverInfo.routes[client.request.location].index_file.empty())
-        return generateIndexListing(fullPath, client.request.location);
     std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
     {
@@ -270,7 +281,7 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     for (size_t i = 0; i < client.request.file.size(); i++)
     {
         if (isspace(client.request.file[i]))
-            return HTTPResponse(403, "Whitespace in filename");
+            return HTTPResponse(403, "Whitespace in file name");
     }
     std::string fullPath = "." + joinPaths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
     wslog.writeToLogFile(DEBUG, "location is " + client.request.location, DEBUG_LOGS);
