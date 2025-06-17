@@ -1,13 +1,10 @@
 #pragma once
-#include <string>
-#include <vector>
+
 #include <map>
-#include <optional>
-#include <iostream>
-#include <fstream>
 #include <regex>
-#include <filesystem>
-#include <unistd.h>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
 #define DEFAULT_MAX_BODY_SIZE 1000000 //1MB
 #define DEBUG_LOGS false
@@ -23,8 +20,8 @@ Koodi | Nimi | Käyttötarkoitus
 
 struct Redirect 
 {
-    int status_code;              // Status koodi redirectionille
-    std::string target_url;       // Esim. url uuteen osoitteeseen esim /new
+    int status_code;
+    std::string target_url;
 };
 
 struct Route

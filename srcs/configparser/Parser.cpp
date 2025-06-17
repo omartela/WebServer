@@ -1,6 +1,10 @@
 #include "Parser.hpp"
 #include "Logger.hpp"
-#include <unordered_set>
+#include <fstream>
+#include <stack>
+#include <filesystem>
+#include <iostream>
+
 
 Parser::Parser(const std::string& config_file)
 {
@@ -629,7 +633,7 @@ bool Parser::parseConfigFile(const std::string& config_file)
         if (line.find("server {") != std::string::npos)
         {
             bool maxBodySizeSet = false;
-            ServerConfig server_config { };
+            ServerConfig server_config{};
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
                 trimLeadingAndTrailingSpaces(line);

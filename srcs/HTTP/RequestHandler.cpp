@@ -1,4 +1,19 @@
 #include "RequestHandler.hpp"
+#include "utils.hpp"
+#include "Logger.hpp"
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+#include <map>
+#include <vector>
+#include <cstdio>
+#include <iostream>
+#include <filesystem>
+#include <dirent.h>
 
 void printRequest(const HTTPRequest &req)
 {
@@ -67,11 +82,14 @@ HTTPResponse generateSuccessResponse(std::string body, std::string type)
     return response;
 }
 
-static HTTPResponse generateIndexListing(std::string fullPath, std::string location)
+static HTTPResponse generateIndexListing(std::string fullPath, std::string location, Client &client)
 {
     DIR* dir = opendir(fullPath.c_str());
     if (!dir)
-        return HTTPResponse(500, "Failed to open directory");
+    {
+        wslog.writeToLogFile(ERROR, "500 Failed to open directory", DEBUG_LOGS);
+        return HTTPResponse(500, "Failed to open directory", client.serverInfo.error_pages);
+    }
     std::stringstream html;
     html << "<html><head><title>" << location << "</title></head><body>\n";
     html << "<h1 style=\"font-family:sans-serif\">" << location << "</h1><ul>\n";
@@ -108,22 +126,31 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
     }
     html << "</table></body></html>\n";
     closedir(dir);
-    wslog.writeToLogFile(INFO, "GET Index listing successful", false);
+    wslog.writeToLogFile(INFO, "GET Index listing successful", DEBUG_LOGS);
     return generateSuccessResponse(html.str(), "text/html");
 }
 
 HTTPResponse RequestHandler::handleMultipart(Client& client)
 {
     if (client.request.headers.count("Content-Type") == 0)
-        return HTTPResponse(400, "Missing Content-Type");
+    {
+        wslog.writeToLogFile(ERROR, "400 Missing Content-Type", DEBUG_LOGS);
+        return HTTPResponse(400, "Missing Content-Type", client.serverInfo.error_pages);
+    }
     auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
-        return HTTPResponse(400, "Invalid headers");
+    {
+        wslog.writeToLogFile(ERROR, "400 Invalid headers", DEBUG_LOGS);
+        return HTTPResponse(400, "Invalid headers", client.serverInfo.error_pages);
+    }
     std::string boundary;
     std::string::size_type pos = ct.find("boundary=");
     if (pos == std::string::npos)
+    {
+        wslog.writeToLogFile(ERROR, "400 No boundary", DEBUG_LOGS);
         return HTTPResponse (400, "No boundary");
+    }
     boundary = ct.substr(pos + 9);
     if (!boundary.empty() && boundary[0] == '"')
         boundary = boundary.substr(1, boundary.find('"', 1) - 1);
@@ -136,7 +163,6 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
         std::string file = extractFilename(part, 1);
-        wslog.writeToLogFile(INFO, "File: " + file, false);
         if (file.empty())
             continue;
         std::string content = extractContent(part);
@@ -146,50 +172,54 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
             path += "/";
         path += file;
         lastPath = "." + path;
-        wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
         std::ofstream out(lastPath.c_str(), std::ios::binary);
         if (!out.is_open())
         {
-            wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
-            return HTTPResponse(500, "Failed to open file for writing");
+            wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
+            return HTTPResponse(500, "Failed to open file for writing", client.serverInfo.error_pages);
         }
         out.write(content.c_str(), content.size());
         out.close();
     }
-    wslog.writeToLogFile(ERROR, "LastPath is " + lastPath, true);
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
-        return HTTPResponse(400, "File not uploaded");
+    {
+        wslog.writeToLogFile(ERROR, "400 File not uploaded", DEBUG_LOGS);
+        return HTTPResponse(400, "File not uploaded", client.serverInfo.error_pages);
+    }
     std::string ext = getFileExtension(client.request.path);
-    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", DEBUG_LOGS);
     return generateSuccessResponse("File(s) uploaded successfully\n", getMimeType(ext));
 }
 
 HTTPResponse RequestHandler::handlePOST(Client& client, std::string fullPath)
 {
     if (client.request.headers.count("Content-Type") == 0)
-        return HTTPResponse(400, "Missing Content-Type");
+    {
+        wslog.writeToLogFile(ERROR, "400 Missing Content-Type", DEBUG_LOGS);
+        return HTTPResponse(400, "Missing Content-Type", client.serverInfo.error_pages);
+    }
     if (client.request.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
         return handleMultipart(client);
     std::ofstream out(fullPath.c_str(), std::ios::binary);
     if (!out.is_open())
     {
-        wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", false);
-        return HTTPResponse(500, "Failed to open file for writing");
+        wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
+        return HTTPResponse(500, "Failed to open file for writing", client.serverInfo.error_pages);
     }
     out.write(client.request.body.c_str(), client.request.body.size());
     out.close();
     if (access(fullPath.c_str(), R_OK) != 0)
     {
-        wslog.writeToLogFile(ERROR, "400 File not uploaded", false);
-        return HTTPResponse(400, "File not uploaded");
+        wslog.writeToLogFile(ERROR, "400 File not uploaded", DEBUG_LOGS);
+        return HTTPResponse(400, "File not uploaded", client.serverInfo.error_pages);
     }
     if (client.request.file.empty())
     {
-        wslog.writeToLogFile(ERROR, "400 Bad request", false);
-        return HTTPResponse(400, "Bad request");
+        wslog.writeToLogFile(ERROR, "400 Bad request", DEBUG_LOGS);
+        return HTTPResponse(400, "Bad request", client.serverInfo.error_pages);
     }
     std::string ext = getFileExtension(client.request.path);
-    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", false);
+    wslog.writeToLogFile(INFO, "POST File(s) uploaded successfully", DEBUG_LOGS);
     return generateSuccessResponse("File(s) uploaded successfully\n", getMimeType(ext));
 }
 
@@ -198,8 +228,8 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     struct stat s;
     if (stat(fullPath.c_str(), &s) != 0 || access(fullPath.c_str(), R_OK) != 0)
     {
-        wslog.writeToLogFile(ERROR, "404 Not Found", false);
-        return HTTPResponse(404, "Not Found");
+        wslog.writeToLogFile(ERROR, "404 Not Found", DEBUG_LOGS);
+        return HTTPResponse(404, "Not Found", client.serverInfo.error_pages);
     }
     bool isDir = S_ISDIR(s.st_mode);
     if (isDir == true)
@@ -223,7 +253,7 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
         else
         {
             if (client.serverInfo.routes.at(client.request.location).autoindex)
-                return generateIndexListing(fullPath, client.request.location);
+                return generateIndexListing(fullPath, client.request.location, client);
             else
             {
                 wslog.writeToLogFile(ERROR, "404, Not Found", false);
@@ -234,26 +264,24 @@ HTTPResponse RequestHandler::handleGET(Client& client, std::string fullPath)
     std::ifstream file(fullPath.c_str(), std::ios::binary);
     if (!file.is_open())
     {
-        wslog.writeToLogFile(ERROR, "500 Internal Server Error", false);
-        return HTTPResponse(500, "Internal Server Error");
+        wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
+        return HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages);
     }
     std::ostringstream content;
     content << file.rdbuf();
     file.close();
     std::string ext = getFileExtension(fullPath);
-    wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", false);
+    wslog.writeToLogFile(INFO, "GET File(s) downloaded successfully", DEBUG_LOGS);
     return generateSuccessResponse(content.str(), getMimeType(ext));
 }
 
-HTTPResponse RequestHandler::handleDELETE(std::string fullPath)
+HTTPResponse RequestHandler::handleDELETE(std::string fullPath, std::map<int, std::string> error_pages)
 {
-    if (fullPath.find("..") != std::string::npos)
-        return HTTPResponse(403, "Forbidden");
     if (access(fullPath.c_str(), F_OK) != 0)
-        return HTTPResponse(404, "Not Found");
+        return HTTPResponse(404, "Not Found", error_pages);
     if (remove(fullPath.c_str()) != 0)
-        return HTTPResponse(500, "Delete Failed");
-    wslog.writeToLogFile(INFO, "DELETE File deleted successfully", false);
+        return HTTPResponse(500, "Delete Failed", error_pages);
+    wslog.writeToLogFile(INFO, "DELETE File deleted successfully", DEBUG_LOGS);
     return generateSuccessResponse("File deleted successfully\n", "text/plain");
 }
 
@@ -281,16 +309,14 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     for (size_t i = 0; i < client.request.file.size(); i++)
     {
         if (isspace(client.request.file[i]))
-            return HTTPResponse(403, "Whitespace in file name");
+            return HTTPResponse(403, "Whitespace in filename", client.serverInfo.error_pages);
+    }
+    if (client.request.path.find("..") != std::string::npos)
+    {
+        wslog.writeToLogFile(ERROR, "403 Forbidden", DEBUG_LOGS);
+        return HTTPResponse(403, "Forbidden", client.serverInfo.error_pages);
     }
     std::string fullPath = "." + joinPaths(client.serverInfo.routes[client.request.location].abspath, client.request.file);
-    wslog.writeToLogFile(DEBUG, "location is " + client.request.location, DEBUG_LOGS);
-    wslog.writeToLogFile(DEBUG, "Request handler fullpath is " + fullPath, DEBUG_LOGS);
-    if (fullPath.find("..") != std::string::npos)
-    {
-        wslog.writeToLogFile(ERROR, "403 Forbidden", false);
-        return HTTPResponse(403, "Forbidden");
-    }
     bool validFile = false;
     try
     {
@@ -299,14 +325,17 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
     catch(const std::exception& e)
     {
         wslog.writeToLogFile(ERROR, "Invalid file name", DEBUG_LOGS);
-        return HTTPResponse(404, "Invalid file name");
+        return HTTPResponse(404, "Invalid file name", client.serverInfo.error_pages);
     }
     if (!validFile)
-        return HTTPResponse(404, "Invalid file");
+    {
+        wslog.writeToLogFile(ERROR, "Invalid file", DEBUG_LOGS);
+        return HTTPResponse(404, "Invalid file", client.serverInfo.error_pages);
+    }
     if (fullPath != "." && std::filesystem::is_regular_file(fullPath) == false && std::filesystem::is_directory(fullPath) && fullPath.back() != '/')
         return redirectResponse(client.request.file);
     if (!isAllowedMethod(client.request.method, client.serverInfo.routes[client.request.location]))
-        return HTTPResponse(405, "Method not allowed");
+        return HTTPResponse(405, "Method not allowed", client.serverInfo.error_pages);
     switch (client.request.eMethod)
     {
         case GET:
@@ -314,8 +343,8 @@ HTTPResponse RequestHandler::handleRequest(Client& client)
         case POST:
             return handlePOST(client, fullPath);
         case DELETE:
-            return handleDELETE(fullPath);
+            return handleDELETE(fullPath, client.serverInfo.error_pages);
         default:
-            return HTTPResponse(501, "Not Implemented");
+            return HTTPResponse(501, "Not Implemented", client.serverInfo.error_pages);
     }
 }

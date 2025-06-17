@@ -1,30 +1,14 @@
 #pragma once
 
-#include "HTTPResponse.hpp"
-#include "Logger.hpp"
-#include "RequestHandler.hpp"
-#include "CGIHandler.hpp"
-#include "Logger.hpp"
-#include "Parser.hpp"
-#include "Client.hpp"
-#include "utils.hpp"
-#include <algorithm>
-#include <csignal>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <netdb.h>
-#include <netinet/in.h>
+
+#include <string>
 #include <map>
-#include <queue>
-#include <stdexcept>
-#include <sys/epoll.h>
-#include <sys/eventfd.h>
-#include <sys/timerfd.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <vector>
+#include <sys/epoll.h>
+
+#include "Client.hpp"
+#include "Parser.hpp"
+#include "Logger.hpp"
 
 #define MAX_CONNECTIONS 1024
 #define TIMEOUT 60
