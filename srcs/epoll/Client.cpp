@@ -21,6 +21,7 @@ Client::Client(int loop, int serverSocket, std::map<int, Client>& clients, std::
     this->state = IDLE;
     this->bytesRead = 0;
     this->bytesWritten = 0;
+    this->bytesSent = 0;
     this->previousDataAmount = 0;
     this->chunkBodySize = 0;
     this->erase = false;
@@ -105,6 +106,7 @@ void Client::reset()
     this->previousDataAmount = 0;
     this->writeBuffer.clear();
     this->headerString.clear();
+    this->response.clear();
     this->bytesRead = 0;
     this->bytesWritten = 0;
     this->response.clear();

@@ -41,8 +41,8 @@ class EventLoop
         int loop;
         int status;
         bool timerOn;
+        
         std::map<int, std::vector<ServerConfig>> servers;
-        //std::map<int, ServerConfig> servers;
         std::map<int, Client> clients;
         int serverSocket;
         std::vector<epoll_event> eventLog;
@@ -55,8 +55,8 @@ class EventLoop
         bool validateRequestMethod(Client &client);
         void startLoop();
         void setTimerValues(int n);
-        void checkTimeouts();//int timerFd, std::map<int, Client>& clients, int& children, int loop);
-        void closeClient(int fd);//Client& client, std::map<int, Client>& clients, int& children, int loop);
+        void checkTimeouts();
+        void closeClient(int fd);
         void createErrorResponse(Client &client, int code, std::string msg, std::string logMsg);
         void handleClientRecv(Client& client);
         void handleClientSend(Client &client);
