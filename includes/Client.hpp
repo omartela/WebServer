@@ -1,22 +1,12 @@
 #pragma once
 
-#include "Parser.hpp"
-#include "Enums.hpp"
+#include "CGIHandler.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPRequest.hpp"
-#include "CGIHandler.hpp"
-#include <netinet/in.h>
-#include <vector>
-#include <map>
+#include "Parser.hpp"
 #include <string>
-#include <cstring>
-#include <sstream>
+#include <vector>
 #include <chrono>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/timerfd.h>
-#include <sys/eventfd.h>
-#include <sys/stat.h>
 
 #define READ_BUFFER_SIZE 8192
 
@@ -28,7 +18,7 @@ enum connectionStates {
 };
 
 class Client {
-    public:  //change all these to private? fix later
+    public:
         int fd;
         std::chrono::steady_clock::time_point timestamp;
         enum connectionStates state;

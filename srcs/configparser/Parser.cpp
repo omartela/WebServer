@@ -1,6 +1,10 @@
 #include "Parser.hpp"
 #include "Logger.hpp"
-#include <unordered_set>
+#include <fstream>
+#include <stack>
+#include <filesystem>
+#include <iostream>
+
 
 Parser::Parser(const std::string& config_file)
 {
@@ -625,32 +629,15 @@ bool Parser::parseConfigFile(const std::string& config_file)
         {
             bool maxBodySizeSet = false;
             ServerConfig server_config{};
-            auto result = foundkeys.insert("server");
-            if (result.second == false)
-            {
-                return false;
-            }
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
                 trimLeadingAndTrailingSpaces(line);
                 if (line.find("listen ") != std::string::npos)
                 {
-                    auto result = foundkeys.insert("listen");
-                    if (result.second == false)
-                    {
-                        wslog.writeToLogFile(ERROR, "multiple listen", true);
-                        return false;
-                    }
                     parseListenDirective(line, server_config);
                 }
                 else if (line.find("server_name ") != std::string::npos)
                 {
-                    auto result = foundkeys.insert("server_name");
-                    if (result.second == false)
-                    {
-                        wslog.writeToLogFile(ERROR, "multiple server_name", true);
-                        return false;
-                    }
                     parseServerNameDirective(line, server_config);
                 }
                 else if (line.find("error_page ") != std::string::npos)
@@ -664,12 +651,6 @@ bool Parser::parseConfigFile(const std::string& config_file)
                 }
                 else if (line.find("client_max_body_size ") != std::string::npos)
                 {
-                    auto result = foundkeys.insert("client_max_body_size ");
-                    if (result.second == false)
-                    {
-                        wslog.writeToLogFile(ERROR, "multiple client_max_body_size", true);
-                        return false;
-                    }
                     parseClientMaxBodySizeDirective(line, server_config);
                     maxBodySizeSet = true;
                 }

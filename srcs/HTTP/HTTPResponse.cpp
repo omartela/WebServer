@@ -1,6 +1,6 @@
 
 #include "HTTPResponse.hpp"
-
+#include <unordered_map>
 
 HTTPResponse::HTTPResponse(int code, const std::string& msg) : status(code), stat_msg(msg)
 {
@@ -34,13 +34,10 @@ void HTTPResponse::generateRedirectResponse(int code,const std::string& newLocat
 {
     static std::unordered_map<int, std::string> statusMessages =
     {
-    // {300, "Multiple Choices"},
-    {301, "Moved Permanently"},
-    {302, "Found"},
-    // {303, "See Other"},
-    // {304, "Not Modified"},
-    {307, "Temporary Redirect"},
-    {308, "Permanent Redirect"},
+        {301, "Moved Permanently"},
+        {302, "Found"},
+        {307, "Temporary Redirect"},
+        {308, "Permanent Redirect"},
     };
     headers["Location"] = newLocation;
     body = "<html><head><title>" + std::to_string(code) + " " + stat_msg + "</title></head>"
@@ -53,21 +50,21 @@ void HTTPResponse::generateErrorResponse(int code, const std::string& msg)
 {
        static std::unordered_map<int, std::string> statusMessages =
        {
-        {400, "Bad Request"},
-        {405, "Method Not Allowed"},
-        {403, "Forbidden"},
-        {404, "Not Found"},
-        {408, "Request Timeout"},
-        {413, "Payload Too Large"},
-        {414, "URI Too Long"},
-        {415, "Unsupported Media Type"},
-        {422, "Unprocessable Entity"},
-        {429, "Too Many Requests"},
-        {431, "Request Header Fields Too Large"},
-        {451, "Unavailable For Legal Reasons"},
-        {500, "Internal Server Error"},
-        {501, "Not Implemented"},
-        {503, "Service Unavailable"}
+            {400, "Bad Request"},
+            {405, "Method Not Allowed"},
+            {403, "Forbidden"},
+            {404, "Not Found"},
+            {408, "Request Timeout"},
+            {413, "Payload Too Large"},
+            {414, "URI Too Long"},
+            {415, "Unsupported Media Type"},
+            {422, "Unprocessable Entity"},
+            {429, "Too Many Requests"},
+            {431, "Request Header Fields Too Large"},
+            {451, "Unavailable For Legal Reasons"},
+            {500, "Internal Server Error"},
+            {501, "Not Implemented"},
+            {503, "Service Unavailable"}
        };
 
        std::string reason;

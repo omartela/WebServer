@@ -1,5 +1,20 @@
 
 #include "RequestHandler.hpp"
+#include "utils.hpp"
+#include "Logger.hpp"
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+#include <map>
+#include <vector>
+#include <cstdio>
+#include <iostream>
+#include <filesystem>
+#include <dirent.h>
 
 void printRequest(const HTTPRequest &req)
 {
@@ -64,7 +79,7 @@ HTTPResponse generateSuccessResponse(std::string body, std::string type)
 {
     HTTPResponse response(200, "OK");
     response.body = body;
-    response.headers["Content-Type"] = type;//"text/html";
+    response.headers["Content-Type"] = type;
     response.headers["Content-Length"] = std::to_string(response.body.size());
     return response;
 }
@@ -73,6 +88,7 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
 {
     DIR* dir = opendir(fullPath.c_str());
     if (!dir)
+    
         return HTTPResponse(500, "Failed to open directory");
     std::stringstream html;
     html << "<html><head><title>" << location << "</title></head><body>\n";
@@ -110,20 +126,17 @@ static HTTPResponse generateIndexListing(std::string fullPath, std::string locat
     }
     html << "</table></body></html>\n";
     closedir(dir);
-    // HTTPResponse response(200, "OK");
-    // response.body = html.str();
-    // response.headers["Content-Type"] = "text/html";
-    // response.headers["Content-Length"] = std::to_string(response.body.size());
     wslog.writeToLogFile(INFO, "GET Index listing successful", false);
     return generateSuccessResponse(html.str(), "text/html");
-    // return response;
 }
 
 HTTPResponse RequestHandler::handleMultipart(Client& client)
 {
-    // std::cout << "Key: {" << client.request.location << "}" << std::endl;
     if (client.request.headers.count("Content-Type") == 0)
+    {
+        wslog.writeToLogFile(ERROR, "400 Missing Content-Type", DEBUG_LOGS);
         return HTTPResponse(400, "Missing Content-Type");
+    }
     auto its = client.request.headers.find("Content-Type");
     std::string ct = its->second;
     if (its == client.request.headers.end())
@@ -143,22 +156,16 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         std::string& part = *it;
         if (part.empty() || part == "--\r\n" || part == "--")
             continue;
-        /* std::string disposition = part.substr(0, part.find("\r\n"));
-        if (disposition.find("filename=\"") == std::string::npos)
-            continue;  */
         std::string file = extractFilename(part, 1);
-        wslog.writeToLogFile(INFO, "File: " + file, false);
         if (file.empty())
             continue;
         std::string content = extractContent(part);
         std::string folder = client.serverInfo.routes[client.request.location].abspath;
-        // wslog.writeToLogFile(INFO, "Folder: " + folder, false);
         std::string path = folder;
         if (path.back() != '/')
             path += "/";
         path += file;
         lastPath = "." + path;
-        wslog.writeToLogFile(INFO, "Path: " + lastPath, false);
         std::ofstream out(lastPath.c_str(), std::ios::binary);
         if (!out.is_open())
         {

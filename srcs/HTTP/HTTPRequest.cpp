@@ -1,11 +1,9 @@
-
 #include "HTTPRequest.hpp"
-#include "Enums.hpp"
 #include "Logger.hpp"
 #include <sstream>
 #include <iostream>
-#include <vector>
 #include <algorithm>
+#include <filesystem>
 
 HTTPRequest::HTTPRequest() 
 {
