@@ -4,7 +4,7 @@ import socket
 
 HOST = '127.0.0.2'
 PORT = 8004
-CGI_PATH = '/cgi/no_inf_test.py'
+CGI_PATH = '/cgi/test.py'
 
 # Create a large POST body (e.g. 1MB)
 BODY_SIZE = 10 * 1024  # 1 MB
@@ -12,13 +12,10 @@ body = "0" * BODY_SIZE
 
 # Construct raw HTTP POST request
 request = (
-    f"POST {CGI_PATH} HTTP/1.1\r\n"
+    f"GET {CGI_PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"
-    f"Content-Length: {len(body)}\r\n"
-    f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
-    f"\r\n\r\n"
-    f"{body}"
+    f"\r\n\r\n\r\n"
 )
 
 def run():

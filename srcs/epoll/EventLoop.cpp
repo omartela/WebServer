@@ -9,7 +9,7 @@ static int initServerSocket(ServerConfig server)
         return -1;
     }
     int opt = 1;
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); //REMOVE LATER
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof(hints));
