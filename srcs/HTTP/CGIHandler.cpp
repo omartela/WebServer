@@ -47,11 +47,11 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	exceveArgs[2] = NULL;
 }
 
-HTTPResponse CGIHandler::generateCGIResponse()
+HTTPResponse CGIHandler::generateCGIResponse(std::map<int, std::string> error_pages)
 {
 	std::string::size_type end = output.find("\r\n\r\n");
 	if (end == std::string::npos)
-		return HTTPResponse(500, "Invalid CGI output");
+		return HTTPResponse(500, "Invalid CGI output", error_pages);
 	std::string headers = output.substr(0, end);
 	std::string body = output.substr(end + 4);
 	HTTPResponse res(200, "OK");

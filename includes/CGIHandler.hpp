@@ -35,7 +35,7 @@ class CGIHandler
         CGIHandler();
         void            setEnvValues(HTTPRequest& request, ServerConfig server);
         void            writeBodyToChild(HTTPRequest& request);
-        HTTPResponse    generateCGIResponse();
+        HTTPResponse    generateCGIResponse(std::map<int, std::string> error_pages);
         void            collectCGIOutput(int readFd);
         int             getWritePipe();
         int             getReadPipe();

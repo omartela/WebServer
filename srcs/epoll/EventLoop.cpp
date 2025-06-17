@@ -302,8 +302,8 @@ void EventLoop::checkTimeouts()
 
 void EventLoop::createErrorResponse(Client &client, int code, std::string msg, std::string logMsg)
 {
-    wslog.writeToLogFile(ERROR, std::to_string(code) + " " + logMsg, DEBUG_LOGS);
-    client.response.push_back(HTTPResponse(code, msg));
+     wslog.writeToLogFile(ERROR, std::to_string(code) + " " + logMsg, DEBUG_LOGS);
+    client.response.push_back(HTTPResponse(code, msg, client.serverInfo.error_pages));
     client.writeBuffer = client.response.back().toString();
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
     closeClient(client.fd);
@@ -420,7 +420,7 @@ void CGIMultipart(Client& client)
     if (client.request.headers.count("Content-Type") == 0)
     {
         wslog.writeToLogFile(ERROR, "400 Missing Content-Type", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(400, "Missing Content-Type"));
+        client.response.push_back(HTTPResponse(400, "Missing Content-Type", client.serverInfo.error_pages));
         return;
     }
     auto its = client.request.headers.find("Content-Type");
@@ -428,7 +428,7 @@ void CGIMultipart(Client& client)
     if (its == client.request.headers.end())
     {
         wslog.writeToLogFile(ERROR, "400 Invalid headers", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(400, "Invalid headers"));
+        client.response.push_back(HTTPResponse(400, "Invalid headers", client.serverInfo.error_pages));
         return;
     }
     std::string boundary;
@@ -467,7 +467,7 @@ void CGIMultipart(Client& client)
         if (!out.is_open())
         {
             wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
-            client.response.push_back(HTTPResponse(500, "Failed to open file for writing"));
+            client.response.push_back(HTTPResponse(500, "Failed to open file for writing", client.serverInfo.error_pages));
             return;
         }
         out.write(content.c_str(), content.size());
@@ -476,7 +476,7 @@ void CGIMultipart(Client& client)
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
     {
         wslog.writeToLogFile(ERROR, "400 File not uploaded", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(400, "File not uploaded"));
+        client.response.push_back(HTTPResponse(400, "File not uploaded", client.serverInfo.error_pages));
         return;
     }    
     std::string ext = getFileExtension(client.request.path);
@@ -587,14 +587,14 @@ void EventLoop::handleCGI(Client& client)
         if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
         {
             wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
-            client.response.push_back( HTTPResponse(500, "Internal Server Error"));
+            client.response.push_back( HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
             client.writeBuffer = client.response.back().toString();
             return ;
         }
         if (!client.request.fileUsed)
         {
             client.CGI.collectCGIOutput(client.CGI.getReadPipe());
-            client.response.push_back(client.CGI.generateCGIResponse());
+            client.response.push_back(client.CGI.generateCGIResponse(client.serverInfo.error_pages));
             client.writeBuffer = client.response.back().toString();
         }
         if (!client.CGI.tempFileName.empty())
@@ -624,7 +624,7 @@ static bool checkMethods(Client &client, int loop)
     {
         client.state = SEND;
         wslog.writeToLogFile(ERROR, "405 Method not allowed", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(405, "Method not allowed"));
+        client.response.push_back(HTTPResponse(405, "Method not allowed", client.serverInfo.error_pages));
         client.writeBuffer = client.response.back().toString();
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return false;
@@ -668,7 +668,7 @@ static bool readChunkedBody(Client &client, int loop)
             else
             {
                 wslog.writeToLogFile(ERROR, "400 Bad request", DEBUG_LOGS);
-                client.response.push_back(HTTPResponse(400, "Bad request"));
+                client.response.push_back(HTTPResponse(400, "Bad request", client.serverInfo.error_pages));
                 client.writeBuffer = client.response.back().toString();
             }
             client.state = SEND;
@@ -744,7 +744,7 @@ void EventLoop::checkBody(Client& client)
     if (checkMaxSize(client) == false)
     {
         wslog.writeToLogFile(ERROR, "413 Payload Too Large", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
+        client.response.push_back(HTTPResponse(413, "Payload Too Large", client.serverInfo.error_pages));
         client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -753,7 +753,7 @@ void EventLoop::checkBody(Client& client)
     if (client.rawReadData.empty() == false)
     {
         wslog.writeToLogFile(ERROR, "501 Not implemented", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(501, "Not implemented"));
+        client.response.push_back(HTTPResponse(501, "Not implemented", client.serverInfo.error_pages));
         client.writeBuffer = client.response.back().toString();
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
@@ -771,17 +771,17 @@ void EventLoop::checkBody(Client& client)
             if (error == -500)
             {
                 wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
-                client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+                client.response.push_back(HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
             }
             else if (error == -403)
             {
                 wslog.writeToLogFile(ERROR, "403 Forbidden", DEBUG_LOGS);
-                client.response.push_back(HTTPResponse(403, "Forbidden"));
+                client.response.push_back(HTTPResponse(403, "Forbidden", client.serverInfo.error_pages));
             }
             else if (error == -404)
             {
                 wslog.writeToLogFile(ERROR, "404 Not Found", DEBUG_LOGS);
-                client.response.push_back(HTTPResponse(404, "Not Found"));
+                client.response.push_back(HTTPResponse(404, "Not Found", client.serverInfo.error_pages));
             }
             client.writeBuffer = client.response.back().toString();
             client.state = SEND;
@@ -864,12 +864,12 @@ void EventLoop::handleClientRecv(Client& client)
                             if (validateRequestMethod(client) == false)
                             {
                                 wslog.writeToLogFile(ERROR, "501 Not implemented", DEBUG_LOGS);
-                                client.response.push_back(HTTPResponse(501, "Not implemented"));
+                                client.response.push_back(HTTPResponse(501, "Not implemented", client.serverInfo.error_pages));
                             }
                             else
                             {
                                 wslog.writeToLogFile(ERROR, "400 Bad request", DEBUG_LOGS);
-                                client.response.push_back(HTTPResponse(400, "Bad request"));
+                                client.response.push_back(HTTPResponse(400, "Bad request", client.serverInfo.error_pages));
                             }
                             client.rawReadData.clear();
                             client.state = SEND;
@@ -880,7 +880,7 @@ void EventLoop::handleClientRecv(Client& client)
                         if (client.serverInfo.server_names.empty() == true)
                         {
                             wslog.writeToLogFile(ERROR, "404 Host name not found", DEBUG_LOGS);
-                            client.response.push_back(HTTPResponse(404, "Host name not found"));
+                            client.response.push_back(HTTPResponse(404, "Host name not found", client.serverInfo.error_pages));
                             client.rawReadData.clear();
                             client.state = SEND;
                             client.writeBuffer = client.response.back().toString();
@@ -890,7 +890,7 @@ void EventLoop::handleClientRecv(Client& client)
                         if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
                         {
                             wslog.writeToLogFile(ERROR, "404 Invalid location", DEBUG_LOGS);
-                            client.response.push_back(HTTPResponse(404, "Invalid location"));
+                            client.response.push_back(HTTPResponse(404, "Invalid location", client.serverInfo.error_pages));
                             client.rawReadData.clear();
                             client.state = SEND;
                             client.writeBuffer = client.response.back().toString();
@@ -901,7 +901,7 @@ void EventLoop::handleClientRecv(Client& client)
                         client.rawReadData = client.rawReadData.substr(headerEnd + 4);
                         if (client.serverInfo.routes.at(client.request.location).redirect.status_code)
                         {
-                            client.response.push_back(HTTPResponse(client.serverInfo.routes.at(client.request.location).redirect.status_code, client.serverInfo.routes.at(client.request.location).redirect.target_url));
+                            client.response.push_back(HTTPResponse(client.serverInfo.routes.at(client.request.location).redirect.status_code, client.serverInfo.routes.at(client.request.location).redirect.target_url, client.serverInfo.error_pages));
                             client.rawReadData.clear();
                             client.state = SEND;
                             client.writeBuffer = client.response.back().toString();
@@ -923,7 +923,7 @@ void EventLoop::handleClientRecv(Client& client)
     {
         wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " suffered from bad_alloc in RECV, sending an error response!", DEBUG_LOGS);
         wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
-        client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+        client.response.push_back(HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
         client.rawReadData.clear();
         client.state = SEND;
         client.writeBuffer = client.response.back().toString();
@@ -970,7 +970,7 @@ void EventLoop::handleClientSend(Client &client)
                 bytesread = read(client.CGI.readCGIPipe[1], buffer, 1000);
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
-                client.response.push_back(client.CGI.generateCGIResponse());
+                client.response.push_back(client.CGI.generateCGIResponse(client.serverInfo.error_pages));
                 auto TE = client.request.headers.find("Transfer-Encoding");
                 if (TE != client.request.headers.end() && TE->second == "chunked")
                 {
@@ -990,7 +990,7 @@ void EventLoop::handleClientSend(Client &client)
             if (bytesread == -1)
             {
                 wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
-                client.response.push_back(HTTPResponse(500, "Internal Server Error"));
+                client.response.push_back(HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
                 return;
             }
             else if (bytesread == 0)
