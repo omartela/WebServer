@@ -4,18 +4,19 @@ import socket
 
 HOST = '127.0.0.2'
 PORT = 8004
-PATH = '/cgi/A_test'
+PATH = '/cgi/test.py'
 
 # Generate ~512KB body (large enough to not fit in one write)
-body = "A" * (1024 * 10)
+body = "A" * (10 * 1)
 request = (
     f"POST {PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"
     f"Content-Length: {len(body)}\r\n"
     f"Content-Type: text/plain\r\n"
-    f"Connection: close\r\n"
-    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    f"Connection: keep-alive\r\n"
+    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
+    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
+    f"Cookie: session_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
     f"\r\n"
     f"{body}"
 )

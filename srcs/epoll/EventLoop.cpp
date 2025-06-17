@@ -222,7 +222,10 @@ void EventLoop::startLoop()
                 if (clients.empty())
                     setTimerValues(2);
                 else
+                {
+                    wslog.writeToLogFile(INFO, "Checking timeouts", DEBUG_LOGS);
                     checkTimeouts();
+                }
             }
             else if (fd == childTimerFD)
             {
@@ -306,7 +309,7 @@ void EventLoop::checkTimeouts()
                 continue ;
             }
         }
-        if (client.state == READ && checkMaxSize(client) == false)
+        if (client.state == READ && checkMaxSize(client) != 0)
         {
             createErrorResponse(client, 413, "Payload Too Large", " disconnected, size too big!");
             continue ;
@@ -334,7 +337,7 @@ void EventLoop::createErrorResponse(Client &client, int code, std::string msg, s
     client.response.push_back(HTTPResponse(code, msg));
     client.writeBuffer = client.response.back().toString();
     client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
-    wslog.writeToLogFile(INFO, "Client " + std::to_string(client.fd) + logMsg, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Client " + std::to_string(client.fd) + logMsg, true);
     closeClient(client.fd);
 }
 
@@ -750,28 +753,28 @@ static bool readChunkedBody(Client &client, int loop)
     return false;
 }
 
-bool EventLoop::checkMaxSize(Client& client)
+int EventLoop::checkMaxSize(Client& client)
 {
     size_t maxBodySize;
     auto ite = client.serverInfo.routes.find(client.request.location);
     if (ite != client.serverInfo.routes.end())
         maxBodySize = ite->second.client_max_body_size;
     else
-        return false;
+        return -400;
 
     if (client.headerString.size() > DEFAULT_MAX_HEADER_SIZE)
     {
         wslog.writeToLogFile(DEBUG, "Request header too big", DEBUG_LOGS);
-        return false;
+        return -413;
     }
 
     if (client.request.body.size() > maxBodySize)
     {
         wslog.writeToLogFile(DEBUG, "Request body too big, max body size = " + std::to_string(maxBodySize) + ", while body size = " + std::to_string(client.request.body.size()), DEBUG_LOGS);
-        return false;
+        return -413;
     }
     
-    return true ;
+    return 0;
 }
 
 
@@ -798,9 +801,13 @@ void EventLoop::checkBody(Client& client)
         }
     }
 
-    if (checkMaxSize(client) == false)
+    int maxSizeStatus = checkMaxSize(client);
+    if (maxSizeStatus < 0)
     {
-        client.response.push_back(HTTPResponse(413, "Payload Too Large"));
+        if (maxSizeStatus == -400)
+            client.response.push_back(HTTPResponse(400, "Bad Request"));
+        else if (maxSizeStatus == -413)
+            client.response.push_back(HTTPResponse(413, "Payload Too Large"));
         client.erase = true;
         client.writeBuffer = client.response.back().toString();
         client.state = SEND;
@@ -814,15 +821,6 @@ void EventLoop::checkBody(Client& client)
         client.state = SEND;
         toggleEpollEvents(client.fd, loop, EPOLLOUT);
         return ;
-    }
-    if (client.rawReadData.empty() == false)
-    {
-        client.response.push_back(HTTPResponse(501, "Not implemented"));
-        client.writeBuffer = client.response.back().toString();
-        client.state = SEND;
-        toggleEpollEvents(client.fd, loop, EPOLLOUT);
-        return ;
-
     }
     if (client.request.isCGI == true)
     {
@@ -931,15 +929,6 @@ void EventLoop::handleClientRecv(Client& client)
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
-                        if (client.serverInfo.server_names.empty() == true)
-                        {
-                            client.response.push_back(HTTPResponse(404, "Host name not found"));
-                            client.rawReadData.clear();
-                            client.state = SEND;
-                            client.writeBuffer = client.response.back().toString();
-                            toggleEpollEvents(client.fd, loop, EPOLLOUT);
-                            return ;
-                        }
                         if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
                         {
                             client.response.push_back(HTTPResponse(404, "Invalid location"));
@@ -962,7 +951,8 @@ void EventLoop::handleClientRecv(Client& client)
                         }
                     }
                 }
-                checkBody(client);
+                if (client.headerString.empty() == false)
+                    checkBody(client);
                 return ;
             }
             case HANDLE_CGI:

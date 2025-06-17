@@ -3,7 +3,6 @@
 import socket
 
 HOST = '127.0.0.2'
-HOST_NAME = 'dads.fi'
 PORT = 8004
 CGI_PATH = '/cgi/no_inf_test.py'
 
@@ -14,7 +13,7 @@ body = "0" * BODY_SIZE
 # Construct raw HTTP POST request
 request = (
     f"POST {CGI_PATH} HTTP/1.1\r\n"
-    f"Host: {HOST_NAME}\r\n"
+    f"Host: {HOST}\r\n"
     f"Content-Length: {len(body)}\r\n"
     f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
