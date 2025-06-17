@@ -19,6 +19,7 @@ HTTPRequest::HTTPRequest()
     fileUsed = false;
     fileIsOpen = false;
     validHostName = true;
+    multipart = false;
     fileFd = -1;
     query = "";
 }
@@ -35,6 +36,7 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     fileUsed = false;
     fileIsOpen = false;
     validHostName = true;
+    multipart = false;
     fileFd = -1;
     query = "";
     parser(headers, server);
@@ -73,9 +75,9 @@ static void decode(std::string& raw)
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
-    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Raw: " + raw, DEBUG_LOGS);
     decode(raw);
-    // wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, DEBUG_LOGS);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
@@ -125,9 +127,6 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
             headers.insert({key, value});
         }
     }
-    // In the path there should be the key of the location and it should be the longest key
-    // For example you could have key "/" and "/directory/"
-    // the matched one should be the longest so "/directory/"
     size_t query_pos = path.find('?');
     if (query_pos != std::string::npos)
     {
@@ -148,8 +147,6 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
     else
     {
         location = *it;
-        /// file path should be the left over after location. For example "/directory/olalala/file.txt"
-        /// then file is /olalala/file.txt
         file = path.substr(0 + location.size());
     }
     if (headers.find("Content-Type") != headers.end())
@@ -167,8 +164,6 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         {
             std::filesystem::path filePath = file;
             std::string ext = filePath.extension().string();
-            //wslog.writeToLogFile(DEBUG, "filepath extension is: " + ext, DEBUG_LOGS);
-            //wslog.writeToLogFile(DEBUG, "filepath extension is in vector: " + server.routes.at(location).cgi_extension.at(0), DEBUG_LOGS);
             if (std::find(server.routes.at(location).cgi_extension.begin(), server.routes.at(location).cgi_extension.end(), ext) != server.routes.at(location).cgi_extension.end())
             {
                 wslog.writeToLogFile(DEBUG, "Setting isCGI true: " + location, DEBUG_LOGS);
