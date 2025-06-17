@@ -20,8 +20,8 @@ Koodi | Nimi | Käyttötarkoitus
 
 struct Redirect 
 {
-    int status_code;              // Status koodi redirectionille
-    std::string target_url;       // Esim. url uuteen osoitteeseen esim /new
+    int status_code;
+    std::string target_url;
 };
 
 struct Route

@@ -264,7 +264,6 @@ void EventLoop::checkTimeouts()
         std::chrono::steady_clock::time_point timeout = client.timestamp + std::chrono::seconds(TIMEOUT);
         if (now > timeout)
         {
-            wslog.writeToLogFile(ERROR, "408 Request Timeout timed out due to inactivity!", DEBUG_LOGS);
             createErrorResponse(client, 408, "Request Timeout", " timed out due to inactivity!");
             continue ;
         }
@@ -275,14 +274,12 @@ void EventLoop::checkTimeouts()
             if ((client.rawReadData.size() > 64 && dataRate < 1024)
                 || (client.rawReadData.size() < 64 && dataReceived < 15))
             {
-                wslog.writeToLogFile(ERROR, "408 Request Timeout disconnected, client sent data too slowly!", DEBUG_LOGS);
                 createErrorResponse(client, 408, "Request Timeout", " disconnected, client sent data too slowly!");
                 continue ;
             }
         }
         if (client.state == READ && checkMaxSize(client) == false)
         {
-            wslog.writeToLogFile(ERROR, "413 Payload Too Large   disconnected, size too big!", DEBUG_LOGS);
             createErrorResponse(client, 413, "Payload Too Large", " disconnected, size too big!");
             continue ;
         }
@@ -305,6 +302,7 @@ void EventLoop::checkTimeouts()
 
 void EventLoop::createErrorResponse(Client &client, int code, std::string msg, std::string logMsg)
 {
+    wslog.writeToLogFile(ERROR, std::to_string(code) + " " + logMsg, DEBUG_LOGS);
     client.response.push_back(HTTPResponse(code, msg));
     client.writeBuffer = client.response.back().toString();
     client.bytesWritten = send(client.fd, client.writeBuffer.data(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -329,7 +327,7 @@ void EventLoop::checkChildrenStatus()
         setTimerValues(3);
     }
     uint64_t tempBuffer;
-    ssize_t bytesRead = read(childTimerFD, &tempBuffer, sizeof(tempBuffer));
+    read(childTimerFD, &tempBuffer, sizeof(tempBuffer));
     for (auto it = clients.begin(); it != clients.end(); ++it)
     {
         auto& client = it->second;
