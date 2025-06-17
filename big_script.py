@@ -6,11 +6,9 @@ HOST = '127.0.0.2'
 PORT = 8004
 CGI_PATH = '/cgi/test.py'
 
-# Create a large POST body (e.g. 1MB)
-BODY_SIZE = 10 * 1024  # 1 MB
+BODY_SIZE = 10 * 10 
 body = "0" * BODY_SIZE
 
-# Construct raw HTTP POST request
 request = (
     f"GET {CGI_PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"

@@ -42,10 +42,10 @@ def send_request(client_id):
 
 
 def main():
-    client_count = 200  # You can reduce this for testing
+    client_count = 1  # You can reduce this for testing
     start_time = time.time()
 
-    with multiprocessing.Pool(processes=50) as pool:  # Run up to 100 clients in parallel
+    with multiprocessing.Pool(processes=1) as pool:  # Run up to 100 clients in parallel
         pool.map(send_request, range(client_count))
 
     print(f"\n⏱️ All clients done in {time.time() - start_time:.2f} seconds")
