@@ -309,7 +309,7 @@ bool Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
             }
             parseCgiExecutable(line, route);
         }
-        else if (line.find("client_max_body_size "))
+        else if (line.find("client_max_body_size ") != std::string::npos)
         {
             auto result = foundkeys.insert("client_max_body_size");
             if (result.second == false)
