@@ -25,6 +25,7 @@ class EventLoop
         int loop;
         int status;
         bool timerOn;
+        
         std::map<int, std::vector<ServerConfig>> servers;
         std::map<int, Client> clients;
         int serverSocket;
@@ -47,7 +48,7 @@ class EventLoop
         void checkBody(Client &client);
         void handleCGI(Client& client);
         int  executeCGI(Client& client, ServerConfig server);
-        bool checkMaxSize(Client& client);
+        int  checkMaxSize(Client& client);
         void closeFds();
         ~EventLoop();
 };

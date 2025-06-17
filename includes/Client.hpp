@@ -25,23 +25,22 @@ class Client {
 
         std::string headerString;
         std::string rawReadData;
-        size_t previousDataAmount;;
+        size_t      previousDataAmount;;
         std::string readBuffer;
         std::string writeBuffer;
-        int bytesRead;
-        int bytesWritten;
+        std::string chunkBuffer;
+        int         bytesRead;
+        int         bytesWritten;
+        size_t      bytesSent;
+        size_t      chunkBodySize;
         bool erase;
-        size_t bytesSent;
-        std::vector<ServerConfig> serverInfoAll;
-        ServerConfig serverInfo;
-        size_t chunkBodySize;
+
+        std::vector<ServerConfig>   serverInfoAll;
+        ServerConfig                serverInfo;
 
         HTTPRequest                     request;
         std::vector<HTTPResponse>       response;
         CGIHandler                      CGI;
-        std::string chunkBuffer;
-        
-        int childTimerFd;
 
         Client(int loop, int serverSocket, std::map<int, Client>& clients, std::vector<ServerConfig> server);
         Client(const Client& copy);

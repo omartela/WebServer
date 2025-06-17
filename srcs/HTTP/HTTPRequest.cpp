@@ -17,6 +17,7 @@ HTTPRequest::HTTPRequest()
     fileUsed = false;
     fileIsOpen = false;
     validHostName = true;
+    multipart = false;
     fileFd = -1;
     query = "";
 }
@@ -33,6 +34,7 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     fileUsed = false;
     fileIsOpen = false;
     validHostName = true;
+    multipart = false;
     fileFd = -1;
     query = "";
     parser(headers, server);
