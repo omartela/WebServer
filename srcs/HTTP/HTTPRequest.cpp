@@ -71,9 +71,9 @@ static void decode(std::string& raw)
 void HTTPRequest::parser(std::string raw, ServerConfig server)
 {
     isCGI = false;
-    // wslog.writeToLogFile(DEBUG, "Raw: " + raw, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Raw: " + raw, DEBUG_LOGS);
     decode(raw);
-    // wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, DEBUG_LOGS);
+    wslog.writeToLogFile(DEBUG, "Raw decoded: " + raw, DEBUG_LOGS);
     std::istringstream stream(raw);
     std::string line;
     if (!std::getline(stream, line))
