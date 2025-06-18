@@ -482,7 +482,7 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 			client.CGI.readCGIPipe[0] = -1;
 		}
         execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
-        _exit(1);
+        exit(1);
     }
 	if (!client.request.fileUsed)
 	{
@@ -507,6 +507,7 @@ void EventLoop::handleCGI(Client& client)
     int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
     if (connection == 0)
     {
+        wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
         closeClient(client.fd);
         return ;
     }
@@ -783,10 +784,7 @@ void EventLoop::handleClientRecv(Client& client)
                     if (client.bytesRead == 0)
                         wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " disconnected", true);
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    {
-                        std::cout << "errno = " << errno << std::endl;
                         throw std::runtime_error("epoll_ctl DEL failed in READ");
-                    }
                     close(client.fd);
                     clients.erase(client.fd);
                     return ;
