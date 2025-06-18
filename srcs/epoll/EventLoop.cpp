@@ -436,7 +436,7 @@ void CGIMultipart(Client& client)
     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", DEBUG_LOGS);
 }
 
-int EventLoop::executeCGI(Client& client, ServerConfig server)
+int EventLoop::executeCGI(Client& client)
 {
 	if (client.request.fileUsed)
 	{  
@@ -482,7 +482,7 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 			    close(client.CGI.readCGIPipe[0]);
 			client.CGI.readCGIPipe[0] = -1;
 		}
-        execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
+        execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
         exit(1);
     }
 	if (!client.request.fileUsed)
@@ -717,7 +717,7 @@ void EventLoop::checkBody(Client& client)
             CGIMultipart(client);
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
-        int error = executeCGI(client, client.serverInfo);
+        int error = executeCGI(client);
         if (error < 0)
         {
             if (error == -500)

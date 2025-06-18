@@ -39,12 +39,16 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	envVariables.push_back("CONTENT_TYPE=" + conType);
 	std::string conLen = request.headers.count("Content-Length") > 0 ? request.headers.at("Content-Length") : "0";
 	envVariables.push_back("CONTENT_LENGTH=" + conLen);
+	envArray.clear();
 	for (size_t i = 0; i < envVariables.size(); i++)
-		envArray[i] = (char *)envVariables.at(i).c_str();
-	envArray[envVariables.size()] = NULL;
-	exceveArgs[0] = (char *)server.routes.at(request.location).cgiexecutable.c_str();
-	exceveArgs[1] = absPath;
-	exceveArgs[2] = NULL;
+		envArray.push_back(const_cast<char*>(envVariables[i].c_str()));
+	envArray.push_back(NULL);
+	std::string executable = server.routes.at(request.location).cgiexecutable;
+	execArgs = {executable, absPath};
+	execveArgs.clear();
+	for (size_t i = 0; i < execArgs.size(); ++i)
+		execveArgs.push_back(const_cast<char*>(execArgs[i].c_str()));
+	execveArgs.push_back(NULL);
 }
 
 HTTPResponse CGIHandler::generateCGIResponse(std::map<int, std::string> error_pages)
