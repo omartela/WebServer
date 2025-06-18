@@ -15,6 +15,7 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
+#include <cstdlib>
 
 static int initServerSocket(ServerConfig server)
 {
@@ -482,7 +483,7 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 			client.CGI.readCGIPipe[0] = -1;
 		}
         execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
-        _exit(1);
+        exit(1);
     }
 	if (!client.request.fileUsed)
 	{
