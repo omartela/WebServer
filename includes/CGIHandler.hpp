@@ -31,6 +31,7 @@ class CGIHandler
         std::string output;
         std::string tempFileName;
         bool fileOpen;
+        char absPath[PATH_MAX];
         
         CGIHandler();
         void            setEnvValues(HTTPRequest& request, ServerConfig server);

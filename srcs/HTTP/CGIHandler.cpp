@@ -18,7 +18,6 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 {
 	std::string server_name = server.server_names.empty() ? "localhost"
 			: server.server_names.at(0);
-	char absPath[PATH_MAX];
 	std::string localPath = joinPaths(server.routes.at(request.location).abspath, request.file);
 	fullPath = "." + localPath;
 	realpath(fullPath.c_str(), absPath);
@@ -43,8 +42,7 @@ void CGIHandler::setEnvValues(HTTPRequest& request, ServerConfig server)
 	for (size_t i = 0; i < envVariables.size(); i++)
 		envArray.push_back(const_cast<char*>(envVariables[i].c_str()));
 	envArray.push_back(NULL);
-	std::string executable = server.routes.at(request.location).cgiexecutable;
-	execArgs = {executable, absPath};
+	execArgs = {server.routes.at(request.location).cgiexecutable, absPath};
 	execveArgs.clear();
 	for (size_t i = 0; i < execArgs.size(); ++i)
 		execveArgs.push_back(const_cast<char*>(execArgs[i].c_str()));
