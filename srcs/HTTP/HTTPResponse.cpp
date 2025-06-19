@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <iostream>
+#include "Logger.hpp"
 
 HTTPResponse::HTTPResponse(int code, const std::string& msg, std::map<int, std::string> error_pages) : status(code), stat_msg(msg)
 {
@@ -54,12 +55,20 @@ void HTTPResponse::generateErrorResponse(int code, const std::string& msg, std::
         {
             std::string filepath = "." + error_pages[code];
             std::ifstream file(filepath);
-            char buffer[7000];
-            file.read(buffer, 7000);
-            body = std::string(buffer);
-            headers["Content-Type"] = "text/html; charset=UTF-8";
-            headers["Content-Length"] = std::to_string(body.size());
-            return;
+            if (file.is_open())
+            {
+                std::ostringstream ss;
+                ss << file.rdbuf();  // Lukee koko tiedoston suoraan
+                body = ss.str();
+                headers["Content-Type"] = "text/html; charset=UTF-8";
+                headers["Content-Length"] = std::to_string(body.size());
+                return;
+            }
+            else
+            {
+                wslog.writeToLogFile(ERROR, "Failed to open error page html file", false);
+                code = 500;
+            }
         }
         static std::unordered_map<int, std::string> statusMessages =
         {
