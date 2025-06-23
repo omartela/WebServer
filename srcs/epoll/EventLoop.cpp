@@ -414,8 +414,8 @@ void CGIMultipart(Client& client)
         if (path.back() != '/')
             path += "/";
         path += file;
-        lastPath = path;
-        std::ofstream out(path.c_str(), std::ios::binary);
+        lastPath = "." + path;
+        std::ofstream out(lastPath.c_str(), std::ios::binary);
         if (!out.is_open())
         {
             wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
