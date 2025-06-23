@@ -409,7 +409,7 @@ void CGIMultipart(Client& client)
         if (file.empty())
             continue;
         std::string content = extractContent(part);
-        std::string folder = "./www/cgi/uploads/";
+        std::string folder = client.serverInfo.routes.at(client.request.location).upload_path;
         std::string path = folder;
         if (path.back() != '/')
             path += "/";
@@ -820,6 +820,7 @@ void EventLoop::handleClientRecv(Client& client)
                             toggleEpollEvents(client.fd, loop, EPOLLOUT);
                             return ;
                         }
+                        wslog.writeToLogFile(DEBUG, client.headerString, DEBUG_LOGS);
                         if (client.serverInfo.routes.find(client.request.location) == client.serverInfo.routes.end())
                         {
                             wslog.writeToLogFile(ERROR, "404 Invalid location", DEBUG_LOGS);

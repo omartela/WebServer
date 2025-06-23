@@ -150,7 +150,7 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         if (headers.at("Content-Type").find("multipart/form-data") != std::string::npos)
         {
             fileUsed = true;
-            multipart = true;   
+            multipart = true;
         }
     }
     if (server.routes.find(location) != server.routes.end())
