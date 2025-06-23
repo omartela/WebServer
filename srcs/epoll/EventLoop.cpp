@@ -15,6 +15,7 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
+#include <cstdlib>
 
 static int initServerSocket(ServerConfig server)
 {
@@ -283,7 +284,7 @@ void EventLoop::checkChildrenStatus()
         auto& client = it->second;
         if (nChildren > 0 && client.request.isCGI == true)
         {
-            wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
+            //wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
             handleClientRecv(client);
             continue ;
         }
@@ -435,7 +436,7 @@ void CGIMultipart(Client& client)
     wslog.writeToLogFile(INFO, "POST (multi) File(s) uploaded successfully", DEBUG_LOGS);
 }
 
-int EventLoop::executeCGI(Client& client, ServerConfig server)
+int EventLoop::executeCGI(Client& client)
 {
 	if (client.request.fileUsed)
 	{  
@@ -481,7 +482,7 @@ int EventLoop::executeCGI(Client& client, ServerConfig server)
 			    close(client.CGI.readCGIPipe[0]);
 			client.CGI.readCGIPipe[0] = -1;
 		}
-        execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
+        execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
         exit(1);
     }
 	if (!client.request.fileUsed)
@@ -558,7 +559,6 @@ void EventLoop::handleCGI(Client& client)
                 close(client.CGI.readCGIPipe[0]);
             client.CGI.readCGIPipe[0] = -1;
         }
-        client.state = SEND;
         if (!client.request.fileUsed)
             client.request.isCGI = false;
         return ;
@@ -717,7 +717,7 @@ void EventLoop::checkBody(Client& client)
             CGIMultipart(client);
         client.state = HANDLE_CGI;
         client.CGI.setEnvValues(client.request, client.serverInfo);
-        int error = executeCGI(client, client.serverInfo);
+        int error = executeCGI(client);
         if (error < 0)
         {
             if (error == -500)
@@ -782,7 +782,7 @@ void EventLoop::handleClientRecv(Client& client)
                 if (client.bytesRead <= 0)
                 {
                     if (client.bytesRead == 0)
-                        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " disconnected", true);
+                        wslog.writeToLogFile(DEBUG, "Client FD" + std::to_string(client.fd) + " disconnected", true);
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
                         throw std::runtime_error("epoll_ctl DEL failed in READ");
                     close(client.fd);
@@ -792,6 +792,7 @@ void EventLoop::handleClientRecv(Client& client)
                 buffer[client.bytesRead] = '\0';
                 std::string temp(buffer, client.bytesRead);
                 client.rawReadData += temp;
+                wslog.writeToLogFile(INFO, "Request received from client FD" + std::to_string(client.fd) + ":\n" + client.rawReadData, DEBUG_LOGS);
                 if (client.headerString.empty() == true)
                 {
                     size_t headerEnd = client.rawReadData.find("\r\n\r\n");
@@ -851,6 +852,17 @@ void EventLoop::handleClientRecv(Client& client)
             case SEND:
                 return;
         }
+    }
+    catch (const std::invalid_argument& e)
+    {
+        wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " suffered from invalid_argument in RECV, sending an error response!", DEBUG_LOGS);
+        wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
+        client.response.push_back(HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
+        client.rawReadData.clear();
+        client.state = SEND;
+        client.writeBuffer = client.response.back().toString();
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
     }
     catch (const std::bad_alloc& e)
     {
@@ -929,10 +941,9 @@ void EventLoop::handleClientSend(Client &client)
                 close(client.CGI.readCGIPipe[1]);
                 client.CGI.readCGIPipe[1] = -1;
             }
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         }
-        else
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+        wslog.writeToLogFile(DEBUG, "Response sent to client FD" + std::to_string(client.fd) + ":\n" + client.writeBuffer, DEBUG_LOGS);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -990,6 +1001,13 @@ void EventLoop::handleClientSend(Client &client)
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
         }
+    }
+    
+    catch (const std::invalid_argument& e)
+    {
+        closeClient(client.fd);
+        wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " suffered from invalid_argument in SEND, closing client!", DEBUG_LOGS);
+        return ;
     }
     catch (const std::bad_alloc& e)
     {

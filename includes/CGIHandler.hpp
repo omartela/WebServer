@@ -17,11 +17,12 @@ class Client;
 class CGIHandler
 {
     private:
-        std::vector<std::string> envVariables;
-        
+    
     public:
-        char* envArray[16];
-        char* exceveArgs[3];
+        std::vector<std::string> envVariables;
+        std::vector<std::string> execArgs;
+        std::vector<char*> envArray;
+        std::vector<char*> execveArgs;
         int writeCGIPipe[2];
         int readCGIPipe[2];
         pid_t childPid;
@@ -30,6 +31,7 @@ class CGIHandler
         std::string output;
         std::string tempFileName;
         bool fileOpen;
+        char absPath[PATH_MAX];
         
         CGIHandler();
         void            setEnvValues(HTTPRequest& request, ServerConfig server);

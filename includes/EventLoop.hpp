@@ -45,7 +45,7 @@ class EventLoop
         void checkChildrenStatus();
         void checkBody(Client &client);
         void handleCGI(Client& client);
-        int  executeCGI(Client& client, ServerConfig server);
+        int  executeCGI(Client& client);
         int  checkMaxSize(Client& client);
         void closeFds();
         ~EventLoop();
