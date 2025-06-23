@@ -558,7 +558,6 @@ void EventLoop::handleCGI(Client& client)
                 close(client.CGI.readCGIPipe[0]);
             client.CGI.readCGIPipe[0] = -1;
         }
-        client.state = SEND;
         if (!client.request.fileUsed)
             client.request.isCGI = false;
         return ;
@@ -941,10 +940,8 @@ void EventLoop::handleClientSend(Client &client)
                 close(client.CGI.readCGIPipe[1]);
                 client.CGI.readCGIPipe[1] = -1;
             }
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         }
-        else
-            client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+        client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
         wslog.writeToLogFile(DEBUG, "Response sent to client FD" + std::to_string(client.fd) + ":\n" + client.writeBuffer, DEBUG_LOGS);
         if (client.bytesWritten <= 0)
         {
