@@ -166,20 +166,29 @@ HTTPResponse RequestHandler::handleMultipart(Client& client)
         if (file.empty())
             continue;
         std::string content = extractContent(part);
-        std::string folder = client.serverInfo.routes[client.request.location].abspath;
-        std::string path = folder;
-        if (path.back() != '/')
-            path += "/";
-        path += file;
-        lastPath = "." + path;
-        std::ofstream out(lastPath.c_str(), std::ios::binary);
-        if (!out.is_open())
+        if (client.serverInfo.routes.find(client.request.location) != client.serverInfo.routes.end())
         {
-            wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
-            return HTTPResponse(500, "Failed to open file for writing", client.serverInfo.error_pages);
+            std::string folder = client.serverInfo.routes.at(client.request.location).abspath;
+            std::string path = folder;
+            if (path.back() != '/')
+                path += "/";
+            path += file;
+            lastPath = "." + path;
+            std::ofstream out(lastPath.c_str(), std::ios::binary);
+            if (!out.is_open())
+            {
+                wslog.writeToLogFile(ERROR, "500 Failed to open file for writing", DEBUG_LOGS);
+                return HTTPResponse(500, "Failed to open file for writing", client.serverInfo.error_pages);
+            }
+            out.write(content.c_str(), content.size());
+            out.close();
         }
-        out.write(content.c_str(), content.size());
-        out.close();
+        else
+        {
+            wslog.writeToLogFile(ERROR, "500 Location not found multipart", DEBUG_LOGS);
+            return HTTPResponse(500, "Location not found", client.serverInfo.error_pages);
+        }
+
     }
     if (lastPath.empty() || access(lastPath.c_str(), R_OK) != 0)
     {
@@ -306,6 +315,7 @@ HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
+    printRequest(client.request);
     for (size_t i = 0; i < client.request.file.size(); i++)
     {
         if (isspace(client.request.file[i]))

@@ -30,5 +30,12 @@
         <img src="./images/oskari.jpeg" alt="oskari" class="round-image">
         <img src="./images/nikolai.jpeg" alt="nikolai" class="round-image">
     </div>
+
+    <h2>Upload a File</h2>
+    <form action="/images/uploads/" method="POST" enctype="multipart/form-data">
+      <input type="file" name="file">
+      <br><br>
+      <button type="submit">Upload</button>
+    </form>
 </body>
 </html>
