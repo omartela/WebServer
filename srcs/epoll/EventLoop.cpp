@@ -782,12 +782,9 @@ void EventLoop::handleClientRecv(Client& client)
                 if (client.bytesRead <= 0)
                 {
                     if (client.bytesRead == 0)
-                        wslog.writeToLogFile(INFO, "Client FD" + std::to_string(client.fd) + " disconnected", true);
+                        wslog.writeToLogFile(DEBUG, "Client FD" + std::to_string(client.fd) + " disconnected", true);
                     if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
-                    {
-                        std::cout << "errno = " << errno << std::endl;
                         throw std::runtime_error("epoll_ctl DEL failed in READ");
-                    }
                     close(client.fd);
                     clients.erase(client.fd);
                     return ;
@@ -795,6 +792,7 @@ void EventLoop::handleClientRecv(Client& client)
                 buffer[client.bytesRead] = '\0';
                 std::string temp(buffer, client.bytesRead);
                 client.rawReadData += temp;
+                wslog.writeToLogFile(INFO, "Request received from client FD" + std::to_string(client.fd) + ":\n" + client.rawReadData, DEBUG_LOGS);
                 if (client.headerString.empty() == true)
                 {
                     size_t headerEnd = client.rawReadData.find("\r\n\r\n");
@@ -854,6 +852,17 @@ void EventLoop::handleClientRecv(Client& client)
             case SEND:
                 return;
         }
+    }
+    catch (const std::invalid_argument& e)
+    {
+        wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " suffered from invalid_argument in RECV, sending an error response!", DEBUG_LOGS);
+        wslog.writeToLogFile(ERROR, "500 Internal Server Error", DEBUG_LOGS);
+        client.response.push_back(HTTPResponse(500, "Internal Server Error", client.serverInfo.error_pages));
+        client.rawReadData.clear();
+        client.state = SEND;
+        client.writeBuffer = client.response.back().toString();
+        toggleEpollEvents(client.fd, loop, EPOLLOUT);
+        return ;
     }
     catch (const std::bad_alloc& e)
     {
@@ -936,6 +945,7 @@ void EventLoop::handleClientSend(Client &client)
         }
         else
             client.bytesWritten = send(client.fd, client.writeBuffer.c_str(), client.writeBuffer.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+        wslog.writeToLogFile(DEBUG, "Response sent to client FD" + std::to_string(client.fd) + ":\n" + client.writeBuffer, DEBUG_LOGS);
         if (client.bytesWritten <= 0)
         {
             if (epoll_ctl(loop, EPOLL_CTL_DEL, client.fd, nullptr) < 0)
@@ -993,6 +1003,13 @@ void EventLoop::handleClientSend(Client &client)
                 toggleEpollEvents(client.fd, loop, EPOLLIN);
             }
         }
+    }
+    
+    catch (const std::invalid_argument& e)
+    {
+        closeClient(client.fd);
+        wslog.writeToLogFile(ERROR, "Client FD" + std::to_string(client.fd) + " suffered from invalid_argument in SEND, closing client!", DEBUG_LOGS);
+        return ;
     }
     catch (const std::bad_alloc& e)
     {
