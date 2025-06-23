@@ -482,7 +482,7 @@ int EventLoop::executeCGI(Client& client)
 			    close(client.CGI.readCGIPipe[0]);
 			client.CGI.readCGIPipe[0] = -1;
 		}
-        execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
+        execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
         exit(1);
     }
 	if (!client.request.fileUsed)
@@ -508,6 +508,7 @@ void EventLoop::handleCGI(Client& client)
     int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
     if (connection == 0)
     {
+        wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
         closeClient(client.fd);
         return ;
     }
