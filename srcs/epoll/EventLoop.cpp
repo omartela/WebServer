@@ -482,7 +482,7 @@ int EventLoop::executeCGI(Client& client)
 			    close(client.CGI.readCGIPipe[0]);
 			client.CGI.readCGIPipe[0] = -1;
 		}
-        execve(server.routes[client.request.location].cgiexecutable.c_str(), client.CGI.exceveArgs, client.CGI.envArray);
+        execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
         exit(1);
     }
 	if (!client.request.fileUsed)
