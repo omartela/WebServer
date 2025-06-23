@@ -1,0 +1,10 @@
+[2025-06-23 09:56:36] CGI script started
+[2025-06-23 09:56:36] Printed headers
+[2025-06-23 09:56:52] Read 1048576000 bytes from stdin
+[2025-06-23 09:59:51] CGI script started
+[2025-06-23 09:59:51] Printed headers
+[2025-06-23 10:00:37] Read 1048576000 bytes from stdin
+[2025-06-23 10:04:10] CGI script started
+[2025-06-23 10:04:25] Read 1048576 bytes from stdin
+[2025-06-23 10:04:25] Amplified body to 2097152 bytes
+[2025-06-23 10:04:57] CGI script completed successfully

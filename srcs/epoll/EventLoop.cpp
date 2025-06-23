@@ -284,7 +284,7 @@ void EventLoop::checkChildrenStatus()
         auto& client = it->second;
         if (nChildren > 0 && client.request.isCGI == true)
         {
-            wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
+            //wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
             handleClientRecv(client);
             continue ;
         }
