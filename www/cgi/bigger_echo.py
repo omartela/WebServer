@@ -1,32 +1,29 @@
 #!/usr/bin/env python3
-
 import sys
 import os
 import time
 
-# Log helper
-def log(message):
+def log(msg):
     with open("cgi_debug.log", "a") as f:
-        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
         f.flush()
 
-log("CGI script started")
+try:
+    log("CGI script started")
 
-# CGI output header
-print("Content-Type: text/plain\r\n\r\n")
-print("")  # End of headers
+    body = sys.stdin.read()
+    log(f"Read {len(body)} bytes from stdin")
 
-log("Printed headers")
+    body = body * 2  # Simulate large output
+    log(f"Amplified body to {len(body)} bytes")
 
-# Read stdin (request body)
-body = sys.stdin.read()
-body = body * 1000
-log(f"Read {len(body)} bytes from stdin")
+    print("Content-Type: text/plain")
+    print(f"Content-Length: {len(body)}")
+    print("")  # End of headers
 
-# Respond with a large response (repeat the input)
-#for i in range(100):
-sys.stdout.write(body)
-#sys.stdout.flush()
-#log(f"Wrote chunk {i + 1} of size {len(body)}")
+    sys.stdout.write(body)
+    sys.stdout.flush()
+    log("CGI script completed successfully")
 
-log("CGI script completed")
+except Exception as e:
+    log(f"ERROR: {str(e)}")

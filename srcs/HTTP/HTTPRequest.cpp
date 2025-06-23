@@ -20,6 +20,7 @@ HTTPRequest::HTTPRequest()
     multipart = false;
     fileFd = -1;
     query = "";
+    multipart = false;
 }
 
 HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
@@ -37,6 +38,7 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     multipart = false;
     fileFd = -1;
     query = "";
+    multipart = false;
     parser(headers, server);
 }
 
@@ -167,3 +169,4 @@ void HTTPRequest::parser(std::string raw, ServerConfig server)
         }
     }
 }
+

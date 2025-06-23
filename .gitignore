@@ -1,5 +1,6 @@
 logfiles/
 .vscode/
+tests/
 logfile.log
 objs/
 webserver
