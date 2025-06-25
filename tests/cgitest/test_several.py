@@ -381,3 +381,108 @@ async def test_repeated_post_requests_from_multiple_clients():
     for res in results:
         print(res)
 
+def read_http_response(sock):
+    response = b""
+    while b"\r\n\r\n" not in response:
+        response += sock.recv(1024)
+    
+    headers, rest = response.split(b"\r\n\r\n", 1)
+    content_length = 0
+    for line in headers.split(b"\r\n"):
+        if line.lower().startswith(b"content-length"):
+            content_length = int(line.split(b":")[1].strip())
+            break
+
+    while len(rest) < content_length:
+        rest += sock.recv(1024)
+    
+    return headers + b"\r\n\r\n" + rest
+
+def test_keep_alive_connection():
+    import socket
+    request = (
+        "GET /index.html HTTP/1.1\r\n"
+        "Host: 127.0.0.2\r\n"
+        "Connection: keep-alive\r\n"
+        "\r\n"
+    )
+
+    with socket.create_connection(("127.0.0.2", 8004)) as sock:
+        sock.sendall(request.encode())
+        response1 = read_http_response(sock)
+        sock.sendall(request.encode())
+        response2 = read_http_response(sock)
+    
+    assert b"200 OK" in response1 and b"200 OK" in response2
+
+def test_path_traversal_attack():
+    response = requests.get("http://127.0.0.2:8004/../../etc/passwd")
+    assert response.status_code in (403, 400, 404), "Path traversal should be blocked"
+
+def test_extra_headers():
+    headers = {
+        "X-Custom-Header": "test",
+        "User-Agent": "pytest",
+        "Accept": "*/*",
+    }
+    response = requests.get("http://127.0.0.2:8004/index.html", headers=headers)
+    assert response.status_code == 200
+
+def test_unsupported_method():
+    response = requests.request("PATCH", "http://127.0.0.2:8004/index.html")
+    assert response.status_code in (405, 501), f"Unexpected status: {response.status_code}"
+
+def test_dos_simulation():
+    import socket
+    sockets = []
+    try:
+        for _ in range(100):
+            sock = socket.create_connection(("127.0.0.2", 8004), timeout=1)
+            sockets.append(sock)
+        assert True  # Jos serveri selviää yhteyksistä ilman kaatumista
+    finally:
+        for sock in sockets:
+            sock.close()
+
+def test_cgi_script():
+    url = "http://127.0.0.2:8004/cgi/test.py"
+    response = requests.get(url)
+
+    assert response.status_code == 200
+
+    # Tarkistetaan CGI:n tulostamat arvot
+    headers = response.headers
+    # Testataan, että tietyt headerit löytyvät
+    assert "Content-Type" in headers
+    assert "Content-Length" in headers
+
+    # Esim. tarkastetaan Content-Type
+    assert headers["Content-Type"] == "text/plain"
+
+def test_cgi_get_query():
+
+    url = "http://127.0.0.2:8004/cgi/test.py?foo=bar"
+    response = requests.get(url)
+
+    assert response.status_code == 200
+
+    text = response.text
+    assert "Method: GET" in text
+    assert "Query: foo=bar" in text
+
+def test_cgi_post_body():
+    url = "http://127.0.0.2:8004/cgi/test.py"
+    payload = "name=ChatGPT&lang=fi"
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    response = requests.post(url, data=payload, headers=headers)
+
+    assert response.status_code == 200
+    body = response.text
+
+    assert "Method: POST" in body
+    assert "Content-Type: application/x-www-form-urlencoded" in body
+    assert "name=ChatGPT" in body
+
