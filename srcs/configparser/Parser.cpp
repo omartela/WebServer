@@ -637,6 +637,8 @@ bool Parser::parseConfigFile(const std::string& config_file)
             while (getline(file, line) && line.find("}") == std::string::npos)
             {
                 trimLeadingAndTrailingSpaces(line);
+                if (line.empty() || line.at(0) == '#')
+                    continue;
                 if (line.find("listen ") != std::string::npos)
                 {
                     parseListenDirective(line, server_config);
