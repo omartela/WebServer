@@ -460,15 +460,22 @@ def test_cgi_script():
     assert headers["Content-Type"] == "text/plain"
 
 def test_cgi_get_query():
-
     url = "http://127.0.0.2:8004/cgi/test.py?foo=bar"
     response = requests.get(url)
 
     assert response.status_code == 200
 
-    text = response.text
-    assert "Method: GET" in text
-    assert "Query: foo=bar" in text
+    headers = response.headers
+    print(headers)  # Voit nähdä mitä header-kenttiä oikeasti on
+
+    assert headers.get("Method") == "GET"
+    assert headers.get("Query") == "foo=bar"
+    assert "Content-Length" in headers
+    assert "Content-Type" in headers
+
+    # Jos haluat myös tarkistaa body-osan (eli stdin-readin tulosteen)
+    body = response.text
+    print("Response body:", body)
 
 def test_cgi_post_body():
     url = "http://127.0.0.2:8004/cgi/test.py"
@@ -480,9 +487,57 @@ def test_cgi_post_body():
     response = requests.post(url, data=payload, headers=headers)
 
     assert response.status_code == 200
-    body = response.text
 
-    assert "Method: POST" in body
-    assert "Content-Type: application/x-www-form-urlencoded" in body
+    # Tarkistetaan CGI:n tulostamat HTTP-headerit
+    resp_headers = response.headers
+    assert resp_headers.get("Method") == "POST"
+    assert resp_headers.get("Content-Type") == "application/x-www-form-urlencoded"
+
+    # Body on se osa, jonka CGI skripti lukee stdinistä ja tulostaa lopuksi
+    body = response.text
     assert "name=ChatGPT" in body
 
+
+import socket
+import time
+
+def send_chunked_request():
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.settimeout(5)  # timeout 5 sekuntia
+    client_socket.connect(('127.0.0.2', 8004))
+
+    headers = (
+        "POST /directory/test.py HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Content-Type: text/plain\r\n"
+        "\r\n"
+    )
+    client_socket.send(headers.encode())
+
+    client_socket.send(b"5\r\nHello\r\n")
+    time.sleep(1)
+    client_socket.send(b"6\r\n World\r\n")
+    time.sleep(1)
+    client_socket.send(b"0\r\n\r\n")
+
+    response = b""
+    try:
+        while True:
+            part = client_socket.recv(1024)
+            if not part:
+                break
+            response += part
+    except socket.timeout:
+        # Jos timeout, oletetaan että kaikki on saatu
+        pass
+
+    client_socket.close()
+    return response.decode()
+
+def test_chunked_request():
+    response = send_chunked_request()
+    print("Received response from server:")
+    print(response)
+    assert "HTTP/1.1 200" in response or "HTTP/1.0 200" in response, "Vastauskoodia 200 ei löytynyt"
+    # Lisää omia tarkistuksia vastauksen sisällöstä tähän tarpeen mukaan
