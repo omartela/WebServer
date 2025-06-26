@@ -19,7 +19,10 @@ HTTPRequest::HTTPRequest()
     validHostName = true;
     multipart = false;
     fileFd = -1;
+    body = "";
+    tempFileName = "";
     query = "";
+    location = "";
     multipart = false;
 }
 
@@ -38,6 +41,9 @@ HTTPRequest::HTTPRequest(std::string headers, ServerConfig server)
     multipart = false;
     fileFd = -1;
     query = "";
+    body = "";
+    tempFileName = "";
+    location = "";
     multipart = false;
     parser(headers, server);
 }

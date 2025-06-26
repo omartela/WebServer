@@ -57,6 +57,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     struct epoll_event setup {};
     nChildren = 0;
     loop = epoll_create1(0);
+    if (loop < 0)
+        throw std::runtime_error("Creating epoll failed");
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
         try {
@@ -445,7 +447,7 @@ int EventLoop::executeCGI(Client& client)
 {
 	if (client.request.fileUsed)
 	{  
-        client.CGI.tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+        client.CGI.tempFileName = "/tmp/tempCGIoutput_" + std::to_string(std::time(NULL)); 
 		client.CGI.readCGIPipe[1] =  open(client.CGI.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
 		client.CGI.fileOpen = true;
         if (client.request.multipart)
@@ -633,7 +635,7 @@ static bool readChunkedBody(Client &client, int loop)
         if (client.request.fileUsed == true)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
-            if (client.request.fileIsOpen == false && client.request.fileFd != -1)
+            if (client.request.fileIsOpen == true && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
         if (client.request.isCGI == true)
@@ -921,14 +923,6 @@ void EventLoop::handleClientSend(Client &client)
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
                 client.response.push_back(client.CGI.generateCGIResponse(client.serverInfo.error_pages));
-                auto TE = client.request.headers.find("Transfer-Encoding");
-                if (TE != client.request.headers.end() && TE->second == "chunked")
-                {
-                    std::string responseheader;
-                    int pos;
-                    pos = client.response.back().toString().find("\r\n\r\n");
-                    responseheader = client.response.back().toString().substr(0, pos + 4);
-                }
                 client.writeBuffer = client.response.back().toString();
             }
             else

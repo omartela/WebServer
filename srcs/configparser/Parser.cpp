@@ -213,7 +213,7 @@ void Parser::parseCgiExecutable(const std::string&line, Route& route)
 bool Parser::parseLocationDirective(std::ifstream& file, std::string& line, ServerConfig& server_config, bool serverMaxBodySizeSet)
 {
     std::unordered_set<std::string> foundkeys;
-    Route route{}; // alustaa default arvoihin struktin siksi kaarisulkeet
+    Route route{};
     int maxBodySizeSet = false;
     size_t pos = line.find("location ") + 9; // Skip "location /"
     size_t end_pos = line.find("{");
@@ -223,6 +223,8 @@ bool Parser::parseLocationDirective(std::ifstream& file, std::string& line, Serv
     while (getline(file, line) && line.find("}") == std::string::npos)
     {
         trimLeadingAndTrailingSpaces(line);
+        if (line.empty() || line.at(0) == '#')
+            continue;
         if (line.find("abspath ") != std::string::npos)
         {
             parseAbsPathDirective(line, route);
@@ -613,7 +615,6 @@ bool Parser::validateFile(const std::string& config_file)
 
 bool Parser::parseConfigFile(const std::string& config_file)
 {
-    std::unordered_set<std::string> foundkeys;
      // Validate file
      if (!validateFile(config_file))
         return false;
