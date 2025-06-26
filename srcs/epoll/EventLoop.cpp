@@ -170,6 +170,7 @@ void EventLoop::startLoop()
                     if (!result.second)
                         throw std::runtime_error("Client insert failed or duplicate fd");
                     newFd = newClient.fd;
+                    clients.at(newFd).erase = false;
                     setup.data.fd = newClient.fd;
                     setup.events = EPOLLIN;
                     if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
@@ -190,18 +191,21 @@ void EventLoop::startLoop()
             }
             else if (clients.find(fd) != clients.end())
             {
+                if (eventLog[i].events & EPOLLHUP || eventLog[i].events & EPOLLERR)
+                {
+                    closeClient(fd);
+                    continue ;
+                }
                 if (eventLog[i].events & EPOLLIN)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientRecv(clients.at(fd), eventLog[i].events);
-                    
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd));
                 }
-                // if (eventLog[i].events & EPOLLHUP || eventLog[i].events & EPOLLERR)
             }
         }
     }
@@ -507,7 +511,6 @@ void EventLoop::handleCGI(Client& client, uint32_t eventType)
 {
     if (eventType & EPOLLIN)
     {
-        std::cout << "CHECKING EPOLLIN WITHIN CGI\n";
         int peek;
         int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
         if (connection == 0)
