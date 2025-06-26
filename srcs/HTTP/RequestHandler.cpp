@@ -15,16 +15,6 @@
 #include <filesystem>
 #include <dirent.h>
 
-void printRequest(const HTTPRequest &req)
-{
-    std::cout << req.method << " " << req.path << std::endl;
-    for (auto it = req.headers.begin(); it != req.headers.end(); ++it) {
-        std::cout << it->first << ": " << it->second << "\r\n";
-    };
-    std::cout <<"\r\n";
-    std::cout << req.body << std::endl;
-}
-
 static std::string getMimeType(const std::string& ext)
 {
     static std::map<std::string, std::string> types = {
@@ -315,10 +305,9 @@ HTTPResponse RequestHandler::redirectResponse(std::string fullPath)
 
 HTTPResponse RequestHandler::handleRequest(Client& client)
 {
-    printRequest(client.request);
     for (size_t i = 0; i < client.request.file.size(); i++)
     {
-        if (isspace(client.request.file[i]))
+        if (std::isspace(client.request.file[i]))
             return HTTPResponse(403, "Whitespace in filename", client.serverInfo.error_pages);
     }
     if (client.request.path.find("..") != std::string::npos)

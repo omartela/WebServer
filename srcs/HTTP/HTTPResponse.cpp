@@ -33,7 +33,7 @@ std::string HTTPResponse::getStatusMessage()
     return stat_msg;
 }
 
-void HTTPResponse::generateRedirectResponse(int code,const std::string& newLocation)
+void HTTPResponse::generateRedirectResponse(int code, const std::string& newLocation)
 {
     static std::unordered_map<int, std::string> statusMessages =
     {
@@ -58,7 +58,7 @@ void HTTPResponse::generateErrorResponse(int code, const std::string& msg, std::
             if (file.is_open())
             {
                 std::ostringstream ss;
-                ss << file.rdbuf();  // Lukee koko tiedoston suoraan
+                ss << file.rdbuf();
                 body = ss.str();
                 headers["Content-Type"] = "text/html; charset=UTF-8";
                 headers["Content-Length"] = std::to_string(body.size());

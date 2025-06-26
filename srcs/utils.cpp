@@ -25,6 +25,8 @@ bool validateHeader(HTTPRequest req)
 {
     if (req.method.empty() || req.path.empty() || req.version.empty())
         return false;
+    if (req.version != "HTTP/1.1" && req.version != "HTTP/1.0")
+        return false;
     if (req.version == "HTTP/1.1")
     {
         auto it = req.headers.find("Host");

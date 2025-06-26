@@ -30,7 +30,6 @@ static int initServerSocket(ServerConfig server)
     hints.ai_socktype = SOCK_STREAM;
     int status = getaddrinfo(server.host.c_str(), server.port.c_str(), &hints, &res);
     if (status != 0)
-
         return -1;
     int rvalue = bind(serverSocket, res->ai_addr, res->ai_addrlen);
     freeaddrinfo(res);
@@ -58,6 +57,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
     struct epoll_event setup {};
     nChildren = 0;
     loop = epoll_create1(0);
+    if (loop < 0)
+        throw std::runtime_error("Creating epoll failed");
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
         try {
@@ -75,6 +76,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
             if (hostFound == false)
             {
                 serverSocket = initServerSocket(serverConfigs[i]);
+                if (serverSocket == -1)
+                    throw std::runtime_error("server setup failed");
                 serverConfigs[i].fd = serverSocket;
                 setup.data.fd = serverConfigs[i].fd;
                 setup.events = EPOLLIN;
@@ -90,7 +93,6 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
             continue ;
         }
     }
-
 }
 
 void EventLoop::closeFds()
@@ -131,7 +133,7 @@ void EventLoop::timestamp()
         checkTimeouts();
     if (clients.empty() == false && nChildren > 0 && now > lastChildrenCheck + std::chrono::seconds(CHILD_CHECK))
         checkChildrenStatus();
-};
+}
 
 void EventLoop::startLoop()
 {
@@ -170,6 +172,7 @@ void EventLoop::startLoop()
                     if (!result.second)
                         throw std::runtime_error("Client insert failed or duplicate fd");
                     newFd = newClient.fd;
+                    clients.at(newFd).erase = false;
                     setup.data.fd = newClient.fd;
                     setup.events = EPOLLIN;
                     if (epoll_ctl(loop, EPOLL_CTL_ADD, newClient.fd, &setup) < 0)
@@ -190,11 +193,15 @@ void EventLoop::startLoop()
             }
             else if (clients.find(fd) != clients.end())
             {
+                if (eventLog[i].events & EPOLLHUP || eventLog[i].events & EPOLLERR)
+                {
+                    closeClient(fd);
+                    continue ;
+                }
                 if (eventLog[i].events & EPOLLIN)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
-                    handleClientRecv(clients.at(fd));
-                    
+                    handleClientRecv(clients.at(fd), eventLog[i].events);
                 }
                 if (eventLog[i].events & EPOLLOUT)
                 {
@@ -284,8 +291,8 @@ void EventLoop::checkChildrenStatus()
         auto& client = it->second;
         if (nChildren > 0 && client.request.isCGI == true)
         {
-            //wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
-            handleClientRecv(client);
+            wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), DEBUG_LOGS);
+            handleClientRecv(client, 0);
             continue ;
         }
     }
@@ -440,7 +447,7 @@ int EventLoop::executeCGI(Client& client)
 {
 	if (client.request.fileUsed)
 	{  
-        client.CGI.tempFileName = "/tmp/tempCGIouput_" + std::to_string(std::time(NULL)); 
+        client.CGI.tempFileName = "/tmp/tempCGIoutput_" + std::to_string(std::time(NULL)); 
 		client.CGI.readCGIPipe[1] =  open(client.CGI.tempFileName.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
 		client.CGI.fileOpen = true;
         if (client.request.multipart)
@@ -483,7 +490,7 @@ int EventLoop::executeCGI(Client& client)
 			client.CGI.readCGIPipe[0] = -1;
 		}
         execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
-        exit(1);
+        std::exit(1);
     }
 	if (!client.request.fileUsed)
 	{
@@ -502,15 +509,18 @@ int EventLoop::executeCGI(Client& client)
 	return 0;
 }
 
-void EventLoop::handleCGI(Client& client)
+void EventLoop::handleCGI(Client& client, uint32_t eventType)
 {
-    int peek;
-    int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
-    if (connection == 0)
+    if (eventType & EPOLLIN)
     {
-        wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
-        closeClient(client.fd);
-        return ;
+        int peek;
+        int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
+        if (connection == 0)
+        {
+            wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
+            closeClient(client.fd);
+            return ;
+        }
     }
 
     if (client.request.body.empty())
@@ -522,7 +532,6 @@ void EventLoop::handleCGI(Client& client)
         }
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
-
         client.CGI.writeBodyToChild(client.request);
     else if (client.request.fileUsed == false)
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
@@ -626,7 +635,7 @@ static bool readChunkedBody(Client &client, int loop)
         if (client.request.fileUsed == true)
         {
             client.request.headers["Content-Length"] = std::to_string(client.chunkBodySize);
-            if (client.request.fileIsOpen == false && client.request.fileFd != -1)
+            if (client.request.fileIsOpen == true && client.request.fileFd != -1)
                 close(client.request.fileFd);
         }
         if (client.request.isCGI == true)
@@ -665,8 +674,7 @@ int EventLoop::checkMaxSize(Client& client)
     return 0;
 }
 
-
-void EventLoop::checkBody(Client& client)
+void EventLoop::checkBody(Client& client, uint32_t eventType)
 {
     if (client.request.method == "POST")
     {
@@ -741,7 +749,7 @@ void EventLoop::checkBody(Client& client)
             return ;
         }
         nChildren++;
-        handleCGI(client);
+        handleCGI(client, eventType);
         return ;
     }
     else
@@ -762,7 +770,7 @@ bool EventLoop::validateRequestMethod(Client& client)
         return false;
 }
 
-void EventLoop::handleClientRecv(Client& client)
+void EventLoop::handleClientRecv(Client& client, uint32_t eventType)
 {
     try {
         switch (client.state)
@@ -845,11 +853,11 @@ void EventLoop::handleClientRecv(Client& client)
                     }
                 }
                 if (client.headerString.empty() == false)
-                    checkBody(client);
+                    checkBody(client, eventType);
                 return ;
             }
             case HANDLE_CGI:
-                return handleCGI(client);
+                return handleCGI(client, eventType);
             case SEND:
                 return;
         }
@@ -915,14 +923,6 @@ void EventLoop::handleClientSend(Client &client)
                 client.writeBuffer.append(buffer, bytesread);
                 client.CGI.output = client.writeBuffer;
                 client.response.push_back(client.CGI.generateCGIResponse(client.serverInfo.error_pages));
-                auto TE = client.request.headers.find("Transfer-Encoding");
-                if (TE != client.request.headers.end() && TE->second == "chunked")
-                {
-                    std::string responseheader;
-                    int pos;
-                    pos = client.response.back().toString().find("\r\n\r\n");
-                    responseheader = client.response.back().toString().substr(0, pos + 4);
-                }
                 client.writeBuffer = client.response.back().toString();
             }
             else
