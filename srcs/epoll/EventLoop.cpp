@@ -30,7 +30,6 @@ static int initServerSocket(ServerConfig server)
     hints.ai_socktype = SOCK_STREAM;
     int status = getaddrinfo(server.host.c_str(), server.port.c_str(), &hints, &res);
     if (status != 0)
-
         return -1;
     int rvalue = bind(serverSocket, res->ai_addr, res->ai_addrlen);
     freeaddrinfo(res);
@@ -90,7 +89,6 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
             continue ;
         }
     }
-
 }
 
 void EventLoop::closeFds()
@@ -131,7 +129,7 @@ void EventLoop::timestamp()
         checkTimeouts();
     if (clients.empty() == false && nChildren > 0 && now > lastChildrenCheck + std::chrono::seconds(CHILD_CHECK))
         checkChildrenStatus();
-};
+}
 
 void EventLoop::startLoop()
 {
@@ -193,7 +191,7 @@ void EventLoop::startLoop()
                 if (eventLog[i].events & EPOLLIN)
                 {
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
-                    handleClientRecv(clients.at(fd));
+                    handleClientRecv(clients.at(fd), eventLog[i].events);
                     
                 }
                 if (eventLog[i].events & EPOLLOUT)
@@ -284,8 +282,8 @@ void EventLoop::checkChildrenStatus()
         auto& client = it->second;
         if (nChildren > 0 && client.request.isCGI == true)
         {
-            //wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), true);
-            handleClientRecv(client);
+            wslog.writeToLogFile(INFO, "Checking children status for client FD" + std::to_string(it->first), DEBUG_LOGS);
+            handleClientRecv(client, 0);
             continue ;
         }
     }
@@ -483,7 +481,7 @@ int EventLoop::executeCGI(Client& client)
 			client.CGI.readCGIPipe[0] = -1;
 		}
         execve(client.CGI.execveArgs[0], client.CGI.execveArgs.data(), client.CGI.envArray.data());
-        exit(1);
+        std::exit(1);
     }
 	if (!client.request.fileUsed)
 	{
@@ -502,15 +500,18 @@ int EventLoop::executeCGI(Client& client)
 	return 0;
 }
 
-void EventLoop::handleCGI(Client& client)
+void EventLoop::handleCGI(Client& client, uint32_t eventType)
 {
-    int peek;
-    int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
-    if (connection == 0)
+    if (eventType & EPOLLIN)
     {
-        wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
-        closeClient(client.fd);
-        return ;
+        int peek;
+        int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
+        if (connection == 0)
+        {
+            wslog.writeToLogFile(DEBUG, "Closed client FD" + std::to_string(client.fd) + " within CGI", true);
+            closeClient(client.fd);
+            return ;
+        }
     }
 
     if (client.request.body.empty())
@@ -522,7 +523,6 @@ void EventLoop::handleCGI(Client& client)
         }
     }
     if (!client.request.fileUsed && client.request.body.empty() == false)
-
         client.CGI.writeBodyToChild(client.request);
     else if (client.request.fileUsed == false)
         client.CGI.collectCGIOutput(client.CGI.getReadPipe());
@@ -665,8 +665,7 @@ int EventLoop::checkMaxSize(Client& client)
     return 0;
 }
 
-
-void EventLoop::checkBody(Client& client)
+void EventLoop::checkBody(Client& client, uint32_t eventType)
 {
     if (client.request.method == "POST")
     {
@@ -741,7 +740,7 @@ void EventLoop::checkBody(Client& client)
             return ;
         }
         nChildren++;
-        handleCGI(client);
+        handleCGI(client, eventType);
         return ;
     }
     else
@@ -762,7 +761,7 @@ bool EventLoop::validateRequestMethod(Client& client)
         return false;
 }
 
-void EventLoop::handleClientRecv(Client& client)
+void EventLoop::handleClientRecv(Client& client, uint32_t eventType)
 {
     try {
         switch (client.state)
@@ -845,11 +844,11 @@ void EventLoop::handleClientRecv(Client& client)
                     }
                 }
                 if (client.headerString.empty() == false)
-                    checkBody(client);
+                    checkBody(client, eventType);
                 return ;
             }
             case HANDLE_CGI:
-                return handleCGI(client);
+                return handleCGI(client, eventType);
             case SEND:
                 return;
         }

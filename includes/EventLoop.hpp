@@ -40,11 +40,11 @@ class EventLoop
         void checkTimeouts();
         void closeClient(int fd);
         void createErrorResponse(Client &client, int code, std::string msg, std::string logMsg);
-        void handleClientRecv(Client& client);
+        void handleClientRecv(Client& client, uint32_t event);
         void handleClientSend(Client &client);
         void checkChildrenStatus();
-        void checkBody(Client &client);
-        void handleCGI(Client& client);
+        void checkBody(Client &client, uint32_t eventType);
+        void handleCGI(Client& client, uint32_t eventType);
         int  executeCGI(Client& client);
         int  checkMaxSize(Client& client);
         void closeFds();
