@@ -74,6 +74,8 @@ EventLoop::EventLoop(std::vector<ServerConfig> serverConfigs) : eventLog(MAX_CON
             if (hostFound == false)
             {
                 serverSocket = initServerSocket(serverConfigs[i]);
+                if (serverSocket == -1)
+                    throw std::runtime_error("server setup failed");
                 serverConfigs[i].fd = serverSocket;
                 setup.data.fd = serverConfigs[i].fd;
                 setup.events = EPOLLIN;
@@ -199,6 +201,7 @@ void EventLoop::startLoop()
                     clients.at(fd).timestamp = std::chrono::steady_clock::now();
                     handleClientSend(clients.at(fd));
                 }
+                // if (eventLog[i].events & EPOLLHUP || eventLog[i].events & EPOLLERR)
             }
         }
     }
@@ -504,6 +507,7 @@ void EventLoop::handleCGI(Client& client, uint32_t eventType)
 {
     if (eventType & EPOLLIN)
     {
+        std::cout << "CHECKING EPOLLIN WITHIN CGI\n";
         int peek;
         int connection = recv(client.fd, &peek, sizeof(peek), MSG_DONTWAIT | MSG_PEEK);
         if (connection == 0)
