@@ -249,14 +249,6 @@ server {
 }
 ```
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## Error Handling
 
 The server provides comprehensive error handling with:
@@ -281,9 +273,9 @@ This project is part of a web server implementation exercise. Please check with 
 
 ## Authors
 
-- Joel
-- Oskari
-- Omar
+- jlehtone
+- Tsaaril
+- Omartela
 
 ## Acknowledgments
 
